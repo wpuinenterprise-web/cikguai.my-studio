@@ -1,12 +1,14 @@
 import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { useToast } from '@/hooks/use-toast';
+import { supabase } from '@/integrations/supabase/client';
 
 interface AuthViewProps {
-  onAuth: (profile: { id: string; username: string; email: string; videos_used: number; video_limit: number; images_used: number; image_limit: number; is_approved: boolean }) => void;
+  onAuthSuccess: () => void;
 }
 
-const AuthView: React.FC<AuthViewProps> = ({ onAuth }) => {
+const AuthView: React.FC<AuthViewProps> = ({ onAuthSuccess }) => {
   const [mode, setMode] = useState<'login' | 'signup'>('login');
   const [formData, setFormData] = useState({
     username: '',
@@ -14,29 +16,107 @@ const AuthView: React.FC<AuthViewProps> = ({ onAuth }) => {
     password: '',
   });
   const [isLoading, setIsLoading] = useState(false);
+  const { toast } = useToast();
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
-    
-    // Simulate auth
-    setTimeout(() => {
-      onAuth({
-        id: '1',
-        username: formData.username || 'User',
-        email: formData.email,
-        videos_used: 0,
-        video_limit: 10,
-        images_used: 0,
-        image_limit: 50,
-        is_approved: true,
+
+    try {
+      if (mode === 'signup') {
+        const redirectUrl = `${window.location.origin}/`;
+        
+        const { data, error } = await supabase.auth.signUp({
+          email: formData.email,
+          password: formData.password,
+          options: {
+            emailRedirectTo: redirectUrl,
+            data: {
+              username: formData.username || formData.email.split('@')[0],
+            },
+          },
+        });
+
+        if (error) {
+          if (error.message.includes('already registered')) {
+            toast({
+              title: 'Email sudah didaftar',
+              description: 'Sila gunakan email lain atau log masuk.',
+              variant: 'destructive',
+            });
+          } else {
+            toast({
+              title: 'Ralat pendaftaran',
+              description: error.message,
+              variant: 'destructive',
+            });
+          }
+          return;
+        }
+
+        if (data.user && !data.session) {
+          toast({
+            title: 'Semak email anda',
+            description: 'Kami telah menghantar link pengesahan ke email anda.',
+          });
+        } else if (data.session) {
+          toast({
+            title: 'Pendaftaran berjaya!',
+            description: 'Selamat datang ke Azmeer AI Studio.',
+          });
+          onAuthSuccess();
+        }
+      } else {
+        const { data, error } = await supabase.auth.signInWithPassword({
+          email: formData.email,
+          password: formData.password,
+        });
+
+        if (error) {
+          if (error.message.includes('Invalid login credentials')) {
+            toast({
+              title: 'Log masuk gagal',
+              description: 'Email atau kata laluan tidak sah.',
+              variant: 'destructive',
+            });
+          } else if (error.message.includes('Email not confirmed')) {
+            toast({
+              title: 'Email belum disahkan',
+              description: 'Sila semak email anda untuk link pengesahan.',
+              variant: 'destructive',
+            });
+          } else {
+            toast({
+              title: 'Ralat log masuk',
+              description: error.message,
+              variant: 'destructive',
+            });
+          }
+          return;
+        }
+
+        if (data.session) {
+          toast({
+            title: 'Log masuk berjaya!',
+            description: 'Selamat kembali.',
+          });
+          onAuthSuccess();
+        }
+      }
+    } catch (err) {
+      console.error('Auth error:', err);
+      toast({
+        title: 'Ralat',
+        description: 'Sesuatu telah berlaku. Sila cuba lagi.',
+        variant: 'destructive',
       });
+    } finally {
       setIsLoading(false);
-    }, 1000);
+    }
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center px-4">
+    <div className="min-h-screen flex items-center justify-center px-4 bg-background">
       {/* Background Glow */}
       <div className="fixed inset-0 overflow-hidden pointer-events-none">
         <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-primary/10 rounded-full blur-3xl animate-pulse-glow" />
@@ -67,7 +147,7 @@ const AuthView: React.FC<AuthViewProps> = ({ onAuth }) => {
                     : 'text-muted-foreground hover:text-foreground'
                 }`}
               >
-                {tab === 'login' ? 'Sign In' : 'Create Account'}
+                {tab === 'login' ? 'Log Masuk' : 'Daftar Akaun'}
               </button>
             ))}
           </div>
@@ -77,34 +157,35 @@ const AuthView: React.FC<AuthViewProps> = ({ onAuth }) => {
             {mode === 'signup' && (
               <div>
                 <label className="block text-[10px] font-black text-muted-foreground uppercase tracking-widest mb-2">
-                  Username
+                  Nama Pengguna
                 </label>
                 <Input
                   type="text"
                   value={formData.username}
                   onChange={(e) => setFormData({ ...formData, username: e.target.value })}
-                  placeholder="Enter your username"
-                  required={mode === 'signup'}
+                  placeholder="Masukkan nama pengguna"
+                  className="input-glow"
                 />
               </div>
             )}
 
             <div>
               <label className="block text-[10px] font-black text-muted-foreground uppercase tracking-widest mb-2">
-                Email Address
+                Email
               </label>
               <Input
                 type="email"
                 value={formData.email}
                 onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                placeholder="you@example.com"
+                placeholder="contoh@email.com"
                 required
+                className="input-glow"
               />
             </div>
 
             <div>
               <label className="block text-[10px] font-black text-muted-foreground uppercase tracking-widest mb-2">
-                Password
+                Kata Laluan
               </label>
               <Input
                 type="password"
@@ -112,43 +193,44 @@ const AuthView: React.FC<AuthViewProps> = ({ onAuth }) => {
                 onChange={(e) => setFormData({ ...formData, password: e.target.value })}
                 placeholder="••••••••"
                 required
+                minLength={6}
+                className="input-glow"
               />
             </div>
 
             <Button
               type="submit"
-              variant="neon"
+              className="w-full mt-6 bg-gradient-to-r from-primary to-accent hover:opacity-90 transition-opacity"
               size="lg"
-              className="w-full mt-6"
               disabled={isLoading}
             >
               {isLoading ? (
                 <div className="flex items-center gap-2">
                   <div className="w-4 h-4 border-2 border-primary-foreground/30 border-t-primary-foreground rounded-full animate-spin" />
-                  <span>Processing...</span>
+                  <span>Memproses...</span>
                 </div>
               ) : (
-                <span>{mode === 'login' ? 'Sign In' : 'Create Account'}</span>
+                <span>{mode === 'login' ? 'Log Masuk' : 'Daftar Sekarang'}</span>
               )}
             </Button>
           </form>
 
           {/* Footer */}
           <p className="text-center text-xs text-muted-foreground mt-6">
-            {mode === 'login' ? "Don't have an account? " : 'Already have an account? '}
+            {mode === 'login' ? 'Belum ada akaun? ' : 'Sudah ada akaun? '}
             <button
               type="button"
               onClick={() => setMode(mode === 'login' ? 'signup' : 'login')}
               className="text-primary hover:underline font-semibold"
             >
-              {mode === 'login' ? 'Sign up' : 'Sign in'}
+              {mode === 'login' ? 'Daftar sekarang' : 'Log masuk'}
             </button>
           </p>
         </div>
 
-        {/* Demo Notice */}
+        {/* Info */}
         <p className="text-center text-xs text-muted-foreground/60 mt-6">
-          This is a UI demo. Backend requires Lovable Cloud.
+          Powered by Supabase Auth
         </p>
       </div>
     </div>
