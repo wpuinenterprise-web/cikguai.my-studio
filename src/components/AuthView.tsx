@@ -13,6 +13,7 @@ const AuthView: React.FC<AuthViewProps> = ({ onAuthSuccess }) => {
   const [username, setUsername] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [emailSent, setEmailSent] = useState(false);
   const { toast } = useToast();
 
   const logoUrl = "https://i.ibb.co/xqgH2MQ4/Untitled-design-18.png";
@@ -87,14 +88,14 @@ const AuthView: React.FC<AuthViewProps> = ({ onAuthSuccess }) => {
         }
 
         if (data.user && !data.session) {
+          // Email confirmation required - show success state
+          setEmailSent(true);
+          setLoading(false);
           toast({
             title: 'Pendaftaran berjaya!',
             description: 'Sila semak email anda untuk pengesahan.',
           });
-          setIsLogin(true);
-          setEmail('');
-          setPassword('');
-          setUsername('');
+          return; // Don't reset form, show email sent state
         } else if (data.session) {
           toast({
             title: 'Pendaftaran berjaya!',
@@ -145,96 +146,130 @@ const AuthView: React.FC<AuthViewProps> = ({ onAuthSuccess }) => {
           </div>
         </div>
 
-        <form onSubmit={handleAuth} className="space-y-5">
-          {error && (
-            <div className="bg-rose-500/10 border border-rose-500/30 rounded-2xl p-4 text-rose-400 text-xs font-medium text-center animate-fade-in">
-              ⚠️ {error}
+        {/* Email Sent Success State */}
+        {emailSent ? (
+          <div className="space-y-6 animate-fade-in">
+            <div className="bg-emerald-500/10 border border-emerald-500/30 rounded-2xl p-6 text-center">
+              <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-emerald-500/20 flex items-center justify-center">
+                <span className="text-3xl">✉️</span>
+              </div>
+              <h3 className="text-lg font-bold text-emerald-400 mb-2">Email Pengesahan Dihantar!</h3>
+              <p className="text-slate-400 text-sm mb-4">
+                Kami telah menghantar link pengesahan ke <span className="text-cyan-400 font-medium">{email}</span>
+              </p>
+              <p className="text-slate-500 text-xs">
+                Sila klik link dalam email untuk mengaktifkan akaun anda. Semak folder spam jika tak jumpa.
+              </p>
             </div>
-          )}
+            
+            <button
+              onClick={() => {
+                setEmailSent(false);
+                setIsLogin(true);
+                setEmail('');
+                setPassword('');
+                setUsername('');
+              }}
+              className="w-full bg-slate-800 hover:bg-slate-700 text-white py-4 rounded-2xl font-bold text-sm transition-all duration-300"
+            >
+              Kembali ke Log Masuk
+            </button>
+          </div>
+        ) : (
+          <>
+            <form onSubmit={handleAuth} className="space-y-5">
+              {error && (
+                <div className="bg-rose-500/10 border border-rose-500/30 rounded-2xl p-4 text-rose-400 text-xs font-medium text-center animate-fade-in">
+                  ⚠️ {error}
+                </div>
+              )}
 
-          {!isLogin && (
-            <div className="space-y-2 animate-fade-in" style={{ animationDelay: '0.1s' }}>
-              <label className="text-xs font-semibold text-slate-400 ml-1 flex items-center gap-2">
-                <span>👤</span> Nama Pengguna
-              </label>
-              <input 
-                type="text" 
-                value={username} 
-                onChange={(e) => setUsername(e.target.value)}
-                className="w-full bg-slate-950/50 border border-slate-700/50 rounded-2xl py-4 px-5 text-sm text-white outline-none focus:border-cyan-500/50 focus:bg-slate-900/50 focus:shadow-[0_0_20px_rgba(34,211,238,0.1)] transition-all duration-300 placeholder:text-slate-600"
-                placeholder="Contoh: Ali"
-              />
+              {!isLogin && (
+                <div className="space-y-2 animate-fade-in" style={{ animationDelay: '0.1s' }}>
+                  <label className="text-xs font-semibold text-slate-400 ml-1 flex items-center gap-2">
+                    <span>👤</span> Nama Pengguna
+                  </label>
+                  <input 
+                    type="text" 
+                    value={username} 
+                    onChange={(e) => setUsername(e.target.value)}
+                    className="w-full bg-slate-950/50 border border-slate-700/50 rounded-2xl py-4 px-5 text-sm text-white outline-none focus:border-cyan-500/50 focus:bg-slate-900/50 focus:shadow-[0_0_20px_rgba(34,211,238,0.1)] transition-all duration-300 placeholder:text-slate-600"
+                    placeholder="Contoh: Ali"
+                  />
+                </div>
+              )}
+
+              <div className="space-y-2 animate-fade-in" style={{ animationDelay: '0.2s' }}>
+                <label className="text-xs font-semibold text-slate-400 ml-1 flex items-center gap-2">
+                  <span>📧</span> Alamat Email
+                </label>
+                <input 
+                  type="email" 
+                  value={email} 
+                  onChange={(e) => setEmail(e.target.value)}
+                  className="w-full bg-slate-950/50 border border-slate-700/50 rounded-2xl py-4 px-5 text-sm text-white outline-none focus:border-cyan-500/50 focus:bg-slate-900/50 focus:shadow-[0_0_20px_rgba(34,211,238,0.1)] transition-all duration-300 placeholder:text-slate-600"
+                  placeholder="contoh@email.com"
+                  required
+                />
+              </div>
+
+              <div className="space-y-2 animate-fade-in" style={{ animationDelay: '0.3s' }}>
+                <label className="text-xs font-semibold text-slate-400 ml-1 flex items-center gap-2">
+                  <span>🔒</span> Kata Laluan
+                </label>
+                <input 
+                  type="password" 
+                  value={password} 
+                  onChange={(e) => setPassword(e.target.value)}
+                  className="w-full bg-slate-950/50 border border-slate-700/50 rounded-2xl py-4 px-5 text-sm text-white outline-none focus:border-cyan-500/50 focus:bg-slate-900/50 focus:shadow-[0_0_20px_rgba(34,211,238,0.1)] transition-all duration-300 placeholder:text-slate-600"
+                  placeholder="Minimum 6 aksara"
+                  required
+                  minLength={6}
+                />
+              </div>
+
+              <button
+                type="submit"
+                disabled={loading}
+                className="w-full bg-gradient-to-r from-cyan-500 to-cyan-400 hover:from-cyan-400 hover:to-cyan-300 text-slate-950 py-5 rounded-2xl font-black text-sm uppercase tracking-wide transition-all duration-300 shadow-[0_0_30px_rgba(34,211,238,0.3)] hover:shadow-[0_0_40px_rgba(34,211,238,0.5)] flex items-center justify-center gap-3 active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed animate-fade-in group"
+                style={{ animationDelay: '0.4s' }}
+              >
+                {loading ? (
+                  <div className="w-5 h-5 border-2 border-slate-950 border-t-transparent rounded-full animate-spin"></div>
+                ) : (
+                  <>
+                    {isLogin ? '🚀 Masuk Sekarang' : '✨ Daftar Percuma'}
+                    <span className="group-hover:translate-x-1 transition-transform">→</span>
+                  </>
+                )}
+              </button>
+            </form>
+
+            <div className="mt-8 text-center animate-fade-in" style={{ animationDelay: '0.5s' }}>
+              <button 
+                onClick={() => {
+                  setIsLogin(!isLogin);
+                  setError(null);
+                  setEmailSent(false);
+                }}
+                className="text-sm font-medium text-slate-400 hover:text-cyan-400 transition-colors duration-300"
+              >
+                {isLogin ? (
+                  <>Belum ada akaun? <span className="text-cyan-400 font-bold">Daftar sini!</span></>
+                ) : (
+                  <>Dah ada akaun? <span className="text-cyan-400 font-bold">Log masuk!</span></>
+                )}
+              </button>
             </div>
-          )}
 
-          <div className="space-y-2 animate-fade-in" style={{ animationDelay: '0.2s' }}>
-            <label className="text-xs font-semibold text-slate-400 ml-1 flex items-center gap-2">
-              <span>📧</span> Alamat Email
-            </label>
-            <input 
-              type="email" 
-              value={email} 
-              onChange={(e) => setEmail(e.target.value)}
-              className="w-full bg-slate-950/50 border border-slate-700/50 rounded-2xl py-4 px-5 text-sm text-white outline-none focus:border-cyan-500/50 focus:bg-slate-900/50 focus:shadow-[0_0_20px_rgba(34,211,238,0.1)] transition-all duration-300 placeholder:text-slate-600"
-              placeholder="contoh@email.com"
-              required
-            />
-          </div>
-
-          <div className="space-y-2 animate-fade-in" style={{ animationDelay: '0.3s' }}>
-            <label className="text-xs font-semibold text-slate-400 ml-1 flex items-center gap-2">
-              <span>🔒</span> Kata Laluan
-            </label>
-            <input 
-              type="password" 
-              value={password} 
-              onChange={(e) => setPassword(e.target.value)}
-              className="w-full bg-slate-950/50 border border-slate-700/50 rounded-2xl py-4 px-5 text-sm text-white outline-none focus:border-cyan-500/50 focus:bg-slate-900/50 focus:shadow-[0_0_20px_rgba(34,211,238,0.1)] transition-all duration-300 placeholder:text-slate-600"
-              placeholder="Minimum 6 aksara"
-              required
-              minLength={6}
-            />
-          </div>
-
-          <button
-            type="submit"
-            disabled={loading}
-            className="w-full bg-gradient-to-r from-cyan-500 to-cyan-400 hover:from-cyan-400 hover:to-cyan-300 text-slate-950 py-5 rounded-2xl font-black text-sm uppercase tracking-wide transition-all duration-300 shadow-[0_0_30px_rgba(34,211,238,0.3)] hover:shadow-[0_0_40px_rgba(34,211,238,0.5)] flex items-center justify-center gap-3 active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed animate-fade-in group"
-            style={{ animationDelay: '0.4s' }}
-          >
-            {loading ? (
-              <div className="w-5 h-5 border-2 border-slate-950 border-t-transparent rounded-full animate-spin"></div>
-            ) : (
-              <>
-                {isLogin ? '🚀 Masuk Sekarang' : '✨ Daftar Percuma'}
-                <span className="group-hover:translate-x-1 transition-transform">→</span>
-              </>
-            )}
-          </button>
-        </form>
-
-        <div className="mt-8 text-center animate-fade-in" style={{ animationDelay: '0.5s' }}>
-          <button 
-            onClick={() => {
-              setIsLogin(!isLogin);
-              setError(null);
-            }}
-            className="text-sm font-medium text-slate-400 hover:text-cyan-400 transition-colors duration-300"
-          >
-            {isLogin ? (
-              <>Belum ada akaun? <span className="text-cyan-400 font-bold">Daftar sini!</span></>
-            ) : (
-              <>Dah ada akaun? <span className="text-cyan-400 font-bold">Log masuk!</span></>
-            )}
-          </button>
-        </div>
-
-        {/* Footer text */}
-        <div className="mt-8 pt-6 border-t border-slate-800/50 text-center animate-fade-in" style={{ animationDelay: '0.6s' }}>
-          <p className="text-slate-600 text-[10px]">
-            Dengan mendaftar, anda bersetuju dengan terma penggunaan kami
-          </p>
-        </div>
+            {/* Footer text */}
+            <div className="mt-8 pt-6 border-t border-slate-800/50 text-center animate-fade-in" style={{ animationDelay: '0.6s' }}>
+              <p className="text-slate-600 text-[10px]">
+                Dengan mendaftar, anda bersetuju dengan terma penggunaan kami
+              </p>
+            </div>
+          </>
+        )}
       </div>
     </div>
   );
