@@ -1,10 +1,18 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { cn } from '@/lib/utils';
 import { UserProfile } from '@/types';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
-import { Download, Play, RefreshCw, Loader2 } from 'lucide-react';
+import { Download, Play, RefreshCw, Loader2, Search, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 
 interface VideoGeneration {
   id: string;
@@ -29,6 +37,36 @@ const HistoryVault: React.FC<HistoryVaultProps> = ({ userProfile }) => {
   const [refreshing, setRefreshing] = useState(false);
   const [previewVideo, setPreviewVideo] = useState<string | null>(null);
   const [loadingUrl, setLoadingUrl] = useState<string | null>(null);
+  
+  // Search and filter states
+  const [searchQuery, setSearchQuery] = useState('');
+  const [statusFilter, setStatusFilter] = useState<string>('all');
+  const [aspectFilter, setAspectFilter] = useState<string>('all');
+
+  // Filtered videos based on search and filters
+  const filteredVideos = useMemo(() => {
+    return videos.filter(video => {
+      // Search filter
+      const matchesSearch = searchQuery === '' || 
+        video.prompt.toLowerCase().includes(searchQuery.toLowerCase());
+      
+      // Status filter
+      const matchesStatus = statusFilter === 'all' || video.status === statusFilter;
+      
+      // Aspect ratio filter
+      const matchesAspect = aspectFilter === 'all' || video.aspect_ratio === aspectFilter;
+      
+      return matchesSearch && matchesStatus && matchesAspect;
+    });
+  }, [videos, searchQuery, statusFilter, aspectFilter]);
+
+  const clearFilters = () => {
+    setSearchQuery('');
+    setStatusFilter('all');
+    setAspectFilter('all');
+  };
+
+  const hasActiveFilters = searchQuery !== '' || statusFilter !== 'all' || aspectFilter !== 'all';
 
   const fetchVideos = async () => {
     try {
@@ -214,7 +252,7 @@ const HistoryVault: React.FC<HistoryVaultProps> = ({ userProfile }) => {
     <div className="min-h-screen pt-20 pb-8 px-4 sm:px-6 lg:px-8">
       <div className="max-w-7xl mx-auto">
         {/* Header */}
-        <div className="mb-8 animate-fade-in flex items-center justify-between">
+        <div className="mb-6 animate-fade-in flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div>
             <h2 className="text-3xl sm:text-4xl font-black tracking-tight text-foreground mb-2">
               ARCHIVE <span className="text-primary neon-text">VAULT</span>
@@ -228,11 +266,72 @@ const HistoryVault: React.FC<HistoryVaultProps> = ({ userProfile }) => {
             size="sm"
             onClick={handleRefresh}
             disabled={refreshing}
-            className="gap-2"
+            className="gap-2 self-start sm:self-auto"
           >
             <RefreshCw className={cn("w-4 h-4", refreshing && "animate-spin")} />
             Refresh
           </Button>
+        </div>
+
+        {/* Search and Filter Bar */}
+        <div className="mb-6 glass-panel p-4 animate-fade-in">
+          <div className="flex flex-col sm:flex-row gap-3">
+            {/* Search Input */}
+            <div className="relative flex-1">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+              <Input
+                placeholder="Cari prompt video..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="pl-9 bg-background/50"
+              />
+            </div>
+            
+            {/* Status Filter */}
+            <Select value={statusFilter} onValueChange={setStatusFilter}>
+              <SelectTrigger className="w-full sm:w-[140px] bg-background/50">
+                <SelectValue placeholder="Status" />
+              </SelectTrigger>
+              <SelectContent className="bg-background border border-border z-50">
+                <SelectItem value="all">Semua Status</SelectItem>
+                <SelectItem value="completed">Completed</SelectItem>
+                <SelectItem value="processing">Processing</SelectItem>
+                <SelectItem value="failed">Failed</SelectItem>
+              </SelectContent>
+            </Select>
+            
+            {/* Aspect Ratio Filter */}
+            <Select value={aspectFilter} onValueChange={setAspectFilter}>
+              <SelectTrigger className="w-full sm:w-[140px] bg-background/50">
+                <SelectValue placeholder="Aspect Ratio" />
+              </SelectTrigger>
+              <SelectContent className="bg-background border border-border z-50">
+                <SelectItem value="all">Semua Ratio</SelectItem>
+                <SelectItem value="landscape">Landscape</SelectItem>
+                <SelectItem value="portrait">Portrait</SelectItem>
+              </SelectContent>
+            </Select>
+
+            {/* Clear Filters */}
+            {hasActiveFilters && (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={clearFilters}
+                className="gap-1 text-muted-foreground hover:text-foreground"
+              >
+                <X className="w-4 h-4" />
+                Clear
+              </Button>
+            )}
+          </div>
+
+          {/* Results Count */}
+          {videos.length > 0 && (
+            <div className="mt-3 text-xs text-muted-foreground">
+              Menunjukkan {filteredVideos.length} daripada {videos.length} video
+            </div>
+          )}
         </div>
 
         {/* Loading State */}
@@ -249,10 +348,20 @@ const HistoryVault: React.FC<HistoryVaultProps> = ({ userProfile }) => {
             <h3 className="text-lg font-bold text-foreground mb-2">Vault is Empty</h3>
             <p className="text-muted-foreground text-sm">Your generated videos will appear here</p>
           </div>
+        ) : filteredVideos.length === 0 ? (
+          /* No Results State */
+          <div className="glass-panel-elevated p-12 text-center animate-fade-in">
+            <Search className="w-16 h-16 mx-auto mb-4 text-muted-foreground/30" />
+            <h3 className="text-lg font-bold text-foreground mb-2">Tiada Hasil Dijumpai</h3>
+            <p className="text-muted-foreground text-sm mb-4">Cuba ubah carian atau penapis anda</p>
+            <Button variant="outline" size="sm" onClick={clearFilters}>
+              Reset Penapis
+            </Button>
+          </div>
         ) : (
           /* Video Grid */
           <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
-            {videos.map((video, index) => (
+            {filteredVideos.map((video, index) => (
               <div
                 key={video.id}
                 className="glass-panel-elevated overflow-hidden group animate-fade-in hover:border-primary/30 transition-all duration-300"
