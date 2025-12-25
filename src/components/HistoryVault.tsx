@@ -37,7 +37,7 @@ const HistoryVault: React.FC<HistoryVaultProps> = ({ userProfile }) => {
   const [refreshing, setRefreshing] = useState(false);
   const [previewVideo, setPreviewVideo] = useState<string | null>(null);
   const [loadingUrl, setLoadingUrl] = useState<string | null>(null);
-  const [isFetching, setIsFetching] = useState(false);
+  const [isSyncing, setIsSyncing] = useState(false);
   
   // Search and filter states
   const [searchQuery, setSearchQuery] = useState('');
@@ -77,62 +77,133 @@ const HistoryVault: React.FC<HistoryVaultProps> = ({ userProfile }) => {
 
   const hasActiveFilters = searchQuery !== '' || statusFilter !== 'all' || aspectFilter !== 'all';
 
-  const fetchVideos = async (showToast = false) => {
-    // Prevent concurrent fetches
-    if (isFetching) return;
+  // Fast load from database cache first
+  const loadFromCache = async () => {
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) return;
+
+      const { data: cachedVideos, error } = await supabase
+        .from('video_generations')
+        .select('*')
+        .eq('user_id', session.user.id)
+        .order('created_at', { ascending: false });
+
+      if (!error && cachedVideos) {
+        // Deduplicate by geminigen_uuid
+        const seen = new Set<string>();
+        const unique = cachedVideos.filter(v => {
+          if (!v.geminigen_uuid) return true;
+          if (seen.has(v.geminigen_uuid)) return false;
+          seen.add(v.geminigen_uuid);
+          return true;
+        });
+        setVideos(unique);
+      }
+    } catch (error) {
+      console.error('Cache load error:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Background sync with GeminiGen
+  const syncWithGeminiGen = async (showToast = false) => {
+    if (isSyncing) return;
     
     try {
-      setIsFetching(true);
+      setIsSyncing(true);
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) return;
 
       const response = await supabase.functions.invoke('get-user-videos');
 
       if (response.error) {
-        console.error('Fetch error:', response.error);
-        if (showToast) toast.error('Gagal memuatkan sejarah video');
+        console.error('Sync error:', response.error);
         return;
       }
 
       const newVideos = response.data.videos || [];
       setVideos(newVideos);
       
-      if (showToast) {
-        toast.success(`Berjaya sync ${response.data.synced_from_geminigen || 0} video dari GeminiGen`);
+      if (showToast && response.data.synced_from_geminigen > 0) {
+        toast.success(`Sync selesai - ${response.data.synced_from_geminigen} video`);
       }
     } catch (error) {
-      console.error('Error fetching videos:', error);
-      if (showToast) toast.error('Gagal memuatkan sejarah video');
+      console.error('Sync error:', error);
     } finally {
-      setLoading(false);
+      setIsSyncing(false);
       setRefreshing(false);
-      setIsFetching(false);
     }
   };
 
+  // Initial load: cache first, then sync
   useEffect(() => {
-    fetchVideos();
+    const initLoad = async () => {
+      await loadFromCache();
+      // Sync in background after cache loads
+      syncWithGeminiGen();
+    };
+    initLoad();
   }, []);
 
-  // Poll for status updates every 8 seconds for processing videos only
+  // Subscribe to realtime updates
+  useEffect(() => {
+    const channel = supabase
+      .channel('video-updates')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'video_generations',
+        },
+        (payload) => {
+          console.log('Realtime update:', payload);
+          if (payload.eventType === 'INSERT') {
+            setVideos(prev => {
+              const exists = prev.some(v => v.id === payload.new.id);
+              if (exists) return prev;
+              return [payload.new as VideoGeneration, ...prev];
+            });
+          } else if (payload.eventType === 'UPDATE') {
+            setVideos(prev => prev.map(v => 
+              v.id === payload.new.id ? { ...v, ...payload.new } as VideoGeneration : v
+            ));
+          } else if (payload.eventType === 'DELETE') {
+            setVideos(prev => prev.filter(v => v.id !== payload.old.id));
+          }
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, []);
+
+  // Poll for status updates every 6 seconds for processing videos only
   useEffect(() => {
     const processingVideos = videos.filter(v => v.status === 'processing' && v.geminigen_uuid);
     
     if (processingVideos.length === 0) return;
 
-    const interval = setInterval(() => {
-      // Only check status, don't do full sync
+    const checkAll = () => {
       processingVideos.forEach(video => {
         checkAndUpdateStatus(video);
       });
-    }, 8000);
+    };
 
+    // Check immediately when processing videos detected
+    checkAll();
+    
+    const interval = setInterval(checkAll, 6000);
     return () => clearInterval(interval);
   }, [videos]);
 
   const handleRefresh = async () => {
     setRefreshing(true);
-    await fetchVideos(true);
+    await syncWithGeminiGen(true);
   };
 
   const checkAndUpdateStatus = async (video: VideoGeneration) => {
@@ -258,19 +329,25 @@ const HistoryVault: React.FC<HistoryVaultProps> = ({ userProfile }) => {
             <h2 className="text-3xl sm:text-4xl font-black tracking-tight text-foreground mb-2">
               ARCHIVE <span className="text-primary neon-text">VAULT</span>
             </h2>
-            <p className="text-muted-foreground text-sm max-w-xl">
+            <p className="text-muted-foreground text-sm max-w-xl flex items-center gap-2">
               Your generated masterpieces, preserved and ready for download.
+              {isSyncing && (
+                <span className="inline-flex items-center gap-1 text-primary text-xs">
+                  <Loader2 className="w-3 h-3 animate-spin" />
+                  Syncing...
+                </span>
+              )}
             </p>
           </div>
           <Button
             variant="outline"
             size="sm"
             onClick={handleRefresh}
-            disabled={refreshing}
+            disabled={refreshing || isSyncing}
             className="gap-2 self-start sm:self-auto"
           >
-            <RefreshCw className={cn("w-4 h-4", refreshing && "animate-spin")} />
-            Refresh
+            <RefreshCw className={cn("w-4 h-4", (refreshing || isSyncing) && "animate-spin")} />
+            {isSyncing ? 'Syncing...' : 'Refresh'}
           </Button>
         </div>
 
