@@ -40,17 +40,17 @@ const Navigation: React.FC<NavigationProps> = ({ activeView, onViewChange, userP
   ];
 
   return (
-    <nav className="fixed top-0 left-0 right-0 z-50 glass-panel-elevated border-b border-border/30">
+    <nav className="fixed top-0 left-0 right-0 z-50 glass-panel-elevated border-b border-border/30 safe-top">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex items-center justify-between h-16">
+        <div className="flex items-center justify-between h-14 sm:h-16">
           {/* Logo */}
-          <div className="flex items-center gap-3">
-            <div className="relative w-10 h-10 rounded-xl bg-gradient-to-br from-primary to-neon-blue flex items-center justify-center neon-glow">
-              <span className="text-xl font-black text-primary-foreground">A</span>
+          <div className="flex items-center gap-2.5 sm:gap-3">
+            <div className="relative w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-gradient-to-br from-primary to-accent flex items-center justify-center neon-glow">
+              <span className="text-lg sm:text-xl font-display font-bold text-primary-foreground">A</span>
             </div>
-            <div className="hidden sm:block">
-              <h1 className="text-lg font-black tracking-tight text-foreground">AZMEER</h1>
-              <p className="text-[10px] font-medium text-muted-foreground tracking-widest uppercase -mt-1">AI Studio</p>
+            <div className="hidden xs:block">
+              <h1 className="text-base sm:text-lg font-display font-bold tracking-tight text-foreground">AZMEER</h1>
+              <p className="text-[9px] sm:text-[10px] font-medium text-muted-foreground tracking-wider uppercase -mt-0.5">AI Studio</p>
             </div>
           </div>
 
@@ -61,10 +61,10 @@ const Navigation: React.FC<NavigationProps> = ({ activeView, onViewChange, userP
                 key={item.view}
                 onClick={() => onViewChange(item.view)}
                 className={cn(
-                  "flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-semibold uppercase tracking-wider transition-all duration-300",
+                  "flex items-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-2 rounded-lg text-[10px] sm:text-xs font-semibold uppercase tracking-wide transition-all duration-200",
                   activeView === item.view
-                    ? "bg-primary/20 text-primary border border-primary/30"
-                    : "text-muted-foreground hover:text-foreground hover:bg-secondary"
+                    ? "bg-primary/15 text-primary border border-primary/25"
+                    : "text-muted-foreground hover:text-foreground hover:bg-secondary/50"
                 )}
               >
                 {item.icon}
@@ -74,16 +74,16 @@ const Navigation: React.FC<NavigationProps> = ({ activeView, onViewChange, userP
           </div>
 
           {/* User Section */}
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2 sm:gap-3">
             {userProfile && (
               <>
                 <div className="hidden md:flex flex-col items-end">
                   <span className="text-sm font-semibold text-foreground">{userProfile.username}</span>
-                  <span className="text-[10px] text-primary uppercase tracking-widest">Active</span>
+                  <span className="text-[9px] text-primary uppercase tracking-wider font-medium">Active</span>
                 </div>
                 <button
                   onClick={onSignOut}
-                  className="p-2 rounded-lg text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-all duration-300"
+                  className="p-2 rounded-lg text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-all duration-200"
                   title="Sign Out"
                 >
                   <LogoutIcon />
