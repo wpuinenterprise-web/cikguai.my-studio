@@ -84,18 +84,24 @@ const AdminDashboard: React.FC = () => {
     if (!deleteDialog.user) return;
     
     try {
-      const { error } = await supabase
-        .from('profiles')
-        .delete()
-        .eq('id', deleteDialog.user.id);
+      // Use edge function to properly delete user from auth and all tables
+      const response = await supabase.functions.invoke('admin-delete-user', {
+        body: { user_id: deleteDialog.user.id },
+      });
 
-      if (error) throw error;
+      if (response.error) {
+        throw new Error(response.error.message);
+      }
+
+      if (!response.data?.success) {
+        throw new Error(response.data?.error || 'Gagal memadam pengguna');
+      }
       
-      toast.success('Pengguna telah ditolak dan dipadam');
+      toast.success('Pengguna telah dipadam sepenuhnya');
       setDeleteDialog({ open: false, user: null });
       fetchUsers();
     } catch (error: any) {
-      toast.error('Gagal memadam pengguna');
+      toast.error(error.message || 'Gagal memadam pengguna');
       console.error('Error deleting user:', error);
     }
   };

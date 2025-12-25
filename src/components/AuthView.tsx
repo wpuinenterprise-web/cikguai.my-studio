@@ -31,9 +31,11 @@ const AuthView: React.FC<AuthViewProps> = ({ onAuthSuccess }) => {
 
         if (error) {
           if (error.message.includes('Invalid login credentials')) {
-            setError('Email atau kata laluan tidak sah.');
+            setError('Email atau kata laluan tidak sah. Jika akaun anda telah dipadam, sila hubungi admin.');
           } else if (error.message.includes('Email not confirmed')) {
             setError('Email belum disahkan. Sila semak email anda.');
+          } else if (error.message.includes('User not found')) {
+            setError('Akaun tidak dijumpai. Akaun anda mungkin telah dipadam oleh admin. Sila hubungi admin untuk mendaftar semula.');
           } else {
             setError(error.message);
           }
@@ -41,6 +43,20 @@ const AuthView: React.FC<AuthViewProps> = ({ onAuthSuccess }) => {
         }
 
         if (data.session) {
+          // Check if profile exists (user might be deleted but auth still exists briefly)
+          const { data: profileData, error: profileError } = await supabase
+            .from('profiles')
+            .select('id, is_approved')
+            .eq('id', data.session.user.id)
+            .maybeSingle();
+
+          if (profileError || !profileData) {
+            // Profile doesn't exist - user was deleted by admin
+            await supabase.auth.signOut();
+            setError('Akaun anda telah dipadam oleh admin. Sila hubungi admin untuk mendaftar semula.');
+            return;
+          }
+
           toast({
             title: 'Log masuk berjaya!',
             description: 'Selamat kembali.',
