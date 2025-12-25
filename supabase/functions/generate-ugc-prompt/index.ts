@@ -42,62 +42,48 @@ serve(async (req) => {
     const systemPrompt = `You are an expert UGC (User Generated Content) video prompt generator for AI video generation (Sora 2.0). Create EXTREMELY DETAILED prompts for 15-second product videos.
 
 CRITICAL RULES:
-1. Generate prompts in ENGLISH that Sora AI understands perfectly
-2. Video is 15 seconds - MUST have 5 distinct segments of 3 seconds each
-3. EACH 3-second segment MUST have COMPLETELY DIFFERENT:
-   - Camera angle (close-up, medium shot, over-shoulder, POV, wide, Dutch angle, low angle, high angle)
-   - Camera movement (static, slow pan left/right, dolly in/out, tracking shot, handheld shake)
-   - Lighting mood (soft natural, golden hour, ring light, dramatic side light)
-   - Composition (rule of thirds, centered, off-center, negative space)
-4. NO text/subtitles in video EXCEPT CTA text at the end
-5. Character speaks in casual Malaysian Malay - dialog must be TIMED perfectly for each segment
-6. Include micro-expressions, body language, hand gestures in every segment
-7. Describe background environment, props, colors in detail
+1. Generate ONE CONSOLIDATED PARAGRAPH prompt in ENGLISH that Sora AI understands perfectly
+2. Video is 15 seconds - describe 5 distinct segments of 3 seconds each IN ONE FLOWING PARAGRAPH
+3. EACH 3-second segment MUST have COMPLETELY DIFFERENT camera angles and shots
+4. NO text/subtitles in video EXCEPT CTA text overlay at the very end
+5. Include casual Malaysian Malay dialog for character speech (in quotes)
+6. Describe everything in vivid detail: expressions, gestures, lighting, camera movements
 
 CHARACTER:
 ${characterDescription}
 
-STRUCTURE (15 seconds total):
-- 0-3s: HOOK - Grab attention immediately, dramatic/surprising moment
-- 3-6s: PROBLEM/NEED - Show the pain point or desire
-- 6-9s: SOLUTION/PRODUCT - Introduce product naturally
-- 9-12s: BENEFIT/RESULT - Show transformation or result
-- 12-15s: CTA - Call to action with text "${ctaText}"
+STRUCTURE to follow (but write as ONE PARAGRAPH):
+- 0-3s: HOOK - Medium shot, warm greeting, friendly wave
+- 3-6s: PRODUCT INTRO - Close-up of product, showcase features
+- 6-9s: DEMONSTRATION - Dynamic side shot, show how to use
+- 9-12s: RESULT/BENEFIT - Close-up face, satisfied expression
+- 12-15s: CTA - Eye-level shot, point at camera, text overlay: "${ctaText}"
 
 OUTPUT FORMAT (JSON):
 {
-  "videoPrompt": "Complete consolidated prompt for Sora AI - include ALL visual details, camera work, lighting, expressions for the entire 15 seconds",
-  "dialogScript": "Complete dialog script in casual Malaysian Malay with timestamps",
-  "segments": [
-    {
-      "time": "0-3s",
-      "hook": "What grabs attention",
-      "scene": "Detailed scene description (location, props, atmosphere)",
-      "character": "Character action, expression, body language, hand gestures",
-      "cameraAngle": "Specific camera angle (e.g., 'Extreme close-up on face, slight Dutch angle')",
-      "cameraMovement": "Camera movement (e.g., 'Slow dolly in from medium to close-up')",
-      "lighting": "Lighting setup (e.g., 'Soft golden hour light from left, subtle rim light')",
-      "dialog": "Exact Malaysian Malay dialog for this 3 seconds",
-      "visualStyle": "Color grading, mood, aesthetic"
-    }
-  ]
-}`;
+  "videoPrompt": "ONE COMPLETE PARAGRAPH describing the entire 15-second video. Start with opening shot description, then flow naturally through each scene change. Include camera angles (medium shot, close-up, side shot, eye-level), character actions and expressions, product interactions, lighting descriptions, and Malaysian Malay dialog in quotes. End with CTA text overlay description. NO TIMESTAMPS in the prompt - just flowing description.",
+  "dialogScript": "Dialog bahasa Melayu Malaysia dengan timestamp:\\n0-3s: 'Hai semua!'\\n3-6s: 'Ni [produk] yang best gila!'\\n6-9s: 'Senang gila nak guna!'\\n9-12s: 'Confirm puas hati!'\\n12-15s: [CTA text]"
+}
 
-    const userPrompt = `Create an ULTRA-DETAILED UGC video prompt for:
+EXAMPLE OUTPUT FORMAT:
+"The video opens with a medium shot of a 30-year-old Malay woman wearing a stylish hijab and trendy modest clothing. She smiles warmly at the camera and waves enthusiastically, creating an inviting atmosphere. The lighting is bright and cheerful, highlighting her friendly expression. 'Hai semua!' she says. The camera transitions to a close-up shot of the product, showcasing its sleek design and features. The focus is on the product details. 'Ni [produk] yang best gila!' she explains. The camera shifts to a dynamic side shot as the character picks up the product with excitement. She gestures animatedly while explaining how easy it is to use. 'Senang gila nak guna!' she adds. A close-up shot captures her face as she shows a satisfied expression, eyes lighting up with joy. She nods and smiles, conveying genuine happiness. 'Confirm puas hati!' she shares. The final scene is an eye-level shot where she points directly at the camera with enthusiasm. The background is slightly blurred to focus on her engaging expression. The video ends with the text overlay: '${ctaText}'."`;
+
+    const userPrompt = `Create an UGC video prompt for:
 
 PRODUCT: ${productName}
 DESCRIPTION: ${productDescription}
 PLATFORM: ${platform}
 CHARACTER: ${gender === 'female' ? 'Perempuan Melayu bertudung, 30-an' : 'Lelaki Melayu sopan, 30-an, tiada aksesori'}
 
-REQUIREMENTS:
-1. Hook kena KUAT dalam 3 saat pertama
-2. Setiap 3 saat MESTI tukar camera angle dan visual style
-3. Dialog bahasa Melayu Malaysia santai, ringkas, sync dengan visual
-4. Tunjuk produk secara natural, bukan hard sell
-5. CTA akhir dengan text "${ctaText}"
+Write ONE FLOWING PARAGRAPH prompt (like the example) that describes the entire 15-second video naturally. Include:
+1. Camera shots and angles for each scene transition
+2. Character expressions, gestures, clothing
+3. Product showcase moments
+4. Malaysian Malay dialog in quotes
+5. Lighting and atmosphere descriptions
+6. End with CTA text overlay: "${ctaText}"
 
-Generate the most detailed, professional UGC prompt possible. Each segment must be distinctly different visually.`;
+DO NOT use timestamps or bullet points in the videoPrompt. Write it as one cohesive paragraph.`;
 
     console.log('Calling OpenAI API for detailed UGC prompt generation...');
 
