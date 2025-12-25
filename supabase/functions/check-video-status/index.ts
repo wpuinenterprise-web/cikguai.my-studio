@@ -72,19 +72,32 @@ serve(async (req) => {
         // Use file_download_url for direct download, video_url for streaming
         videoUrl = video.file_download_url || video.video_url;
         downloadUrl = video.file_download_url || video.video_url;
-        thumbnailUrl = video.last_frame || data.thumbnail_url || data.last_frame_url;
+        // Get thumbnail - use full URL if available
+        if (data.thumbnail_url) {
+          thumbnailUrl = data.thumbnail_url;
+        } else if (data.last_frame_url) {
+          thumbnailUrl = data.last_frame_url;
+        } else if (video.last_frame && video.last_frame.startsWith('http')) {
+          thumbnailUrl = video.last_frame;
+        } else if (video.last_frame) {
+          thumbnailUrl = `https://cdn.geminigen.ai/${video.last_frame}`;
+        }
       }
     } else if (data.status === 3) {
       status = 'failed';
     }
 
-    // Auto-sync to database if video_id is provided
-    if (video_id && (status === 'completed' || status === 'failed')) {
+    // Always sync to database if video_id is provided
+    if (video_id) {
       const updateData: Record<string, unknown> = {
-        status,
         status_percentage: statusPercentage,
         updated_at: new Date().toISOString(),
       };
+      
+      // Only update status if completed or failed
+      if (status === 'completed' || status === 'failed') {
+        updateData.status = status;
+      }
       
       if (videoUrl) updateData.video_url = videoUrl;
       if (thumbnailUrl) updateData.thumbnail_url = thumbnailUrl;
@@ -97,7 +110,7 @@ serve(async (req) => {
       if (updateError) {
         console.error('Failed to update video in database:', updateError);
       } else {
-        console.log('Video synced to database:', video_id, status);
+        console.log('Video synced to database:', video_id, status, statusPercentage + '%');
       }
     }
 
