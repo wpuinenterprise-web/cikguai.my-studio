@@ -36,54 +36,70 @@ serve(async (req) => {
       : 'tekan learn more untuk tahu lebih lanjut';
 
     const characterDescription = gender === 'female'
-      ? 'A Malay woman in her 30s wearing a hijab (tudung), with a warm friendly expression, casual modest fashion style suitable for a lifestyle influencer'
-      : 'A Malay man in his 30s, well-groomed and polite appearance, no earrings or chains or bracelets, wearing long pants (no shorts), stylish influencer fashion with clean professional look';
+      ? 'A Malay woman in her 30s wearing a stylish hijab (tudung), warm friendly expression, natural makeup, casual modest fashion suitable for a lifestyle influencer, expressive hand gestures'
+      : 'A Malay man in his 30s, well-groomed with neat hair, clean-shaven or light stubble, polite and confident appearance, no earrings/chains/bracelets, wearing long pants (absolutely no shorts), stylish casual influencer fashion, approachable demeanor';
 
-    const systemPrompt = `You are an expert UGC (User Generated Content) video prompt generator for AI video generation. Your task is to create detailed, professional prompts for 15-second product promotion videos.
+    const systemPrompt = `You are an expert UGC (User Generated Content) video prompt generator for AI video generation (Sora 2.0). Create EXTREMELY DETAILED prompts for 15-second product videos.
 
-RULES:
-1. Generate prompts in ENGLISH that AI video generators can understand
-2. The video is 15 seconds total - divide into 5 segments of 3 seconds each
-3. Each 3-second segment MUST have a different camera angle and visual style
-4. NO text or subtitles in the video EXCEPT for the CTA at the end
-5. The character speaks in casual Malaysian Malay (dialog provided separately)
-6. Structure: Hook (0-3s) → Product Feature 1 (3-6s) → Product Feature 2 (6-9s) → Benefit/Result (9-12s) → CTA (12-15s)
+CRITICAL RULES:
+1. Generate prompts in ENGLISH that Sora AI understands perfectly
+2. Video is 15 seconds - MUST have 5 distinct segments of 3 seconds each
+3. EACH 3-second segment MUST have COMPLETELY DIFFERENT:
+   - Camera angle (close-up, medium shot, over-shoulder, POV, wide, Dutch angle, low angle, high angle)
+   - Camera movement (static, slow pan left/right, dolly in/out, tracking shot, handheld shake)
+   - Lighting mood (soft natural, golden hour, ring light, dramatic side light)
+   - Composition (rule of thirds, centered, off-center, negative space)
+4. NO text/subtitles in video EXCEPT CTA text at the end
+5. Character speaks in casual Malaysian Malay - dialog must be TIMED perfectly for each segment
+6. Include micro-expressions, body language, hand gestures in every segment
+7. Describe background environment, props, colors in detail
 
-CHARACTER DESCRIPTION:
+CHARACTER:
 ${characterDescription}
 
-CTA TEXT (only text shown in video):
-"${ctaText}"
+STRUCTURE (15 seconds total):
+- 0-3s: HOOK - Grab attention immediately, dramatic/surprising moment
+- 3-6s: PROBLEM/NEED - Show the pain point or desire
+- 6-9s: SOLUTION/PRODUCT - Introduce product naturally
+- 9-12s: BENEFIT/RESULT - Show transformation or result
+- 12-15s: CTA - Call to action with text "${ctaText}"
 
 OUTPUT FORMAT (JSON):
 {
-  "videoPrompt": "Full detailed prompt for AI video generation in English",
-  "dialogScript": "Dialog in casual Malaysian Malay, timestamped for each segment, natural speaking pace",
+  "videoPrompt": "Complete consolidated prompt for Sora AI - include ALL visual details, camera work, lighting, expressions for the entire 15 seconds",
+  "dialogScript": "Complete dialog script in casual Malaysian Malay with timestamps",
   "segments": [
     {
       "time": "0-3s",
-      "scene": "Hook scene description",
-      "cameraAngle": "Camera angle description",
-      "visualStyle": "Visual style description"
+      "hook": "What grabs attention",
+      "scene": "Detailed scene description (location, props, atmosphere)",
+      "character": "Character action, expression, body language, hand gestures",
+      "cameraAngle": "Specific camera angle (e.g., 'Extreme close-up on face, slight Dutch angle')",
+      "cameraMovement": "Camera movement (e.g., 'Slow dolly in from medium to close-up')",
+      "lighting": "Lighting setup (e.g., 'Soft golden hour light from left, subtle rim light')",
+      "dialog": "Exact Malaysian Malay dialog for this 3 seconds",
+      "visualStyle": "Color grading, mood, aesthetic"
     }
   ]
 }`;
 
-    const userPrompt = `Create a UGC video prompt for:
-Product Name: ${productName}
-Product Description: ${productDescription}
-Platform: ${platform}
-Character Gender: ${gender}
+    const userPrompt = `Create an ULTRA-DETAILED UGC video prompt for:
 
-Generate a compelling 15-second video prompt with:
-- Strong hook in first 3 seconds
-- Clear product features
-- Engaging delivery style
-- Natural Malaysian Malay dialog (casual, brief, fits timing)
-- Different camera angle every 3 seconds
-- CTA at the end with text "${ctaText}"`;
+PRODUCT: ${productName}
+DESCRIPTION: ${productDescription}
+PLATFORM: ${platform}
+CHARACTER: ${gender === 'female' ? 'Perempuan Melayu bertudung, 30-an' : 'Lelaki Melayu sopan, 30-an, tiada aksesori'}
 
-    console.log('Calling OpenAI API for UGC prompt generation...');
+REQUIREMENTS:
+1. Hook kena KUAT dalam 3 saat pertama
+2. Setiap 3 saat MESTI tukar camera angle dan visual style
+3. Dialog bahasa Melayu Malaysia santai, ringkas, sync dengan visual
+4. Tunjuk produk secara natural, bukan hard sell
+5. CTA akhir dengan text "${ctaText}"
+
+Generate the most detailed, professional UGC prompt possible. Each segment must be distinctly different visually.`;
+
+    console.log('Calling OpenAI API for detailed UGC prompt generation...');
 
     const response = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
