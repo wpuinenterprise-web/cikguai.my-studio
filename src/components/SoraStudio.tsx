@@ -338,7 +338,7 @@ const SoraStudio: React.FC<SoraStudioProps> = ({ userProfile }) => {
 
   // Locked UI component
   if (isLocked) {
-    const whatsappNumber = "60123456789"; // Admin WhatsApp number
+    const whatsappNumber = "601158833804"; // Admin WhatsApp number
     const whatsappMessage = encodeURIComponent(
       `Hai Admin, saya ${userProfile?.username || 'user baru'} ingin mohon kelulusan akaun / tambah had video untuk akaun saya. Email: ${userProfile ? 'registered user' : 'unknown'}`
     );
