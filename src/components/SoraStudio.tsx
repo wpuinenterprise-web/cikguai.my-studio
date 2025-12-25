@@ -1,6 +1,7 @@
 import React, { useState, useRef } from 'react';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
+import { Input } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
@@ -18,6 +19,17 @@ const SoraStudio: React.FC<SoraStudioProps> = ({ userProfile }) => {
   const [generatedVideoUrl, setGeneratedVideoUrl] = useState<string | null>(null);
   const [generationProgress, setGenerationProgress] = useState(0);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // UGC Prompt Generator state
+  const [showPromptGenerator, setShowPromptGenerator] = useState(false);
+  const [productName, setProductName] = useState('');
+  const [productDescription, setProductDescription] = useState('');
+  const [platform, setPlatform] = useState<'tiktok' | 'facebook'>('tiktok');
+  const [gender, setGender] = useState<'male' | 'female'>('female');
+  const [openaiApiKey, setOpenaiApiKey] = useState('');
+  const [isGeneratingPrompt, setIsGeneratingPrompt] = useState(false);
+  const [generatedDialog, setGeneratedDialog] = useState('');
+  const [generatedSegments, setGeneratedSegments] = useState<Array<{time: string; scene: string; cameraAngle: string; visualStyle: string}>>([]);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -151,6 +163,55 @@ const SoraStudio: React.FC<SoraStudioProps> = ({ userProfile }) => {
     }
   };
 
+  const handleGenerateUgcPrompt = async () => {
+    if (!productName.trim() || !productDescription.trim()) {
+      toast.error('Sila isi nama produk dan keterangan');
+      return;
+    }
+
+    if (!openaiApiKey.trim()) {
+      toast.error('Sila masukkan OpenAI API Key');
+      return;
+    }
+
+    setIsGeneratingPrompt(true);
+
+    try {
+      const response = await supabase.functions.invoke('generate-ugc-prompt', {
+        body: {
+          productName,
+          productDescription,
+          platform,
+          gender,
+          openaiApiKey,
+        },
+      });
+
+      if (response.error) {
+        throw new Error(response.error.message);
+      }
+
+      const { success, data, error } = response.data;
+
+      if (!success) {
+        throw new Error(error || 'Gagal menjana prompt');
+      }
+
+      setPrompt(data.videoPrompt || '');
+      setGeneratedDialog(data.dialogScript || '');
+      setGeneratedSegments(data.segments || []);
+      setDuration(15); // UGC prompts are designed for 15s
+      toast.success('Prompt UGC berjaya dijana!');
+
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      console.error('UGC prompt generation error:', errorMessage);
+      toast.error(errorMessage || 'Gagal menjana prompt');
+    } finally {
+      setIsGeneratingPrompt(false);
+    }
+  };
+
   return (
     <div className="min-h-screen pt-20 pb-8 px-4 sm:px-6 lg:px-8">
       <div className="max-w-7xl mx-auto">
@@ -273,6 +334,160 @@ const SoraStudio: React.FC<SoraStudioProps> = ({ userProfile }) => {
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                     </svg>
                   </button>
+                </div>
+              )}
+            </div>
+
+            {/* UGC Prompt Generator */}
+            <div className="mb-6">
+              <button
+                onClick={() => setShowPromptGenerator(!showPromptGenerator)}
+                className="w-full flex items-center justify-between p-3 rounded-xl bg-gradient-to-r from-primary/10 to-accent/10 border border-primary/20 hover:border-primary/40 transition-all duration-300"
+              >
+                <div className="flex items-center gap-2">
+                  <svg className="w-5 h-5 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
+                  </svg>
+                  <span className="text-sm font-bold text-foreground">UGC Prompt Generator</span>
+                </div>
+                <svg className={cn("w-4 h-4 text-muted-foreground transition-transform", showPromptGenerator && "rotate-180")} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                </svg>
+              </button>
+
+              {showPromptGenerator && (
+                <div className="mt-4 p-4 rounded-xl bg-secondary/30 border border-border/50 space-y-4">
+                  {/* OpenAI API Key */}
+                  <div>
+                    <label className="block text-[10px] font-black text-muted-foreground uppercase tracking-widest mb-2">
+                      OpenAI API Key
+                    </label>
+                    <Input
+                      type="password"
+                      value={openaiApiKey}
+                      onChange={(e) => setOpenaiApiKey(e.target.value)}
+                      placeholder="sk-proj-..."
+                      className="text-sm"
+                    />
+                  </div>
+
+                  {/* Product Name */}
+                  <div>
+                    <label className="block text-[10px] font-black text-muted-foreground uppercase tracking-widest mb-2">
+                      Nama Produk
+                    </label>
+                    <Input
+                      value={productName}
+                      onChange={(e) => setProductName(e.target.value)}
+                      placeholder="Contoh: Serum Vitamin C"
+                      className="text-sm"
+                    />
+                  </div>
+
+                  {/* Product Description */}
+                  <div>
+                    <label className="block text-[10px] font-black text-muted-foreground uppercase tracking-widest mb-2">
+                      Keterangan Produk
+                    </label>
+                    <Textarea
+                      value={productDescription}
+                      onChange={(e) => setProductDescription(e.target.value)}
+                      placeholder="Terangkan produk anda, kelebihan, bahan utama..."
+                      className="min-h-[80px] text-sm"
+                    />
+                  </div>
+
+                  {/* Platform & Gender */}
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-[10px] font-black text-muted-foreground uppercase tracking-widest mb-2">
+                        Platform
+                      </label>
+                      <div className="flex gap-2">
+                        {(['tiktok', 'facebook'] as const).map((p) => (
+                          <button
+                            key={p}
+                            onClick={() => setPlatform(p)}
+                            className={cn(
+                              "flex-1 py-2 px-3 rounded-lg text-xs font-bold transition-all border",
+                              platform === p
+                                ? "bg-primary/20 border-primary/50 text-primary"
+                                : "bg-secondary/50 border-border text-muted-foreground hover:border-primary/30"
+                            )}
+                          >
+                            {p === 'tiktok' ? 'TikTok' : 'Facebook'}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                    <div>
+                      <label className="block text-[10px] font-black text-muted-foreground uppercase tracking-widest mb-2">
+                        Watak
+                      </label>
+                      <div className="flex gap-2">
+                        {(['female', 'male'] as const).map((g) => (
+                          <button
+                            key={g}
+                            onClick={() => setGender(g)}
+                            className={cn(
+                              "flex-1 py-2 px-3 rounded-lg text-xs font-bold transition-all border",
+                              gender === g
+                                ? "bg-primary/20 border-primary/50 text-primary"
+                                : "bg-secondary/50 border-border text-muted-foreground hover:border-primary/30"
+                            )}
+                          >
+                            {g === 'female' ? 'Perempuan' : 'Lelaki'}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Generate Prompt Button */}
+                  <Button
+                    onClick={handleGenerateUgcPrompt}
+                    disabled={isGeneratingPrompt || !productName.trim() || !productDescription.trim() || !openaiApiKey.trim()}
+                    variant="outline"
+                    className="w-full"
+                  >
+                    {isGeneratingPrompt ? (
+                      <>
+                        <div className="w-4 h-4 border-2 border-primary/30 border-t-primary rounded-full animate-spin mr-2" />
+                        Menjana Prompt...
+                      </>
+                    ) : (
+                      <>
+                        <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+                        </svg>
+                        Jana Prompt UGC
+                      </>
+                    )}
+                  </Button>
+
+                  {/* Generated Dialog & Segments */}
+                  {generatedDialog && (
+                    <div className="mt-4 p-3 rounded-lg bg-background/50 border border-border/30">
+                      <label className="block text-[10px] font-black text-primary uppercase tracking-widest mb-2">
+                        Dialog Script (BM)
+                      </label>
+                      <p className="text-xs text-muted-foreground whitespace-pre-wrap">{generatedDialog}</p>
+                    </div>
+                  )}
+
+                  {generatedSegments.length > 0 && (
+                    <div className="mt-3 space-y-2">
+                      <label className="block text-[10px] font-black text-primary uppercase tracking-widest">
+                        Segments
+                      </label>
+                      {generatedSegments.map((seg, idx) => (
+                        <div key={idx} className="p-2 rounded-lg bg-background/30 border border-border/20 text-xs">
+                          <span className="font-bold text-primary">{seg.time}</span>
+                          <span className="text-muted-foreground ml-2">{seg.cameraAngle}</span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
               )}
             </div>
