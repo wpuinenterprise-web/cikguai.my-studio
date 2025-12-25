@@ -37,6 +37,7 @@ const HistoryVault: React.FC<HistoryVaultProps> = ({ userProfile }) => {
   const [refreshing, setRefreshing] = useState(false);
   const [previewVideo, setPreviewVideo] = useState<string | null>(null);
   const [loadingUrl, setLoadingUrl] = useState<string | null>(null);
+  const [isFetching, setIsFetching] = useState(false);
   
   // Search and filter states
   const [searchQuery, setSearchQuery] = useState('');
@@ -45,7 +46,15 @@ const HistoryVault: React.FC<HistoryVaultProps> = ({ userProfile }) => {
 
   // Filtered videos based on search and filters
   const filteredVideos = useMemo(() => {
+    // Deduplicate by geminigen_uuid in frontend as well
+    const seen = new Set<string>();
     return videos.filter(video => {
+      // Deduplicate by geminigen_uuid
+      if (video.geminigen_uuid) {
+        if (seen.has(video.geminigen_uuid)) return false;
+        seen.add(video.geminigen_uuid);
+      }
+      
       // Search filter
       const matchesSearch = searchQuery === '' || 
         video.prompt.toLowerCase().includes(searchQuery.toLowerCase());
@@ -68,8 +77,12 @@ const HistoryVault: React.FC<HistoryVaultProps> = ({ userProfile }) => {
 
   const hasActiveFilters = searchQuery !== '' || statusFilter !== 'all' || aspectFilter !== 'all';
 
-  const fetchVideos = async () => {
+  const fetchVideos = async (showToast = false) => {
+    // Prevent concurrent fetches
+    if (isFetching) return;
+    
     try {
+      setIsFetching(true);
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) return;
 
@@ -77,28 +90,23 @@ const HistoryVault: React.FC<HistoryVaultProps> = ({ userProfile }) => {
 
       if (response.error) {
         console.error('Fetch error:', response.error);
-        toast.error('Gagal memuatkan sejarah video');
+        if (showToast) toast.error('Gagal memuatkan sejarah video');
         return;
       }
 
-      setVideos(response.data.videos || []);
+      const newVideos = response.data.videos || [];
+      setVideos(newVideos);
+      
+      if (showToast) {
+        toast.success(`Berjaya sync ${response.data.synced_from_geminigen || 0} video dari GeminiGen`);
+      }
     } catch (error) {
       console.error('Error fetching videos:', error);
-      toast.error('Gagal memuatkan sejarah video');
+      if (showToast) toast.error('Gagal memuatkan sejarah video');
     } finally {
       setLoading(false);
       setRefreshing(false);
-    }
-  };
-
-  // Auto-sync all processing videos with GeminiGen
-  const syncProcessingVideos = async (videoList: VideoGeneration[]) => {
-    const processingVideos = videoList.filter(
-      v => v.status === 'processing' && v.geminigen_uuid
-    );
-    
-    for (const video of processingVideos) {
-      await checkAndUpdateStatus(video);
+      setIsFetching(false);
     }
   };
 
@@ -106,32 +114,25 @@ const HistoryVault: React.FC<HistoryVaultProps> = ({ userProfile }) => {
     fetchVideos();
   }, []);
 
-  // Poll for status updates every 5 seconds for processing videos
+  // Poll for status updates every 8 seconds for processing videos only
   useEffect(() => {
     const processingVideos = videos.filter(v => v.status === 'processing' && v.geminigen_uuid);
     
     if (processingVideos.length === 0) return;
 
     const interval = setInterval(() => {
+      // Only check status, don't do full sync
       processingVideos.forEach(video => {
         checkAndUpdateStatus(video);
       });
-    }, 5000);
+    }, 8000);
 
     return () => clearInterval(interval);
   }, [videos]);
 
   const handleRefresh = async () => {
     setRefreshing(true);
-    await fetchVideos();
-    // Also sync with GeminiGen after fetching
-    const { data: { session } } = await supabase.auth.getSession();
-    if (session) {
-      const response = await supabase.functions.invoke('get-user-videos');
-      if (response.data?.videos) {
-        await syncProcessingVideos(response.data.videos);
-      }
-    }
+    await fetchVideos(true);
   };
 
   const checkAndUpdateStatus = async (video: VideoGeneration) => {
