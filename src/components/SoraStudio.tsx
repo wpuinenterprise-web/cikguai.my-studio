@@ -1,10 +1,19 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Input } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
+
+interface ActiveGeneration {
+  id: string;
+  geminigen_uuid: string;
+  prompt: string;
+  status: string;
+  status_percentage: number;
+  video_url: string | null;
+}
 
 interface SoraStudioProps {
   userProfile: { username: string; videos_used: number; video_limit: number } | null;
@@ -19,6 +28,10 @@ const SoraStudio: React.FC<SoraStudioProps> = ({ userProfile }) => {
   const [generatedVideoUrl, setGeneratedVideoUrl] = useState<string | null>(null);
   const [generationProgress, setGenerationProgress] = useState(0);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  
+  // Active generations - persisted from database
+  const [activeGenerations, setActiveGenerations] = useState<ActiveGeneration[]>([]);
+  const [currentGenerationId, setCurrentGenerationId] = useState<string | null>(null);
 
   // UGC Prompt Generator state
   const [showPromptGenerator, setShowPromptGenerator] = useState(false);
@@ -39,7 +52,91 @@ const SoraStudio: React.FC<SoraStudioProps> = ({ userProfile }) => {
     lighting?: string;
     dialog?: string;
     visualStyle: string;
-  }>>([]);
+  }>>([]); 
+
+  // Fetch active/processing videos on mount
+  useEffect(() => {
+    const fetchActiveGenerations = async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) return;
+
+      const { data: videos } = await supabase
+        .from('video_generations')
+        .select('id, geminigen_uuid, prompt, status, status_percentage, video_url')
+        .eq('user_id', session.user.id)
+        .eq('status', 'processing')
+        .order('created_at', { ascending: false });
+
+      if (videos && videos.length > 0) {
+        const activeVids = videos.filter(v => v.geminigen_uuid) as ActiveGeneration[];
+        setActiveGenerations(activeVids);
+        
+        // If there's a processing video, show its status
+        if (activeVids.length > 0) {
+          setIsGenerating(true);
+          setCurrentGenerationId(activeVids[0].id);
+          setGenerationProgress(activeVids[0].status_percentage || 0);
+        }
+      }
+    };
+
+    fetchActiveGenerations();
+  }, []);
+
+  // Poll for active generations status
+  useEffect(() => {
+    if (activeGenerations.length === 0) return;
+
+    const pollInterval = setInterval(async () => {
+      for (const gen of activeGenerations) {
+        if (!gen.geminigen_uuid) continue;
+
+        try {
+          const response = await supabase.functions.invoke('check-video-status', {
+            body: { geminigen_uuid: gen.geminigen_uuid, video_id: gen.id },
+          });
+
+          if (response.data?.success) {
+            const { status, status_percentage, video_url } = response.data;
+
+            // Update local state
+            setActiveGenerations(prev => prev.map(g => 
+              g.id === gen.id 
+                ? { ...g, status, status_percentage: status_percentage || g.status_percentage, video_url }
+                : g
+            ));
+
+            // Update UI if this is the current generation
+            if (gen.id === currentGenerationId) {
+              setGenerationProgress(status_percentage || 0);
+
+              if (status === 'completed' && video_url) {
+                setGeneratedVideoUrl(video_url);
+                setIsGenerating(false);
+                setActiveGenerations(prev => prev.filter(g => g.id !== gen.id));
+                toast.success('Video berjaya dijana!');
+              } else if (status === 'failed') {
+                setIsGenerating(false);
+                setActiveGenerations(prev => prev.filter(g => g.id !== gen.id));
+                toast.error('Gagal menjana video');
+              }
+            } else if (status === 'completed' || status === 'failed') {
+              // Remove completed/failed from active list
+              setActiveGenerations(prev => prev.filter(g => g.id !== gen.id));
+              if (status === 'completed') {
+                toast.success(`Video "${gen.prompt.substring(0, 30)}..." siap!`);
+              }
+            }
+          }
+        } catch (error) {
+          console.error('Error polling status:', error);
+        }
+      }
+    }, 5000);
+
+    return () => clearInterval(pollInterval);
+  }, [activeGenerations, currentGenerationId]);
+
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -142,7 +239,7 @@ const SoraStudio: React.FC<SoraStudioProps> = ({ userProfile }) => {
         throw new Error(response.error.message);
       }
 
-      const { success, geminigen_uuid, error } = response.data;
+      const { success, video_id, geminigen_uuid, error } = response.data;
 
       if (!success) {
         throw new Error(error || 'Gagal memulakan penjanaan video');
@@ -150,9 +247,18 @@ const SoraStudio: React.FC<SoraStudioProps> = ({ userProfile }) => {
 
       toast.success('Penjanaan video dimulakan!');
 
-      // Start polling for status
-      if (geminigen_uuid) {
-        pollVideoStatus(geminigen_uuid);
+      // Add to active generations for tracking
+      if (geminigen_uuid && video_id) {
+        const newGeneration: ActiveGeneration = {
+          id: video_id,
+          geminigen_uuid,
+          prompt,
+          status: 'processing',
+          status_percentage: 1,
+          video_url: null,
+        };
+        setActiveGenerations(prev => [newGeneration, ...prev]);
+        setCurrentGenerationId(video_id);
       }
 
     } catch (error: any) {
