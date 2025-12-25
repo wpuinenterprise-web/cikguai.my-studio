@@ -1,5 +1,6 @@
 import React from 'react';
 import { cn } from '@/lib/utils';
+import { UserProfile } from '@/types';
 
 interface HistoryItem {
   id: string;
@@ -9,6 +10,10 @@ interface HistoryItem {
   thumbnail: string | null;
   duration: number;
   created_at: string;
+}
+
+interface HistoryVaultProps {
+  userProfile: UserProfile;
 }
 
 const mockHistory: HistoryItem[] = [
@@ -41,7 +46,7 @@ const mockHistory: HistoryItem[] = [
   },
 ];
 
-const HistoryVault: React.FC = () => {
+const HistoryVault: React.FC<HistoryVaultProps> = ({ userProfile }) => {
   const formatDate = (dateString: string) => {
     const date = new Date(dateString);
     return date.toLocaleDateString('en-US', {
