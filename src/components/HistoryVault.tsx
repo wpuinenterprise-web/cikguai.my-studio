@@ -1,55 +1,116 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { cn } from '@/lib/utils';
 import { UserProfile } from '@/types';
+import { supabase } from '@/integrations/supabase/client';
+import { toast } from 'sonner';
+import { Download, Play, RefreshCw, Loader2 } from 'lucide-react';
+import { Button } from '@/components/ui/button';
 
-interface HistoryItem {
+interface VideoGeneration {
   id: string;
   prompt: string;
-  status: 'processing' | 'completed' | 'failed';
-  type: 'video';
-  thumbnail: string | null;
+  status: string;
+  status_percentage: number;
+  video_url: string | null;
+  thumbnail_url: string | null;
   duration: number;
+  aspect_ratio: string;
   created_at: string;
+  geminigen_uuid: string | null;
 }
 
 interface HistoryVaultProps {
   userProfile: UserProfile;
 }
 
-const mockHistory: HistoryItem[] = [
-  {
-    id: '1',
-    prompt: 'A cinematic drone shot flying over misty mountains at sunrise',
-    status: 'completed',
-    type: 'video',
-    thumbnail: null,
-    duration: 10,
-    created_at: '2024-12-25T10:30:00Z',
-  },
-  {
-    id: '2',
-    prompt: 'Abstract geometric shapes morphing and flowing in neon colors',
-    status: 'completed',
-    type: 'video',
-    thumbnail: null,
-    duration: 15,
-    created_at: '2024-12-24T15:20:00Z',
-  },
-  {
-    id: '3',
-    prompt: 'A futuristic city at night with flying cars and holographic billboards',
-    status: 'processing',
-    type: 'video',
-    thumbnail: null,
-    duration: 10,
-    created_at: '2024-12-25T12:00:00Z',
-  },
-];
-
 const HistoryVault: React.FC<HistoryVaultProps> = ({ userProfile }) => {
+  const [videos, setVideos] = useState<VideoGeneration[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [previewVideo, setPreviewVideo] = useState<string | null>(null);
+
+  const fetchVideos = async () => {
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) return;
+
+      const response = await supabase.functions.invoke('get-user-videos');
+
+      if (response.error) {
+        console.error('Fetch error:', response.error);
+        toast.error('Gagal memuatkan sejarah video');
+        return;
+      }
+
+      setVideos(response.data.videos || []);
+    } catch (error) {
+      console.error('Error fetching videos:', error);
+      toast.error('Gagal memuatkan sejarah video');
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchVideos();
+  }, []);
+
+  const handleRefresh = () => {
+    setRefreshing(true);
+    fetchVideos();
+  };
+
+  const checkAndUpdateStatus = async (video: VideoGeneration) => {
+    if (!video.geminigen_uuid || video.status === 'completed' || video.status === 'failed') return;
+
+    try {
+      const response = await supabase.functions.invoke('check-video-status', {
+        body: { geminigen_uuid: video.geminigen_uuid },
+      });
+
+      if (response.data?.status === 'completed' && response.data?.video_url) {
+        // Update local state
+        setVideos(prev => prev.map(v => 
+          v.id === video.id 
+            ? { ...v, status: 'completed', video_url: response.data.video_url, thumbnail_url: response.data.thumbnail_url }
+            : v
+        ));
+
+        // Update database
+        await supabase
+          .from('video_generations')
+          .update({
+            status: 'completed',
+            video_url: response.data.video_url,
+            thumbnail_url: response.data.thumbnail_url,
+            status_percentage: 100,
+          })
+          .eq('id', video.id);
+
+        toast.success('Video telah siap!');
+      } else if (response.data?.status === 'failed') {
+        setVideos(prev => prev.map(v => 
+          v.id === video.id ? { ...v, status: 'failed' } : v
+        ));
+
+        await supabase
+          .from('video_generations')
+          .update({ status: 'failed' })
+          .eq('id', video.id);
+      }
+    } catch (error) {
+      console.error('Error checking status:', error);
+    }
+  };
+
+  const handleDownload = (videoUrl: string) => {
+    window.open(videoUrl, '_blank');
+  };
+
   const formatDate = (dateString: string) => {
     const date = new Date(dateString);
-    return date.toLocaleDateString('en-US', {
+    return date.toLocaleDateString('ms-MY', {
       month: 'short',
       day: 'numeric',
       hour: '2-digit',
@@ -61,74 +122,34 @@ const HistoryVault: React.FC<HistoryVaultProps> = ({ userProfile }) => {
     <div className="min-h-screen pt-20 pb-8 px-4 sm:px-6 lg:px-8">
       <div className="max-w-7xl mx-auto">
         {/* Header */}
-        <div className="mb-8 animate-fade-in">
-          <h2 className="text-3xl sm:text-4xl font-black tracking-tight text-foreground mb-2">
-            ARCHIVE <span className="text-primary neon-text">VAULT</span>
-          </h2>
-          <p className="text-muted-foreground text-sm max-w-xl">
-            Your generated masterpieces, preserved and ready for download.
-          </p>
+        <div className="mb-8 animate-fade-in flex items-center justify-between">
+          <div>
+            <h2 className="text-3xl sm:text-4xl font-black tracking-tight text-foreground mb-2">
+              ARCHIVE <span className="text-primary neon-text">VAULT</span>
+            </h2>
+            <p className="text-muted-foreground text-sm max-w-xl">
+              Your generated masterpieces, preserved and ready for download.
+            </p>
+          </div>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleRefresh}
+            disabled={refreshing}
+            className="gap-2"
+          >
+            <RefreshCw className={cn("w-4 h-4", refreshing && "animate-spin")} />
+            Refresh
+          </Button>
         </div>
 
-        {/* History Grid */}
-        <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
-          {mockHistory.map((item, index) => (
-            <div
-              key={item.id}
-              className="glass-panel-elevated overflow-hidden group animate-fade-in hover:border-primary/30 transition-all duration-300"
-              style={{ animationDelay: `${index * 100}ms` }}
-            >
-              {/* Thumbnail */}
-              <div className="aspect-video bg-background/50 relative overflow-hidden">
-                {item.status === 'processing' ? (
-                  <div className="absolute inset-0 flex items-center justify-center">
-                    <div className="w-12 h-12 rounded-full border-2 border-primary/30 border-t-primary animate-spin" />
-                  </div>
-                ) : (
-                  <div className="absolute inset-0 flex items-center justify-center bg-gradient-to-br from-primary/10 to-neon-blue/10">
-                    <svg className="w-12 h-12 text-primary/40" fill="currentColor" viewBox="0 0 24 24">
-                      <path d="M8 5v14l11-7z" />
-                    </svg>
-                  </div>
-                )}
-                
-                {/* Status Badge */}
-                <div className={cn(
-                  "absolute top-3 right-3 px-2 py-1 rounded-md text-[10px] font-bold uppercase tracking-wider",
-                  item.status === 'completed' && "bg-primary/20 text-primary border border-primary/30",
-                  item.status === 'processing' && "bg-amber-500/20 text-amber-400 border border-amber-500/30",
-                  item.status === 'failed' && "bg-destructive/20 text-destructive border border-destructive/30"
-                )}>
-                  {item.status}
-                </div>
-
-                {/* Duration */}
-                <div className="absolute bottom-3 right-3 px-2 py-1 rounded-md bg-background/80 backdrop-blur-sm text-xs font-mono text-foreground">
-                  {item.duration}s
-                </div>
-
-                {/* Hover Overlay */}
-                <div className="absolute inset-0 bg-gradient-to-t from-background via-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
-              </div>
-
-              {/* Content */}
-              <div className="p-4">
-                <p className="text-sm text-foreground line-clamp-2 mb-2">{item.prompt}</p>
-                <div className="flex items-center justify-between">
-                  <span className="text-xs text-muted-foreground">{formatDate(item.created_at)}</span>
-                  {item.status === 'completed' && (
-                    <button className="text-xs text-primary hover:text-primary/80 font-semibold uppercase tracking-wider transition-colors">
-                      Download
-                    </button>
-                  )}
-                </div>
-              </div>
-            </div>
-          ))}
-        </div>
-
-        {/* Empty State */}
-        {mockHistory.length === 0 && (
+        {/* Loading State */}
+        {loading ? (
+          <div className="flex items-center justify-center py-20">
+            <Loader2 className="w-8 h-8 text-primary animate-spin" />
+          </div>
+        ) : videos.length === 0 ? (
+          /* Empty State */
           <div className="glass-panel-elevated p-12 text-center animate-fade-in">
             <svg className="w-16 h-16 mx-auto mb-4 text-muted-foreground/30" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
@@ -136,8 +157,122 @@ const HistoryVault: React.FC<HistoryVaultProps> = ({ userProfile }) => {
             <h3 className="text-lg font-bold text-foreground mb-2">Vault is Empty</h3>
             <p className="text-muted-foreground text-sm">Your generated videos will appear here</p>
           </div>
+        ) : (
+          /* Video Grid */
+          <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            {videos.map((video, index) => (
+              <div
+                key={video.id}
+                className="glass-panel-elevated overflow-hidden group animate-fade-in hover:border-primary/30 transition-all duration-300"
+                style={{ animationDelay: `${index * 100}ms` }}
+              >
+                {/* Thumbnail */}
+                <div className={cn(
+                  "relative overflow-hidden bg-background/50",
+                  video.aspect_ratio === 'portrait' ? "aspect-[9/16]" : "aspect-video"
+                )}>
+                  {video.status === 'processing' ? (
+                    <div className="absolute inset-0 flex flex-col items-center justify-center">
+                      <div className="w-12 h-12 rounded-full border-2 border-primary/30 border-t-primary animate-spin mb-2" />
+                      <span className="text-xs text-muted-foreground">{video.status_percentage}%</span>
+                      <button
+                        onClick={() => checkAndUpdateStatus(video)}
+                        className="mt-2 text-xs text-primary hover:text-primary/80"
+                      >
+                        Check Status
+                      </button>
+                    </div>
+                  ) : video.status === 'completed' && video.video_url ? (
+                    <>
+                      {video.thumbnail_url ? (
+                        <img 
+                          src={video.thumbnail_url} 
+                          alt="Thumbnail" 
+                          className="w-full h-full object-cover"
+                        />
+                      ) : (
+                        <div className="absolute inset-0 flex items-center justify-center bg-gradient-to-br from-primary/10 to-neon-blue/10">
+                          <Play className="w-12 h-12 text-primary/40" />
+                        </div>
+                      )}
+                      {/* Play Overlay */}
+                      <div 
+                        className="absolute inset-0 flex items-center justify-center bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer"
+                        onClick={() => setPreviewVideo(video.video_url)}
+                      >
+                        <div className="w-14 h-14 rounded-full bg-primary/90 flex items-center justify-center">
+                          <Play className="w-6 h-6 text-primary-foreground ml-1" />
+                        </div>
+                      </div>
+                    </>
+                  ) : (
+                    <div className="absolute inset-0 flex items-center justify-center bg-destructive/10">
+                      <span className="text-destructive text-xs">Failed</span>
+                    </div>
+                  )}
+                  
+                  {/* Status Badge */}
+                  <div className={cn(
+                    "absolute top-3 right-3 px-2 py-1 rounded-md text-[10px] font-bold uppercase tracking-wider",
+                    video.status === 'completed' && "bg-primary/20 text-primary border border-primary/30",
+                    video.status === 'processing' && "bg-amber-500/20 text-amber-400 border border-amber-500/30",
+                    video.status === 'failed' && "bg-destructive/20 text-destructive border border-destructive/30"
+                  )}>
+                    {video.status}
+                  </div>
+
+                  {/* Duration */}
+                  <div className="absolute bottom-3 right-3 px-2 py-1 rounded-md bg-background/80 backdrop-blur-sm text-xs font-mono text-foreground">
+                    {video.duration}s
+                  </div>
+                </div>
+
+                {/* Content */}
+                <div className="p-4">
+                  <p className="text-sm text-foreground line-clamp-2 mb-2">{video.prompt}</p>
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs text-muted-foreground">{formatDate(video.created_at)}</span>
+                    {video.status === 'completed' && video.video_url && (
+                      <button 
+                        onClick={() => handleDownload(video.video_url!)}
+                        className="flex items-center gap-1 text-xs text-primary hover:text-primary/80 font-semibold uppercase tracking-wider transition-colors"
+                      >
+                        <Download className="w-3 h-3" />
+                        Download
+                      </button>
+                    )}
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
         )}
       </div>
+
+      {/* Video Preview Modal */}
+      {previewVideo && (
+        <div 
+          className="fixed inset-0 z-50 bg-black/90 flex items-center justify-center p-4"
+          onClick={() => setPreviewVideo(null)}
+        >
+          <div className="relative max-w-4xl w-full" onClick={e => e.stopPropagation()}>
+            <button
+              onClick={() => setPreviewVideo(null)}
+              className="absolute -top-12 right-0 text-white hover:text-primary transition-colors"
+            >
+              <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+            <video 
+              src={previewVideo} 
+              controls 
+              autoPlay
+              className="w-full rounded-xl"
+            />
+          </div>
+        </div>
+      )}
     </div>
   );
 };
