@@ -103,35 +103,27 @@ const HistoryVault: React.FC<HistoryVaultProps> = ({ userProfile }) => {
         body: { geminigen_uuid: video.geminigen_uuid, video_id: video.id },
       });
 
-      if (response.data?.status === 'completed' && response.data?.video_url) {
-        // Update local state
+      console.log('Status check response:', response.data);
+
+      if (response.data?.success) {
+        // Update local state with latest data from GeminiGen
         setVideos(prev => prev.map(v => 
           v.id === video.id 
-            ? { ...v, status: 'completed', video_url: response.data.video_url, thumbnail_url: response.data.thumbnail_url }
+            ? { 
+                ...v, 
+                status: response.data.status,
+                status_percentage: response.data.status_percentage || v.status_percentage,
+                video_url: response.data.video_url || v.video_url, 
+                thumbnail_url: response.data.thumbnail_url || v.thumbnail_url 
+              }
             : v
         ));
 
-        // Update database
-        await supabase
-          .from('video_generations')
-          .update({
-            status: 'completed',
-            video_url: response.data.video_url,
-            thumbnail_url: response.data.thumbnail_url,
-            status_percentage: 100,
-          })
-          .eq('id', video.id);
-
-        toast.success('Video telah siap!');
-      } else if (response.data?.status === 'failed') {
-        setVideos(prev => prev.map(v => 
-          v.id === video.id ? { ...v, status: 'failed' } : v
-        ));
-
-        await supabase
-          .from('video_generations')
-          .update({ status: 'failed' })
-          .eq('id', video.id);
+        if (response.data.status === 'completed') {
+          toast.success('Video telah siap!');
+        } else if (response.data.status === 'failed') {
+          toast.error('Video gagal dijana');
+        }
       }
     } catch (error) {
       console.error('Error checking status:', error);
