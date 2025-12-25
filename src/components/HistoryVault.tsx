@@ -178,7 +178,7 @@ const HistoryVault: React.FC<HistoryVaultProps> = ({ userProfile }) => {
       if (video.video_url) {
         setPreviewVideo(video.video_url);
       } else {
-        toast.error('Video tidak mempunyai URL');
+        toast.error('Video tidak mempunyai UUID untuk mendapatkan URL');
       }
       return;
     }
@@ -273,7 +273,7 @@ const HistoryVault: React.FC<HistoryVaultProps> = ({ userProfile }) => {
                         Check Status
                       </button>
                     </div>
-                  ) : video.status === 'completed' && video.video_url ? (
+                  ) : video.status === 'completed' ? (
                     <>
                       {video.thumbnail_url ? (
                         <img 
@@ -330,7 +330,7 @@ const HistoryVault: React.FC<HistoryVaultProps> = ({ userProfile }) => {
                   <p className="text-sm text-foreground line-clamp-2 mb-2">{video.prompt}</p>
                   <div className="flex items-center justify-between">
                     <span className="text-xs text-muted-foreground">{formatDate(video.created_at)}</span>
-                    {video.status === 'completed' && video.video_url && (
+                    {video.status === 'completed' && video.geminigen_uuid && (
                       <button 
                         onClick={() => handleDownload(video)}
                         disabled={loadingUrl === video.id}
