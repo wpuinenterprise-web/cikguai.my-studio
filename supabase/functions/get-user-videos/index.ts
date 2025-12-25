@@ -61,38 +61,39 @@ serve(async (req) => {
     // Get existing videos from database
     const { data: existingVideos } = await supabase
       .from('video_generations')
-      .select('geminigen_uuid')
+      .select('id, geminigen_uuid, video_url, status')
       .eq('user_id', user.id);
 
-    const existingUuids = new Set(existingVideos?.map(v => v.geminigen_uuid) || []);
+    const existingMap = new Map(existingVideos?.map(v => [v.geminigen_uuid, v]) || []);
 
-    // Sync new videos to database
+    // Sync videos to database (insert new or update existing)
     for (const history of videoHistories) {
-      if (!existingUuids.has(history.uuid)) {
-        console.log('Syncing new video:', history.uuid);
-        
-        // Determine status
-        let status = 'processing';
-        if (history.status === 2) status = 'completed';
-        else if (history.status === 3) status = 'failed';
+      // Determine status
+      let status = 'processing';
+      if (history.status === 2) status = 'completed';
+      else if (history.status === 3) status = 'failed';
 
-        // Get video URL and thumbnail from generated_video array if available
-        let videoUrl = null;
-        let thumbnailUrl = history.thumbnail_url || null;
-        
-        if (history.generated_video && history.generated_video.length > 0) {
-          const video = history.generated_video[0];
-          videoUrl = video.file_download_url || video.video_url;
-          if (!thumbnailUrl) {
-            if (video.last_frame && video.last_frame.startsWith('http')) {
-              thumbnailUrl = video.last_frame;
-            } else if (video.last_frame) {
-              thumbnailUrl = `https://cdn.geminigen.ai/${video.last_frame}`;
-            }
+      // Get video URL and thumbnail from generated_video array if available
+      let videoUrl = null;
+      let thumbnailUrl = history.thumbnail_url || null;
+      
+      if (history.generated_video && history.generated_video.length > 0) {
+        const video = history.generated_video[0];
+        videoUrl = video.file_download_url || video.video_url;
+        if (!thumbnailUrl) {
+          if (video.last_frame && video.last_frame.startsWith('http')) {
+            thumbnailUrl = video.last_frame;
+          } else if (video.last_frame) {
+            thumbnailUrl = `https://cdn.geminigen.ai/${video.last_frame}`;
           }
         }
+      }
 
-        // Insert new video into database
+      const existing = existingMap.get(history.uuid);
+      
+      if (!existing) {
+        // Insert new video
+        console.log('Syncing new video:', history.uuid);
         const { error: insertError } = await supabase
           .from('video_generations')
           .insert({
@@ -113,6 +114,25 @@ serve(async (req) => {
           console.error('Failed to insert video:', insertError);
         } else {
           console.log('Successfully synced video:', history.uuid);
+        }
+      } else if (existing.status !== 'completed' || !existing.video_url) {
+        // Update existing video if not completed or missing video_url
+        console.log('Updating existing video:', history.uuid);
+        const { error: updateError } = await supabase
+          .from('video_generations')
+          .update({
+            status: status,
+            status_percentage: history.status_percentage || (status === 'completed' ? 100 : 0),
+            video_url: videoUrl || existing.video_url,
+            thumbnail_url: thumbnailUrl,
+            updated_at: history.updated_at || new Date().toISOString(),
+          })
+          .eq('id', existing.id);
+
+        if (updateError) {
+          console.error('Failed to update video:', updateError);
+        } else {
+          console.log('Successfully updated video:', history.uuid);
         }
       }
     }
