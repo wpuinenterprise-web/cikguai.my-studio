@@ -131,19 +131,24 @@ const HistoryVault: React.FC<HistoryVaultProps> = ({ userProfile }) => {
     }
   };
 
-  const getFreshVideoUrl = async (geminigenUuid: string): Promise<string | null> => {
+  const getFreshVideoUrl = async (geminigenUuid: string): Promise<{ videoUrl: string | null; downloadUrl: string | null }> => {
     try {
       const response = await supabase.functions.invoke('get-fresh-video-url', {
         body: { geminigen_uuid: geminigenUuid },
       });
 
-      if (response.data?.success && response.data?.video_url) {
-        return response.data.video_url;
+      console.log('Fresh URL response:', response.data);
+
+      if (response.data?.success) {
+        return {
+          videoUrl: response.data.video_url || null,
+          downloadUrl: response.data.download_url || response.data.video_url || null
+        };
       }
-      return null;
+      return { videoUrl: null, downloadUrl: null };
     } catch (error) {
       console.error('Error fetching fresh URL:', error);
-      return null;
+      return { videoUrl: null, downloadUrl: null };
     }
   };
 
@@ -156,20 +161,17 @@ const HistoryVault: React.FC<HistoryVaultProps> = ({ userProfile }) => {
     setLoadingUrl(video.id);
     toast.info('Mendapatkan URL muat turun...');
 
-    const freshUrl = await getFreshVideoUrl(video.geminigen_uuid);
+    const { downloadUrl } = await getFreshVideoUrl(video.geminigen_uuid);
     setLoadingUrl(null);
 
-    if (freshUrl) {
-      window.open(freshUrl, '_blank');
+    if (downloadUrl) {
+      window.open(downloadUrl, '_blank');
+      toast.success('Video dibuka di tab baru');
+    } else if (video.video_url) {
+      window.open(video.video_url, '_blank');
       toast.success('Video dibuka di tab baru');
     } else {
-      // Fallback to stored URL
-      if (video.video_url) {
-        window.open(video.video_url, '_blank');
-        toast.success('Video dibuka di tab baru');
-      } else {
-        toast.error('Gagal mendapatkan URL video');
-      }
+      toast.error('Gagal mendapatkan URL video');
     }
   };
 
@@ -186,13 +188,12 @@ const HistoryVault: React.FC<HistoryVaultProps> = ({ userProfile }) => {
     setLoadingUrl(video.id);
     toast.info('Mendapatkan URL video...');
 
-    const freshUrl = await getFreshVideoUrl(video.geminigen_uuid);
+    const { videoUrl } = await getFreshVideoUrl(video.geminigen_uuid);
     setLoadingUrl(null);
 
-    if (freshUrl) {
-      setPreviewVideo(freshUrl);
+    if (videoUrl) {
+      setPreviewVideo(videoUrl);
     } else if (video.video_url) {
-      // Fallback to stored URL
       setPreviewVideo(video.video_url);
     } else {
       toast.error('Gagal mendapatkan URL video');
