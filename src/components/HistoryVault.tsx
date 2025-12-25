@@ -28,6 +28,7 @@ const HistoryVault: React.FC<HistoryVaultProps> = ({ userProfile }) => {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [previewVideo, setPreviewVideo] = useState<string | null>(null);
+  const [loadingUrl, setLoadingUrl] = useState<string | null>(null);
 
   const fetchVideos = async () => {
     try {
@@ -130,10 +131,72 @@ const HistoryVault: React.FC<HistoryVaultProps> = ({ userProfile }) => {
     }
   };
 
-  const handleDownload = (videoUrl: string) => {
-    // Open video in new tab for download (avoids CORS issues)
-    window.open(videoUrl, '_blank');
-    toast.success('Video dibuka di tab baru');
+  const getFreshVideoUrl = async (geminigenUuid: string): Promise<string | null> => {
+    try {
+      const response = await supabase.functions.invoke('get-fresh-video-url', {
+        body: { geminigen_uuid: geminigenUuid },
+      });
+
+      if (response.data?.success && response.data?.video_url) {
+        return response.data.video_url;
+      }
+      return null;
+    } catch (error) {
+      console.error('Error fetching fresh URL:', error);
+      return null;
+    }
+  };
+
+  const handleDownload = async (video: VideoGeneration) => {
+    if (!video.geminigen_uuid) {
+      toast.error('Video tidak mempunyai UUID');
+      return;
+    }
+
+    setLoadingUrl(video.id);
+    toast.info('Mendapatkan URL muat turun...');
+
+    const freshUrl = await getFreshVideoUrl(video.geminigen_uuid);
+    setLoadingUrl(null);
+
+    if (freshUrl) {
+      window.open(freshUrl, '_blank');
+      toast.success('Video dibuka di tab baru');
+    } else {
+      // Fallback to stored URL
+      if (video.video_url) {
+        window.open(video.video_url, '_blank');
+        toast.success('Video dibuka di tab baru');
+      } else {
+        toast.error('Gagal mendapatkan URL video');
+      }
+    }
+  };
+
+  const handlePreview = async (video: VideoGeneration) => {
+    if (!video.geminigen_uuid) {
+      if (video.video_url) {
+        setPreviewVideo(video.video_url);
+      } else {
+        toast.error('Video tidak mempunyai URL');
+      }
+      return;
+    }
+
+    setLoadingUrl(video.id);
+    toast.info('Mendapatkan URL video...');
+
+    const freshUrl = await getFreshVideoUrl(video.geminigen_uuid);
+    setLoadingUrl(null);
+
+    if (freshUrl) {
+      setPreviewVideo(freshUrl);
+    } else if (video.video_url) {
+      // Fallback to stored URL
+      setPreviewVideo(video.video_url);
+    } else {
+      toast.error('Gagal mendapatkan URL video');
+    }
   };
 
   const formatDate = (dateString: string) => {
@@ -225,12 +288,19 @@ const HistoryVault: React.FC<HistoryVaultProps> = ({ userProfile }) => {
                       )}
                       {/* Play Overlay */}
                       <div 
-                        className="absolute inset-0 flex items-center justify-center bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer"
-                        onClick={() => setPreviewVideo(video.video_url)}
+                        className={cn(
+                          "absolute inset-0 flex items-center justify-center bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer",
+                          loadingUrl === video.id && "opacity-100"
+                        )}
+                        onClick={() => handlePreview(video)}
                       >
-                        <div className="w-14 h-14 rounded-full bg-primary/90 flex items-center justify-center">
-                          <Play className="w-6 h-6 text-primary-foreground ml-1" />
-                        </div>
+                        {loadingUrl === video.id ? (
+                          <Loader2 className="w-8 h-8 text-white animate-spin" />
+                        ) : (
+                          <div className="w-14 h-14 rounded-full bg-primary/90 flex items-center justify-center">
+                            <Play className="w-6 h-6 text-primary-foreground ml-1" />
+                          </div>
+                        )}
                       </div>
                     </>
                   ) : (
@@ -262,10 +332,15 @@ const HistoryVault: React.FC<HistoryVaultProps> = ({ userProfile }) => {
                     <span className="text-xs text-muted-foreground">{formatDate(video.created_at)}</span>
                     {video.status === 'completed' && video.video_url && (
                       <button 
-                        onClick={() => handleDownload(video.video_url!)}
-                        className="flex items-center gap-1 text-xs text-primary hover:text-primary/80 font-semibold uppercase tracking-wider transition-colors"
+                        onClick={() => handleDownload(video)}
+                        disabled={loadingUrl === video.id}
+                        className="flex items-center gap-1 text-xs text-primary hover:text-primary/80 font-semibold uppercase tracking-wider transition-colors disabled:opacity-50"
                       >
-                        <Download className="w-3 h-3" />
+                        {loadingUrl === video.id ? (
+                          <Loader2 className="w-3 h-3 animate-spin" />
+                        ) : (
+                          <Download className="w-3 h-3" />
+                        )}
                         Download
                       </button>
                     )}

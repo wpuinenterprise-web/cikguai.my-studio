@@ -11,3 +11,6 @@ verify_jwt = false
 
 [functions.generate-ugc-prompt]
 verify_jwt = false
+
+[functions.get-fresh-video-url]
+verify_jwt = false
