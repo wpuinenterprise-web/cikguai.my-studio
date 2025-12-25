@@ -69,7 +69,7 @@ serve(async (req) => {
       // Get existing videos from database - use geminigen_uuid as unique key
       const { data: existingVideos } = await supabase
         .from('video_generations')
-        .select('id, geminigen_uuid, video_url, status, status_percentage')
+        .select('id, geminigen_uuid, video_url, status, status_percentage, created_at')
         .eq('user_id', user.id);
 
       const existingMap = new Map(
@@ -77,6 +77,23 @@ serve(async (req) => {
       );
 
       console.log('Existing videos in DB:', existingVideos?.length || 0);
+
+      // Clean up orphan processing videos (no geminigen_uuid and older than 5 minutes)
+      const orphanVideos = existingVideos?.filter(v => 
+        !v.geminigen_uuid && 
+        v.status === 'processing' &&
+        new Date(v.created_at).getTime() < Date.now() - 5 * 60 * 1000
+      ) || [];
+
+      if (orphanVideos.length > 0) {
+        console.log('Cleaning up', orphanVideos.length, 'orphan processing videos');
+        for (const orphan of orphanVideos) {
+          await supabase
+            .from('video_generations')
+            .delete()
+            .eq('id', orphan.id);
+        }
+      }
 
       // Sync videos to database (upsert by geminigen_uuid)
       for (const history of videoHistories) {
@@ -171,6 +188,25 @@ serve(async (req) => {
               console.error('Failed to update video:', updateError.message);
             }
           }
+        }
+      }
+
+      // Mark processing videos not in GeminiGen history as potentially stale
+      const geminigenUuids = new Set(videoHistories.map((h: any) => h.uuid));
+      const processingVideos = existingVideos?.filter(v => 
+        v.geminigen_uuid && 
+        v.status === 'processing' &&
+        !geminigenUuids.has(v.geminigen_uuid) &&
+        new Date(v.created_at).getTime() < Date.now() - 10 * 60 * 1000 // older than 10 minutes
+      ) || [];
+
+      if (processingVideos.length > 0) {
+        console.log('Marking', processingVideos.length, 'stale processing videos as failed');
+        for (const stale of processingVideos) {
+          await supabase
+            .from('video_generations')
+            .update({ status: 'failed', updated_at: new Date().toISOString() })
+            .eq('id', stale.id);
         }
       }
     }

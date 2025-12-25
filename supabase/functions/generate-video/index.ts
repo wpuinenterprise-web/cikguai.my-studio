@@ -125,16 +125,19 @@ serve(async (req) => {
       throw new Error(geminigenData.detail?.message || 'Failed to generate video');
     }
 
-    // Update video record with GeminiGen UUID
+    // Update video record with GeminiGen UUID - THIS IS CRITICAL for sync
     const { error: updateError } = await supabase
       .from('video_generations')
       .update({
+        geminigen_uuid: geminigenData.uuid,
         status_percentage: geminigenData.status_percentage || 10,
       })
       .eq('id', videoRecord.id);
 
     if (updateError) {
       console.error('Update error:', updateError);
+    } else {
+      console.log('Updated video with geminigen_uuid:', geminigenData.uuid);
     }
 
     // Increment user's video count
