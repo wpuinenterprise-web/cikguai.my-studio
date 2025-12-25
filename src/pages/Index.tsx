@@ -88,6 +88,11 @@ const Index = () => {
           video_limit: profileData.video_limit,
           image_limit: profileData.image_limit,
         });
+        
+        // Set default view based on role - admin goes to dashboard
+        if (isAdmin) {
+          setActiveView(AppView.ADMIN_DASHBOARD);
+        }
       }
     } catch (err) {
       console.error('Error in fetchProfile:', err);
