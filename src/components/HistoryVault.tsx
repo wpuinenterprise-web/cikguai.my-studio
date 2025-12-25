@@ -44,6 +44,21 @@ const HistoryVault: React.FC<HistoryVaultProps> = ({ userProfile }) => {
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [aspectFilter, setAspectFilter] = useState<string>('all');
 
+  // Separate recent videos (last 24 hours or processing)
+  const recentVideos = useMemo(() => {
+    const oneDayAgo = Date.now() - 24 * 60 * 60 * 1000;
+    const seen = new Set<string>();
+    return videos.filter(video => {
+      if (video.geminigen_uuid) {
+        if (seen.has(video.geminigen_uuid)) return false;
+        seen.add(video.geminigen_uuid);
+      }
+      const isRecent = new Date(video.created_at).getTime() > oneDayAgo;
+      const isProcessing = video.status === 'processing';
+      return isRecent || isProcessing;
+    });
+  }, [videos]);
+
   // Filtered videos based on search and filters
   const filteredVideos = useMemo(() => {
     // Deduplicate by geminigen_uuid in frontend as well
@@ -320,8 +335,112 @@ const HistoryVault: React.FC<HistoryVaultProps> = ({ userProfile }) => {
     });
   };
 
+  // Render a single video card
+  const renderVideoCard = (video: VideoGeneration, index: number, compact = false) => (
+    <div
+      key={video.id}
+      className={cn(
+        "glass-panel-elevated overflow-hidden group animate-fade-in hover:border-primary/30 transition-all duration-300 flex-shrink-0",
+        compact && "w-[200px] sm:w-[240px]"
+      )}
+      style={{ animationDelay: `${Math.min(index * 50, 500)}ms` }}
+    >
+      {/* Thumbnail */}
+      <div className={cn(
+        "relative overflow-hidden bg-background/50",
+        compact ? "aspect-video" : (video.aspect_ratio === 'portrait' ? "aspect-[9/16]" : "aspect-video")
+      )}>
+        {video.status === 'processing' ? (
+          <div className="absolute inset-0 flex flex-col items-center justify-center">
+            <div className="w-10 h-10 rounded-full border-2 border-primary/30 border-t-primary animate-spin mb-2" />
+            <span className="text-xs text-muted-foreground">{video.status_percentage}%</span>
+            <button
+              onClick={() => checkAndUpdateStatus(video)}
+              className="mt-1 text-[10px] text-primary hover:text-primary/80"
+            >
+              Semak Status
+            </button>
+          </div>
+        ) : video.status === 'completed' ? (
+          <>
+            {video.thumbnail_url ? (
+              <img 
+                src={video.thumbnail_url} 
+                alt="Thumbnail" 
+                className="w-full h-full object-cover"
+              />
+            ) : (
+              <div className="absolute inset-0 flex items-center justify-center bg-gradient-to-br from-primary/10 to-neon-blue/10">
+                <Play className="w-8 h-8 text-primary/40" />
+              </div>
+            )}
+            {/* Play Overlay - always visible on mobile */}
+            <div 
+              className={cn(
+                "absolute inset-0 flex items-center justify-center bg-black/40 transition-opacity cursor-pointer",
+                "opacity-100 sm:opacity-0 sm:group-hover:opacity-100",
+                loadingUrl === video.id && "opacity-100"
+              )}
+              onClick={() => handlePreview(video)}
+            >
+              {loadingUrl === video.id ? (
+                <Loader2 className="w-6 h-6 text-white animate-spin" />
+              ) : (
+                <div className="w-10 h-10 rounded-full bg-primary/90 flex items-center justify-center">
+                  <Play className="w-4 h-4 text-primary-foreground ml-0.5" />
+                </div>
+              )}
+            </div>
+          </>
+        ) : (
+          <div className="absolute inset-0 flex items-center justify-center bg-destructive/10">
+            <span className="text-destructive text-xs">Gagal</span>
+          </div>
+        )}
+        
+        {/* Status Badge */}
+        <div className={cn(
+          "absolute top-2 right-2 px-1.5 py-0.5 rounded text-[9px] font-bold uppercase tracking-wider",
+          video.status === 'completed' && "bg-primary/20 text-primary border border-primary/30",
+          video.status === 'processing' && "bg-amber-500/20 text-amber-400 border border-amber-500/30",
+          video.status === 'failed' && "bg-destructive/20 text-destructive border border-destructive/30"
+        )}>
+          {video.status === 'processing' ? 'Memproses' : video.status === 'completed' ? 'Siap' : 'Gagal'}
+        </div>
+
+        {/* Duration */}
+        <div className="absolute bottom-2 right-2 px-1.5 py-0.5 rounded bg-background/80 backdrop-blur-sm text-[10px] font-mono text-foreground">
+          {video.duration}s
+        </div>
+      </div>
+
+      {/* Content */}
+      <div className="p-3">
+        <p className="text-xs text-foreground line-clamp-2 mb-2">{video.prompt}</p>
+        <div className="flex items-center justify-between gap-2">
+          <span className="text-[10px] text-muted-foreground truncate">{formatDate(video.created_at)}</span>
+          {video.status === 'completed' && video.geminigen_uuid && (
+            <button 
+              onClick={() => handleDownload(video)}
+              disabled={loadingUrl === video.id}
+              className="flex items-center gap-1 text-[10px] text-primary hover:text-primary/80 font-semibold transition-colors disabled:opacity-50"
+            >
+              {loadingUrl === video.id ? (
+                <Loader2 className="w-3 h-3 animate-spin" />
+              ) : (
+                <Download className="w-3 h-3" />
+              )}
+            </button>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+
   return (
-    <div className="min-h-screen pt-20 pb-8 px-4 sm:px-6 lg:px-8">
+    <div className="min-h-screen pt-16 pb-24 px-3 sm:px-6 lg:px-8 overflow-y-auto"
+      style={{ WebkitOverflowScrolling: 'touch' }}
+    >
       <div className="max-w-7xl mx-auto">
         {/* Header */}
         <div className="mb-6 animate-fade-in flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
@@ -419,124 +538,51 @@ const HistoryVault: React.FC<HistoryVaultProps> = ({ userProfile }) => {
           </div>
         ) : videos.length === 0 ? (
           /* Empty State */
-          <div className="glass-panel-elevated p-12 text-center animate-fade-in">
-            <svg className="w-16 h-16 mx-auto mb-4 text-muted-foreground/30" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <div className="glass-panel-elevated p-8 sm:p-12 text-center animate-fade-in">
+            <svg className="w-12 h-12 sm:w-16 sm:h-16 mx-auto mb-4 text-muted-foreground/30" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
             </svg>
-            <h3 className="text-lg font-bold text-foreground mb-2">Vault is Empty</h3>
-            <p className="text-muted-foreground text-sm">Your generated videos will appear here</p>
-          </div>
-        ) : filteredVideos.length === 0 ? (
-          /* No Results State */
-          <div className="glass-panel-elevated p-12 text-center animate-fade-in">
-            <Search className="w-16 h-16 mx-auto mb-4 text-muted-foreground/30" />
-            <h3 className="text-lg font-bold text-foreground mb-2">Tiada Hasil Dijumpai</h3>
-            <p className="text-muted-foreground text-sm mb-4">Cuba ubah carian atau penapis anda</p>
-            <Button variant="outline" size="sm" onClick={clearFilters}>
-              Reset Penapis
-            </Button>
+            <h3 className="text-lg font-bold text-foreground mb-2">Vault Kosong</h3>
+            <p className="text-muted-foreground text-sm">Video yang dijana akan muncul di sini</p>
           </div>
         ) : (
-          /* Video Grid */
-          <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
-            {filteredVideos.map((video, index) => (
-              <div
-                key={video.id}
-                className="glass-panel-elevated overflow-hidden group animate-fade-in hover:border-primary/30 transition-all duration-300"
-                style={{ animationDelay: `${index * 100}ms` }}
-              >
-                {/* Thumbnail */}
-                <div className={cn(
-                  "relative overflow-hidden bg-background/50",
-                  video.aspect_ratio === 'portrait' ? "aspect-[9/16]" : "aspect-video"
-                )}>
-                  {video.status === 'processing' ? (
-                    <div className="absolute inset-0 flex flex-col items-center justify-center">
-                      <div className="w-12 h-12 rounded-full border-2 border-primary/30 border-t-primary animate-spin mb-2" />
-                      <span className="text-xs text-muted-foreground">{video.status_percentage}%</span>
-                      <button
-                        onClick={() => checkAndUpdateStatus(video)}
-                        className="mt-2 text-xs text-primary hover:text-primary/80"
-                      >
-                        Check Status
-                      </button>
-                    </div>
-                  ) : video.status === 'completed' ? (
-                    <>
-                      {video.thumbnail_url ? (
-                        <img 
-                          src={video.thumbnail_url} 
-                          alt="Thumbnail" 
-                          className="w-full h-full object-cover"
-                        />
-                      ) : (
-                        <div className="absolute inset-0 flex items-center justify-center bg-gradient-to-br from-primary/10 to-neon-blue/10">
-                          <Play className="w-12 h-12 text-primary/40" />
-                        </div>
-                      )}
-                      {/* Play Overlay */}
-                      <div 
-                        className={cn(
-                          "absolute inset-0 flex items-center justify-center bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer",
-                          loadingUrl === video.id && "opacity-100"
-                        )}
-                        onClick={() => handlePreview(video)}
-                      >
-                        {loadingUrl === video.id ? (
-                          <Loader2 className="w-8 h-8 text-white animate-spin" />
-                        ) : (
-                          <div className="w-14 h-14 rounded-full bg-primary/90 flex items-center justify-center">
-                            <Play className="w-6 h-6 text-primary-foreground ml-1" />
-                          </div>
-                        )}
-                      </div>
-                    </>
-                  ) : (
-                    <div className="absolute inset-0 flex items-center justify-center bg-destructive/10">
-                      <span className="text-destructive text-xs">Failed</span>
-                    </div>
-                  )}
-                  
-                  {/* Status Badge */}
-                  <div className={cn(
-                    "absolute top-3 right-3 px-2 py-1 rounded-md text-[10px] font-bold uppercase tracking-wider",
-                    video.status === 'completed' && "bg-primary/20 text-primary border border-primary/30",
-                    video.status === 'processing' && "bg-amber-500/20 text-amber-400 border border-amber-500/30",
-                    video.status === 'failed' && "bg-destructive/20 text-destructive border border-destructive/30"
-                  )}>
-                    {video.status}
-                  </div>
-
-                  {/* Duration */}
-                  <div className="absolute bottom-3 right-3 px-2 py-1 rounded-md bg-background/80 backdrop-blur-sm text-xs font-mono text-foreground">
-                    {video.duration}s
-                  </div>
-                </div>
-
-                {/* Content */}
-                <div className="p-4">
-                  <p className="text-sm text-foreground line-clamp-2 mb-2">{video.prompt}</p>
-                  <div className="flex items-center justify-between">
-                    <span className="text-xs text-muted-foreground">{formatDate(video.created_at)}</span>
-                    {video.status === 'completed' && video.geminigen_uuid && (
-                      <button 
-                        onClick={() => handleDownload(video)}
-                        disabled={loadingUrl === video.id}
-                        className="flex items-center gap-1 text-xs text-primary hover:text-primary/80 font-semibold uppercase tracking-wider transition-colors disabled:opacity-50"
-                      >
-                        {loadingUrl === video.id ? (
-                          <Loader2 className="w-3 h-3 animate-spin" />
-                        ) : (
-                          <Download className="w-3 h-3" />
-                        )}
-                        Download
-                      </button>
-                    )}
-                  </div>
+          <>
+            {/* Recent Videos Section - Horizontal Scroll */}
+            {recentVideos.length > 0 && !hasActiveFilters && (
+              <div className="mb-6 animate-fade-in">
+                <h3 className="text-sm font-bold text-foreground mb-3 flex items-center gap-2">
+                  <span className="w-2 h-2 bg-primary rounded-full animate-pulse" />
+                  BARU DIJANA
+                </h3>
+                <div 
+                  className="flex gap-3 overflow-x-auto pb-3 -mx-3 px-3 scrollbar-hide"
+                  style={{ WebkitOverflowScrolling: 'touch' }}
+                >
+                  {recentVideos.slice(0, 10).map((video, index) => renderVideoCard(video, index, true))}
                 </div>
               </div>
-            ))}
-          </div>
+            )}
+
+            {/* Filtered Results or No Results */}
+            {filteredVideos.length === 0 ? (
+              <div className="glass-panel-elevated p-8 sm:p-12 text-center animate-fade-in">
+                <Search className="w-12 h-12 sm:w-16 sm:h-16 mx-auto mb-4 text-muted-foreground/30" />
+                <h3 className="text-lg font-bold text-foreground mb-2">Tiada Hasil Dijumpai</h3>
+                <p className="text-muted-foreground text-sm mb-4">Cuba ubah carian atau penapis anda</p>
+                <Button variant="outline" size="sm" onClick={clearFilters}>
+                  Reset Penapis
+                </Button>
+              </div>
+            ) : (
+              /* Video Grid */
+              <div>
+                <h3 className="text-sm font-bold text-foreground mb-3">SEMUA VIDEO</h3>
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
+                  {filteredVideos.map((video, index) => renderVideoCard(video, index))}
+                </div>
+              </div>
+            )}
+          </>
         )}
       </div>
 
@@ -549,9 +595,9 @@ const HistoryVault: React.FC<HistoryVaultProps> = ({ userProfile }) => {
           <div className="relative max-w-4xl w-full" onClick={e => e.stopPropagation()}>
             <button
               onClick={() => setPreviewVideo(null)}
-              className="absolute -top-12 right-0 text-white hover:text-primary transition-colors"
+              className="absolute -top-10 sm:-top-12 right-0 text-white hover:text-primary transition-colors"
             >
-              <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <svg className="w-6 h-6 sm:w-8 sm:h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
               </svg>
             </button>
@@ -559,7 +605,8 @@ const HistoryVault: React.FC<HistoryVaultProps> = ({ userProfile }) => {
               src={previewVideo} 
               controls 
               autoPlay
-              className="w-full rounded-xl"
+              playsInline
+              className="w-full rounded-xl max-h-[80vh]"
             />
           </div>
         </div>
