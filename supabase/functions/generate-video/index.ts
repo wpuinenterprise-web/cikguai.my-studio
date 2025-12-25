@@ -90,8 +90,11 @@ serve(async (req) => {
     formData.append('duration', duration.toString());
     formData.append('aspect_ratio', aspect_ratio);
     
-    if (reference_image_url) {
+    // Only send reference image if it's a valid URL (not base64 data URL)
+    if (reference_image_url && !reference_image_url.startsWith('data:')) {
       formData.append('file_urls', reference_image_url);
+    } else if (reference_image_url && reference_image_url.startsWith('data:')) {
+      console.log('Skipping base64 reference image - GeminiGen requires a downloadable URL');
     }
 
     console.log('Calling GeminiGen API...');
