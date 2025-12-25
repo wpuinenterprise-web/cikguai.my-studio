@@ -29,7 +29,17 @@ const SoraStudio: React.FC<SoraStudioProps> = ({ userProfile }) => {
   const [openaiApiKey, setOpenaiApiKey] = useState('');
   const [isGeneratingPrompt, setIsGeneratingPrompt] = useState(false);
   const [generatedDialog, setGeneratedDialog] = useState('');
-  const [generatedSegments, setGeneratedSegments] = useState<Array<{time: string; scene: string; cameraAngle: string; visualStyle: string}>>([]);
+  const [generatedSegments, setGeneratedSegments] = useState<Array<{
+    time: string; 
+    hook?: string;
+    scene: string; 
+    character?: string;
+    cameraAngle: string; 
+    cameraMovement?: string;
+    lighting?: string;
+    dialog?: string;
+    visualStyle: string;
+  }>>([]);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -477,13 +487,56 @@ const SoraStudio: React.FC<SoraStudioProps> = ({ userProfile }) => {
 
                   {generatedSegments.length > 0 && (
                     <div className="mt-3 space-y-2">
-                      <label className="block text-[10px] font-black text-primary uppercase tracking-widest">
-                        Segments
+                      <label className="block text-[10px] font-black text-primary uppercase tracking-widest mb-2">
+                        Segment Details (Per 3 Saat)
                       </label>
                       {generatedSegments.map((seg, idx) => (
-                        <div key={idx} className="p-2 rounded-lg bg-background/30 border border-border/20 text-xs">
-                          <span className="font-bold text-primary">{seg.time}</span>
-                          <span className="text-muted-foreground ml-2">{seg.cameraAngle}</span>
+                        <div key={idx} className="p-3 rounded-xl bg-background/40 border border-border/30 space-y-2">
+                          <div className="flex items-center justify-between">
+                            <span className="text-xs font-bold text-primary bg-primary/10 px-2 py-1 rounded-lg">{seg.time}</span>
+                            {seg.hook && <span className="text-[10px] text-accent font-semibold">{seg.hook}</span>}
+                          </div>
+                          
+                          {seg.scene && (
+                            <div className="text-[10px]">
+                              <span className="text-muted-foreground font-semibold">Scene: </span>
+                              <span className="text-foreground/80">{seg.scene}</span>
+                            </div>
+                          )}
+                          
+                          <div className="grid grid-cols-2 gap-2 text-[10px]">
+                            {seg.cameraAngle && (
+                              <div>
+                                <span className="text-muted-foreground font-semibold">📷 </span>
+                                <span className="text-foreground/70">{seg.cameraAngle}</span>
+                              </div>
+                            )}
+                            {seg.cameraMovement && (
+                              <div>
+                                <span className="text-muted-foreground font-semibold">🎬 </span>
+                                <span className="text-foreground/70">{seg.cameraMovement}</span>
+                              </div>
+                            )}
+                            {seg.lighting && (
+                              <div>
+                                <span className="text-muted-foreground font-semibold">💡 </span>
+                                <span className="text-foreground/70">{seg.lighting}</span>
+                              </div>
+                            )}
+                            {seg.visualStyle && (
+                              <div>
+                                <span className="text-muted-foreground font-semibold">🎨 </span>
+                                <span className="text-foreground/70">{seg.visualStyle}</span>
+                              </div>
+                            )}
+                          </div>
+                          
+                          {seg.dialog && (
+                            <div className="text-[10px] bg-secondary/30 p-2 rounded-lg border-l-2 border-primary/50">
+                              <span className="text-muted-foreground font-semibold">Dialog: </span>
+                              <span className="text-foreground/90 italic">"{seg.dialog}"</span>
+                            </div>
+                          )}
                         </div>
                       ))}
                     </div>
