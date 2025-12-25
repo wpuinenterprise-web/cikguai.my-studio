@@ -1,96 +1,41 @@
 import React, { useState } from 'react';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
+import { useToast } from '@/hooks/use-toast';
 
 interface AuthViewProps {
   onAuthSuccess: () => void;
 }
 
 const AuthView: React.FC<AuthViewProps> = ({ onAuthSuccess }) => {
-  const [mode, setMode] = useState<'login' | 'signup'>('login');
-  const [formData, setFormData] = useState({
-    username: '',
-    email: '',
-    password: '',
-  });
-  const [isLoading, setIsLoading] = useState(false);
+  const [isLogin, setIsLogin] = useState(true);
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [username, setUsername] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const { toast } = useToast();
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const logoUrl = "https://i.ibb.co/xqgH2MQ4/Untitled-design-18.png";
+
+  const handleAuth = async (e: React.FormEvent) => {
     e.preventDefault();
-    setIsLoading(true);
+    setLoading(true);
+    setError(null);
 
     try {
-      if (mode === 'signup') {
-        const redirectUrl = `${window.location.origin}/`;
-        
-        const { data, error } = await supabase.auth.signUp({
-          email: formData.email,
-          password: formData.password,
-          options: {
-            emailRedirectTo: redirectUrl,
-            data: {
-              username: formData.username || formData.email.split('@')[0],
-            },
-          },
-        });
-
-        if (error) {
-          if (error.message.includes('already registered')) {
-            toast({
-              title: 'Email sudah didaftar',
-              description: 'Sila gunakan email lain atau log masuk.',
-              variant: 'destructive',
-            });
-          } else {
-            toast({
-              title: 'Ralat pendaftaran',
-              description: error.message,
-              variant: 'destructive',
-            });
-          }
-          return;
-        }
-
-        if (data.user && !data.session) {
-          toast({
-            title: 'Semak email anda',
-            description: 'Kami telah menghantar link pengesahan ke email anda.',
-          });
-        } else if (data.session) {
-          toast({
-            title: 'Pendaftaran berjaya!',
-            description: 'Selamat datang ke Azmeer AI Studio.',
-          });
-          onAuthSuccess();
-        }
-      } else {
+      if (isLogin) {
         const { data, error } = await supabase.auth.signInWithPassword({
-          email: formData.email,
-          password: formData.password,
+          email,
+          password,
         });
 
         if (error) {
           if (error.message.includes('Invalid login credentials')) {
-            toast({
-              title: 'Log masuk gagal',
-              description: 'Email atau kata laluan tidak sah.',
-              variant: 'destructive',
-            });
+            setError('Email atau kata laluan tidak sah.');
           } else if (error.message.includes('Email not confirmed')) {
-            toast({
-              title: 'Email belum disahkan',
-              description: 'Sila semak email anda untuk link pengesahan.',
-              variant: 'destructive',
-            });
+            setError('Email belum disahkan. Sila semak email anda.');
           } else {
-            toast({
-              title: 'Ralat log masuk',
-              description: error.message,
-              variant: 'destructive',
-            });
+            setError(error.message);
           }
           return;
         }
@@ -102,136 +47,135 @@ const AuthView: React.FC<AuthViewProps> = ({ onAuthSuccess }) => {
           });
           onAuthSuccess();
         }
+      } else {
+        const redirectUrl = `${window.location.origin}/`;
+        
+        const { data, error } = await supabase.auth.signUp({
+          email,
+          password,
+          options: {
+            emailRedirectTo: redirectUrl,
+            data: {
+              username: username || email.split('@')[0],
+            },
+          },
+        });
+
+        if (error) {
+          if (error.message.includes('already registered')) {
+            setError('Email sudah didaftar. Sila guna email lain atau log masuk.');
+          } else {
+            setError(error.message);
+          }
+          return;
+        }
+
+        if (data.user && !data.session) {
+          toast({
+            title: 'Pendaftaran berjaya!',
+            description: 'Sila semak email anda untuk pengesahan.',
+          });
+          setIsLogin(true);
+          setEmail('');
+          setPassword('');
+          setUsername('');
+        } else if (data.session) {
+          toast({
+            title: 'Pendaftaran berjaya!',
+            description: 'Selamat datang ke Azmeer AI Studio.',
+          });
+          onAuthSuccess();
+        }
       }
-    } catch (err) {
-      console.error('Auth error:', err);
-      toast({
-        title: 'Ralat',
-        description: 'Sesuatu telah berlaku. Sila cuba lagi.',
-        variant: 'destructive',
-      });
+    } catch (err: any) {
+      setError(err.message || 'Sesuatu telah berlaku. Sila cuba lagi.');
     } finally {
-      setIsLoading(false);
+      setLoading(false);
     }
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center px-4 bg-background">
-      {/* Background Glow */}
-      <div className="fixed inset-0 overflow-hidden pointer-events-none">
-        <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-primary/10 rounded-full blur-3xl animate-pulse-glow" />
-        <div className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-neon-blue/10 rounded-full blur-3xl animate-pulse-glow" style={{ animationDelay: '1s' }} />
-      </div>
-
-      <div className="w-full max-w-md animate-fade-in">
-        {/* Logo */}
-        <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-gradient-to-br from-primary to-neon-blue neon-glow mb-4">
-            <span className="text-3xl font-black text-primary-foreground">A</span>
-          </div>
-          <h1 className="text-2xl font-black tracking-tight text-foreground">AZMEER AI STUDIO</h1>
-          <p className="text-muted-foreground text-sm mt-1">State-of-the-art video synthesis</p>
-        </div>
-
-        {/* Auth Card */}
-        <div className="glass-panel-elevated p-6">
-          {/* Tabs */}
-          <div className="flex mb-6 p-1 bg-secondary/50 rounded-xl">
-            {(['login', 'signup'] as const).map((tab) => (
-              <button
-                key={tab}
-                onClick={() => setMode(tab)}
-                className={`flex-1 py-2.5 text-xs font-bold uppercase tracking-wider rounded-lg transition-all duration-300 ${
-                  mode === tab
-                    ? 'bg-primary text-primary-foreground shadow-lg shadow-primary/25'
-                    : 'text-muted-foreground hover:text-foreground'
-                }`}
-              >
-                {tab === 'login' ? 'Log Masuk' : 'Daftar Akaun'}
-              </button>
-            ))}
-          </div>
-
-          {/* Form */}
-          <form onSubmit={handleSubmit} className="space-y-4">
-            {mode === 'signup' && (
-              <div>
-                <label className="block text-[10px] font-black text-muted-foreground uppercase tracking-widest mb-2">
-                  Nama Pengguna
-                </label>
-                <Input
-                  type="text"
-                  value={formData.username}
-                  onChange={(e) => setFormData({ ...formData, username: e.target.value })}
-                  placeholder="Masukkan nama pengguna"
-                  className="input-glow"
-                />
-              </div>
-            )}
-
-            <div>
-              <label className="block text-[10px] font-black text-muted-foreground uppercase tracking-widest mb-2">
-                Email
-              </label>
-              <Input
-                type="email"
-                value={formData.email}
-                onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                placeholder="contoh@email.com"
-                required
-                className="input-glow"
-              />
-            </div>
-
-            <div>
-              <label className="block text-[10px] font-black text-muted-foreground uppercase tracking-widest mb-2">
-                Kata Laluan
-              </label>
-              <Input
-                type="password"
-                value={formData.password}
-                onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-                placeholder="••••••••"
-                required
-                minLength={6}
-                className="input-glow"
-              />
-            </div>
-
-            <Button
-              type="submit"
-              className="w-full mt-6 bg-gradient-to-r from-primary to-accent hover:opacity-90 transition-opacity"
-              size="lg"
-              disabled={isLoading}
-            >
-              {isLoading ? (
-                <div className="flex items-center gap-2">
-                  <div className="w-4 h-4 border-2 border-primary-foreground/30 border-t-primary-foreground rounded-full animate-spin" />
-                  <span>Memproses...</span>
-                </div>
-              ) : (
-                <span>{mode === 'login' ? 'Log Masuk' : 'Daftar Sekarang'}</span>
-              )}
-            </Button>
-          </form>
-
-          {/* Footer */}
-          <p className="text-center text-xs text-muted-foreground mt-6">
-            {mode === 'login' ? 'Belum ada akaun? ' : 'Sudah ada akaun? '}
-            <button
-              type="button"
-              onClick={() => setMode(mode === 'login' ? 'signup' : 'login')}
-              className="text-primary hover:underline font-semibold"
-            >
-              {mode === 'login' ? 'Daftar sekarang' : 'Log masuk'}
-            </button>
+    <div className="min-h-screen w-full flex items-center justify-center bg-[#020617] p-6">
+      <div className="max-w-md w-full bg-[#0f172a]/60 backdrop-blur-xl border border-slate-800 rounded-[2.5rem] p-10 shadow-2xl animate-fade-in">
+        <div className="flex flex-col items-center mb-10">
+          <img src={logoUrl} alt="Logo" className="w-16 h-16 mb-6 logo-glow-animate" />
+          <h2 className="text-3xl font-black text-white tracking-tighter uppercase leading-none">
+            {isLogin ? 'Log Masuk' : 'Daftar Baru'}
+          </h2>
+          <p className="text-slate-500 text-[10px] font-bold uppercase tracking-widest mt-4">
+            Azmeer AI Studio • Secure Access
           </p>
         </div>
 
-        {/* Info */}
-        <p className="text-center text-xs text-muted-foreground/60 mt-6">
-          Powered by Supabase Auth
-        </p>
+        <form onSubmit={handleAuth} className="space-y-6">
+          {error && (
+            <div className="bg-rose-500/10 border border-rose-500/20 rounded-2xl p-4 text-rose-500 text-[10px] font-bold uppercase tracking-widest text-center">
+              {error}
+            </div>
+          )}
+
+          {!isLogin && (
+            <div className="space-y-2">
+              <label className="text-[9px] font-bold text-slate-600 uppercase ml-1">Username</label>
+              <input 
+                type="text" 
+                value={username} 
+                onChange={(e) => setUsername(e.target.value)}
+                className="w-full bg-slate-950 border border-slate-800 rounded-2xl py-4 px-6 text-sm text-white outline-none focus:border-cyan-500/50 transition-all"
+                placeholder="Nama pengguna"
+              />
+            </div>
+          )}
+
+          <div className="space-y-2">
+            <label className="text-[9px] font-bold text-slate-600 uppercase ml-1">Email Address</label>
+            <input 
+              type="email" 
+              value={email} 
+              onChange={(e) => setEmail(e.target.value)}
+              className="w-full bg-slate-950 border border-slate-800 rounded-2xl py-4 px-6 text-sm text-white outline-none focus:border-cyan-500/50 transition-all"
+              placeholder="contoh@email.com"
+              required
+            />
+          </div>
+
+          <div className="space-y-2">
+            <label className="text-[9px] font-bold text-slate-600 uppercase ml-1">Password</label>
+            <input 
+              type="password" 
+              value={password} 
+              onChange={(e) => setPassword(e.target.value)}
+              className="w-full bg-slate-950 border border-slate-800 rounded-2xl py-4 px-6 text-sm text-white outline-none focus:border-cyan-500/50 transition-all"
+              placeholder="••••••••"
+              required
+              minLength={6}
+            />
+          </div>
+
+          <button
+            type="submit"
+            disabled={loading}
+            className="w-full bg-cyan-500 hover:bg-cyan-400 text-slate-950 py-5 rounded-2xl font-black text-[11px] uppercase tracking-[0.2em] transition-all shadow-xl flex items-center justify-center gap-3 active:scale-95 disabled:opacity-50"
+          >
+            {loading ? (
+              <div className="w-4 h-4 border-2 border-slate-950 border-t-transparent rounded-full animate-spin"></div>
+            ) : (
+              isLogin ? 'Enter Studio' : 'Create Account'
+            )}
+          </button>
+        </form>
+
+        <div className="mt-8 text-center">
+          <button 
+            onClick={() => {
+              setIsLogin(!isLogin);
+              setError(null);
+            }}
+            className="text-[10px] font-bold text-slate-500 uppercase tracking-widest hover:text-cyan-400 transition-colors"
+          >
+            {isLogin ? "Takda akaun? Daftar sini" : "Dah ada akaun? Log masuk"}
+          </button>
+        </div>
       </div>
     </div>
   );
