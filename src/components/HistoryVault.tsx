@@ -32,6 +32,9 @@ interface HistoryVaultProps {
 }
 
 const HistoryVault: React.FC<HistoryVaultProps> = ({ userProfile }) => {
+  // Check if feature should be locked
+  const isLocked = userProfile && !userProfile.is_admin && (!userProfile.is_approved || userProfile.video_limit <= 0);
+  
   const [videos, setVideos] = useState<VideoGeneration[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -437,13 +440,47 @@ const HistoryVault: React.FC<HistoryVaultProps> = ({ userProfile }) => {
     </div>
   );
 
+  // Locked UI component
+  if (isLocked) {
+    return (
+      <div className="min-h-screen pt-16 pb-24 px-3 sm:px-6 lg:px-8 overflow-y-auto"
+        style={{ WebkitOverflowScrolling: 'touch' }}
+      >
+        <div className="max-w-2xl mx-auto flex items-center justify-center min-h-[60vh]">
+          <div className="glass-panel-elevated p-8 sm:p-12 text-center animate-fade-in">
+            <div className="w-20 h-20 mx-auto mb-6 rounded-full bg-amber-500/10 border-2 border-amber-500/30 flex items-center justify-center">
+              <svg className="w-10 h-10 text-amber-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+              </svg>
+            </div>
+            <h2 className="text-2xl font-black text-foreground mb-3">
+              {!userProfile?.is_approved ? 'Akaun Belum Diluluskan' : 'Had Video Habis'}
+            </h2>
+            <p className="text-muted-foreground text-sm mb-6 max-w-md mx-auto">
+              {!userProfile?.is_approved 
+                ? 'Akaun anda sedang menunggu kelulusan dari admin. Sila tunggu sehingga admin meluluskan akaun anda.'
+                : 'Had video anda telah habis. Sila hubungi admin untuk menambah had video anda.'
+              }
+            </p>
+            <div className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-amber-500/10 border border-amber-500/30">
+              <div className="w-2 h-2 bg-amber-500 rounded-full animate-pulse" />
+              <span className="text-xs font-bold text-amber-500 uppercase tracking-wider">
+                {!userProfile?.is_approved ? 'Menunggu Kelulusan' : 'Limit: 0 Video'}
+              </span>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen pt-16 pb-24 px-3 sm:px-6 lg:px-8 overflow-y-auto"
       style={{ WebkitOverflowScrolling: 'touch' }}
     >
       <div className="max-w-7xl mx-auto">
         {/* Header */}
-        <div className="mb-6 animate-fade-in flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+        <div className="mb-4 sm:mb-6 animate-fade-in flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
           <div>
             <h2 className="text-3xl sm:text-4xl font-black tracking-tight text-foreground mb-2">
               ARCHIVE <span className="text-primary neon-text">VAULT</span>
