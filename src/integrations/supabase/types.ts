@@ -23,6 +23,7 @@ export type Database = {
           image_limit: number
           images_used: number
           is_approved: boolean
+          phone_number: string | null
           updated_at: string
           username: string | null
           video_limit: number
@@ -36,6 +37,7 @@ export type Database = {
           image_limit?: number
           images_used?: number
           is_approved?: boolean
+          phone_number?: string | null
           updated_at?: string
           username?: string | null
           video_limit?: number
@@ -49,6 +51,7 @@ export type Database = {
           image_limit?: number
           images_used?: number
           is_approved?: boolean
+          phone_number?: string | null
           updated_at?: string
           username?: string | null
           video_limit?: number
