@@ -58,12 +58,14 @@ serve(async (req) => {
 
     // Extract video URL from response
     let videoUrl = null;
+    let downloadUrl = null;
     let thumbnailUrl = null;
 
     if (data.generated_video && data.generated_video.length > 0) {
       const video = data.generated_video[0];
-      // Use file_download_url for direct download
-      videoUrl = video.file_download_url || video.video_url;
+      // Use video_url for preview (streaming), file_download_url for download
+      videoUrl = video.video_url || video.file_download_url;
+      downloadUrl = video.file_download_url || video.video_url;
       
       // Get thumbnail
       if (data.thumbnail_url) {
@@ -78,12 +80,14 @@ serve(async (req) => {
     }
 
     console.log('Fresh video URL:', videoUrl);
+    console.log('Fresh download URL:', downloadUrl);
     console.log('Fresh thumbnail URL:', thumbnailUrl);
 
     return new Response(
       JSON.stringify({ 
         success: true, 
         video_url: videoUrl,
+        download_url: downloadUrl,
         thumbnail_url: thumbnailUrl,
         status: data.status === 2 ? 'completed' : data.status === 3 ? 'failed' : 'processing'
       }),
