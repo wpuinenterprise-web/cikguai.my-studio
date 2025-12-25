@@ -2,6 +2,8 @@ import React, { useState, useRef } from 'react';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { cn } from '@/lib/utils';
+import { supabase } from '@/integrations/supabase/client';
+import { toast } from 'sonner';
 
 interface SoraStudioProps {
   userProfile: { username: string; videos_used: number; video_limit: number } | null;
@@ -13,6 +15,8 @@ const SoraStudio: React.FC<SoraStudioProps> = ({ userProfile }) => {
   const [aspectRatio, setAspectRatio] = useState<'landscape' | 'portrait'>('landscape');
   const [isGenerating, setIsGenerating] = useState(false);
   const [filePreview, setFilePreview] = useState<string | null>(null);
+  const [generatedVideoUrl, setGeneratedVideoUrl] = useState<string | null>(null);
+  const [generationProgress, setGenerationProgress] = useState(0);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -26,16 +30,125 @@ const SoraStudio: React.FC<SoraStudioProps> = ({ userProfile }) => {
     }
   };
 
-  const handleGenerate = () => {
+  const checkVideoStatus = async (geminigenUuid: string): Promise<boolean> => {
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) return false;
+
+      const response = await supabase.functions.invoke('check-video-status', {
+        body: { geminigen_uuid: geminigenUuid },
+      });
+
+      if (response.error) {
+        console.error('Status check error:', response.error);
+        return false;
+      }
+
+      const { status, status_percentage, video_url, error_message } = response.data;
+
+      setGenerationProgress(status_percentage || 0);
+
+      if (status === 'completed' && video_url) {
+        setGeneratedVideoUrl(video_url);
+        setIsGenerating(false);
+        toast.success('Video berjaya dijana!');
+        return true;
+      } else if (status === 'failed') {
+        setIsGenerating(false);
+        toast.error(error_message || 'Gagal menjana video');
+        return true;
+      }
+
+      return false;
+    } catch (error) {
+      console.error('Error checking status:', error);
+      return false;
+    }
+  };
+
+  const pollVideoStatus = async (geminigenUuid: string) => {
+    let attempts = 0;
+    const maxAttempts = 60; // 5 minutes max (5s interval)
+
+    const poll = async () => {
+      if (attempts >= maxAttempts) {
+        setIsGenerating(false);
+        toast.error('Penjanaan video tamat masa. Sila semak History.');
+        return;
+      }
+
+      const isDone = await checkVideoStatus(geminigenUuid);
+      if (!isDone) {
+        attempts++;
+        setTimeout(poll, 5000); // Check every 5 seconds
+      }
+    };
+
+    poll();
+  };
+
+  const handleGenerate = async () => {
     if (!prompt.trim()) return;
+    
+    if (userProfile && userProfile.videos_used >= userProfile.video_limit) {
+      toast.error('Had penjanaan video telah dicapai');
+      return;
+    }
+
     setIsGenerating(true);
-    // Simulate generation
-    setTimeout(() => setIsGenerating(false), 3000);
+    setGeneratedVideoUrl(null);
+    setGenerationProgress(1);
+
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        toast.error('Sila log masuk semula');
+        setIsGenerating(false);
+        return;
+      }
+
+      const response = await supabase.functions.invoke('generate-video', {
+        body: {
+          prompt,
+          duration,
+          aspect_ratio: aspectRatio,
+          reference_image_url: filePreview,
+        },
+      });
+
+      if (response.error) {
+        throw new Error(response.error.message);
+      }
+
+      const { success, geminigen_uuid, error } = response.data;
+
+      if (!success) {
+        throw new Error(error || 'Gagal memulakan penjanaan video');
+      }
+
+      toast.success('Penjanaan video dimulakan!');
+
+      // Start polling for status
+      if (geminigen_uuid) {
+        pollVideoStatus(geminigen_uuid);
+      }
+
+    } catch (error: any) {
+      console.error('Generation error:', error);
+      toast.error(error.message || 'Gagal menjana video');
+      setIsGenerating(false);
+    }
   };
 
   const removeFile = () => {
     setFilePreview(null);
     if (fileInputRef.current) fileInputRef.current.value = '';
+  };
+
+  const handleDownload = () => {
+    if (generatedVideoUrl) {
+      window.open(generatedVideoUrl, '_blank');
+    }
   };
 
   return (
@@ -129,7 +242,7 @@ const SoraStudio: React.FC<SoraStudioProps> = ({ userProfile }) => {
             {/* Reference Image */}
             <div className="mb-6">
               <label className="block text-[10px] font-black text-muted-foreground uppercase tracking-widest mb-3">
-                Reference Image (Optional)
+                Reference Image (Optional - Image to Video)
               </label>
               <input
                 type="file"
@@ -147,7 +260,7 @@ const SoraStudio: React.FC<SoraStudioProps> = ({ userProfile }) => {
                   <svg className="w-8 h-8 text-muted-foreground" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
                   </svg>
-                  <span className="text-xs text-muted-foreground">Click to upload reference</span>
+                  <span className="text-xs text-muted-foreground">Click to upload reference (I2V)</span>
                 </div>
               ) : (
                 <div className="relative rounded-xl overflow-hidden">
@@ -179,7 +292,7 @@ const SoraStudio: React.FC<SoraStudioProps> = ({ userProfile }) => {
                     <span className="w-1 h-full bg-primary-foreground rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
                     <span className="w-1 h-full bg-primary-foreground rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
                   </div>
-                  <span>Generating...</span>
+                  <span>Generating... {generationProgress}%</span>
                 </>
               ) : (
                 <>
@@ -213,7 +326,25 @@ const SoraStudio: React.FC<SoraStudioProps> = ({ userProfile }) => {
                 <div className="text-center p-8">
                   <div className="w-16 h-16 mx-auto mb-4 rounded-full border-2 border-primary/30 border-t-primary animate-spin" />
                   <p className="text-primary font-medium animate-pulse mb-2">Processing your vision...</p>
-                  <p className="text-xs text-muted-foreground italic">This usually takes 2-4 minutes</p>
+                  <p className="text-xs text-muted-foreground italic">Progress: {generationProgress}%</p>
+                  <p className="text-xs text-muted-foreground mt-1">This usually takes 2-4 minutes</p>
+                </div>
+              ) : generatedVideoUrl ? (
+                <div className="relative w-full h-full">
+                  <video 
+                    src={generatedVideoUrl} 
+                    controls 
+                    className="w-full h-full object-contain"
+                    autoPlay
+                  />
+                  <button
+                    onClick={handleDownload}
+                    className="absolute top-3 right-3 p-2 bg-primary/90 hover:bg-primary rounded-lg text-primary-foreground transition-all"
+                  >
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                    </svg>
+                  </button>
                 </div>
               ) : (
                 <div className="text-center p-12 opacity-40">
@@ -232,6 +363,7 @@ const SoraStudio: React.FC<SoraStudioProps> = ({ userProfile }) => {
                 <li>• Be descriptive about camera movement and lighting</li>
                 <li>• Specify the mood and atmosphere you want</li>
                 <li>• Include details about subjects and environment</li>
+                <li>• Upload reference image for Image-to-Video (I2V)</li>
               </ul>
             </div>
           </div>

@@ -85,6 +85,7 @@ export type Database = {
           aspect_ratio: string
           created_at: string
           duration: number
+          geminigen_uuid: string | null
           id: string
           prompt: string
           reference_image_url: string | null
@@ -99,6 +100,7 @@ export type Database = {
           aspect_ratio?: string
           created_at?: string
           duration?: number
+          geminigen_uuid?: string | null
           id?: string
           prompt: string
           reference_image_url?: string | null
@@ -113,6 +115,7 @@ export type Database = {
           aspect_ratio?: string
           created_at?: string
           duration?: number
+          geminigen_uuid?: string | null
           id?: string
           prompt?: string
           reference_image_url?: string | null
