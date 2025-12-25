@@ -1,5 +1,4 @@
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -34,14 +33,16 @@ serve(async (req) => {
 
     console.log('Fetching fresh URL for video:', geminigen_uuid);
 
-    // Fetch fresh video data from GeminiGen API
-    const response = await fetch(`https://api.geminigen.ai/sora/generations/${geminigen_uuid}`, {
-      method: 'GET',
-      headers: {
-        'Authorization': `Bearer ${GEMINIGEN_API_KEY}`,
-        'Content-Type': 'application/json',
-      },
-    });
+    // Fetch fresh video data from GeminiGen API using the correct endpoint
+    const response = await fetch(
+      `https://api.geminigen.ai/uapi/v1/history/${geminigen_uuid}`,
+      {
+        method: 'GET',
+        headers: {
+          'x-api-key': GEMINIGEN_API_KEY,
+        },
+      }
+    );
 
     if (!response.ok) {
       const errorText = await response.text();
@@ -61,14 +62,18 @@ serve(async (req) => {
 
     if (data.generated_video && data.generated_video.length > 0) {
       const video = data.generated_video[0];
+      // Use file_download_url for direct download
       videoUrl = video.file_download_url || video.video_url;
       
-      if (video.last_frame) {
-        if (video.last_frame.startsWith('http')) {
-          thumbnailUrl = video.last_frame;
-        } else {
-          thumbnailUrl = `https://cdn.geminigen.ai/${video.last_frame}`;
-        }
+      // Get thumbnail
+      if (data.thumbnail_url) {
+        thumbnailUrl = data.thumbnail_url;
+      } else if (data.last_frame_url) {
+        thumbnailUrl = data.last_frame_url;
+      } else if (video.last_frame && video.last_frame.startsWith('http')) {
+        thumbnailUrl = video.last_frame;
+      } else if (video.last_frame) {
+        thumbnailUrl = `https://cdn.geminigen.ai/${video.last_frame}`;
       }
     }
 
