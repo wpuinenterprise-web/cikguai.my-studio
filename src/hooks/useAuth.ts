@@ -45,24 +45,40 @@ export function useAuth() {
 
   const fetchProfile = async (userId: string) => {
     try {
-      const { data, error } = await supabase
+      // Fetch profile
+      const { data: profileData, error: profileError } = await supabase
         .from('profiles')
         .select('*')
         .eq('id', userId)
         .maybeSingle();
 
-      if (error) {
-        console.error('Error fetching profile:', error);
-      } else if (data) {
+      if (profileError) {
+        console.error('Error fetching profile:', profileError);
+        setLoading(false);
+        return;
+      }
+
+      // Check if user is admin
+      const { data: roleData } = await supabase
+        .from('user_roles')
+        .select('role')
+        .eq('user_id', userId)
+        .eq('role', 'admin')
+        .maybeSingle();
+
+      const isAdmin = !!roleData;
+
+      if (profileData) {
         setProfile({
-          id: data.id,
-          username: data.username || '',
-          email: data.email || '',
-          is_approved: data.is_approved,
-          videos_used: data.videos_used,
-          images_used: data.images_used,
-          video_limit: data.video_limit,
-          image_limit: data.image_limit,
+          id: profileData.id,
+          username: profileData.username || '',
+          email: profileData.email || '',
+          is_approved: profileData.is_approved,
+          is_admin: isAdmin,
+          videos_used: profileData.videos_used,
+          images_used: profileData.images_used,
+          video_limit: profileData.video_limit,
+          image_limit: profileData.image_limit,
         });
       }
     } catch (err) {
