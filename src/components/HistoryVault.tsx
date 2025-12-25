@@ -52,13 +52,47 @@ const HistoryVault: React.FC<HistoryVaultProps> = ({ userProfile }) => {
     }
   };
 
+  // Auto-sync all processing videos with GeminiGen
+  const syncProcessingVideos = async (videoList: VideoGeneration[]) => {
+    const processingVideos = videoList.filter(
+      v => v.status === 'processing' && v.geminigen_uuid
+    );
+    
+    for (const video of processingVideos) {
+      await checkAndUpdateStatus(video);
+    }
+  };
+
   useEffect(() => {
     fetchVideos();
   }, []);
 
-  const handleRefresh = () => {
+  // Poll for status updates every 5 seconds for processing videos
+  useEffect(() => {
+    const processingVideos = videos.filter(v => v.status === 'processing' && v.geminigen_uuid);
+    
+    if (processingVideos.length === 0) return;
+
+    const interval = setInterval(() => {
+      processingVideos.forEach(video => {
+        checkAndUpdateStatus(video);
+      });
+    }, 5000);
+
+    return () => clearInterval(interval);
+  }, [videos]);
+
+  const handleRefresh = async () => {
     setRefreshing(true);
-    fetchVideos();
+    await fetchVideos();
+    // Also sync with GeminiGen after fetching
+    const { data: { session } } = await supabase.auth.getSession();
+    if (session) {
+      const response = await supabase.functions.invoke('get-user-videos');
+      if (response.data?.videos) {
+        await syncProcessingVideos(response.data.videos);
+      }
+    }
   };
 
   const checkAndUpdateStatus = async (video: VideoGeneration) => {
@@ -66,7 +100,7 @@ const HistoryVault: React.FC<HistoryVaultProps> = ({ userProfile }) => {
 
     try {
       const response = await supabase.functions.invoke('check-video-status', {
-        body: { geminigen_uuid: video.geminigen_uuid },
+        body: { geminigen_uuid: video.geminigen_uuid, video_id: video.id },
       });
 
       if (response.data?.status === 'completed' && response.data?.video_url) {

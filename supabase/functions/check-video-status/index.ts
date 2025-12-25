@@ -34,7 +34,7 @@ serve(async (req) => {
       throw new Error('Unauthorized');
     }
 
-    const { geminigen_uuid } = await req.json();
+    const { geminigen_uuid, video_id } = await req.json();
 
     console.log('Checking video status for UUID:', geminigen_uuid);
 
@@ -60,23 +60,48 @@ serve(async (req) => {
     let status = 'processing';
     let videoUrl = null;
     let thumbnailUrl = null;
+    let statusPercentage = data.status_percentage || 0;
 
     if (data.status === 2) {
       status = 'completed';
+      statusPercentage = 100;
       // Get video URL from generated_video array
       if (data.generated_video && data.generated_video.length > 0) {
-        videoUrl = data.generated_video[0].video_url;
-        thumbnailUrl = data.generated_video[0].last_frame || data.thumbnail_url;
+        videoUrl = data.generated_video[0].video_url || data.generated_video[0].file_download_url;
+        thumbnailUrl = data.generated_video[0].last_frame || data.thumbnail_url || data.last_frame_url;
       }
     } else if (data.status === 3) {
       status = 'failed';
+    }
+
+    // Auto-sync to database if video_id is provided
+    if (video_id && (status === 'completed' || status === 'failed')) {
+      const updateData: Record<string, unknown> = {
+        status,
+        status_percentage: statusPercentage,
+        updated_at: new Date().toISOString(),
+      };
+      
+      if (videoUrl) updateData.video_url = videoUrl;
+      if (thumbnailUrl) updateData.thumbnail_url = thumbnailUrl;
+
+      const { error: updateError } = await supabase
+        .from('video_generations')
+        .update(updateData)
+        .eq('id', video_id);
+
+      if (updateError) {
+        console.error('Failed to update video in database:', updateError);
+      } else {
+        console.log('Video synced to database:', video_id, status);
+      }
     }
 
     return new Response(
       JSON.stringify({
         success: true,
         status,
-        status_percentage: data.status_percentage || 0,
+        status_percentage: statusPercentage,
         video_url: videoUrl,
         thumbnail_url: thumbnailUrl,
         error_message: data.error_message || null,
