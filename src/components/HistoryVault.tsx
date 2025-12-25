@@ -138,8 +138,25 @@ const HistoryVault: React.FC<HistoryVaultProps> = ({ userProfile }) => {
     }
   };
 
-  const handleDownload = (videoUrl: string) => {
-    window.open(videoUrl, '_blank');
+  const handleDownload = async (videoUrl: string) => {
+    try {
+      // Use fetch to download the video as blob and trigger download
+      const response = await fetch(videoUrl);
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `video-${Date.now()}.mp4`;
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+      toast.success('Muat turun dimulakan');
+    } catch (error) {
+      console.error('Download error:', error);
+      // Fallback to opening in new tab
+      window.open(videoUrl, '_blank');
+    }
   };
 
   const formatDate = (dateString: string) => {
