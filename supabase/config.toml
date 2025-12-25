@@ -1,1 +1,10 @@
 project_id = "detznytjwofbqrvwqcdx"
+
+[functions.generate-video]
+verify_jwt = false
+
+[functions.check-video-status]
+verify_jwt = false
+
+[functions.get-user-videos]
+verify_jwt = false
