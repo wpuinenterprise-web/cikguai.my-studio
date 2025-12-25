@@ -60,6 +60,7 @@ serve(async (req) => {
     let status = 'processing';
     let videoUrl = null;
     let thumbnailUrl = null;
+    let downloadUrl = null;
     let statusPercentage = data.status_percentage || 0;
 
     if (data.status === 2) {
@@ -67,8 +68,11 @@ serve(async (req) => {
       statusPercentage = 100;
       // Get video URL from generated_video array
       if (data.generated_video && data.generated_video.length > 0) {
-        videoUrl = data.generated_video[0].video_url || data.generated_video[0].file_download_url;
-        thumbnailUrl = data.generated_video[0].last_frame || data.thumbnail_url || data.last_frame_url;
+        const video = data.generated_video[0];
+        // Use file_download_url for direct download, video_url for streaming
+        videoUrl = video.file_download_url || video.video_url;
+        downloadUrl = video.file_download_url || video.video_url;
+        thumbnailUrl = video.last_frame || data.thumbnail_url || data.last_frame_url;
       }
     } else if (data.status === 3) {
       status = 'failed';
@@ -103,6 +107,7 @@ serve(async (req) => {
         status,
         status_percentage: statusPercentage,
         video_url: videoUrl,
+        download_url: downloadUrl,
         thumbnail_url: thumbnailUrl,
         error_message: data.error_message || null,
       }),
