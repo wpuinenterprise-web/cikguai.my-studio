@@ -23,12 +23,14 @@ interface SoraStudioProps {
     is_approved: boolean;
     is_admin?: boolean;
   } | null;
+  onProfileRefresh?: () => Promise<void>;
 }
 
 const MAX_CONCURRENT_VIDEOS = 4;
 
-const SoraStudio: React.FC<SoraStudioProps> = ({ userProfile }) => {
-  // Check if feature should be locked
+const SoraStudio: React.FC<SoraStudioProps> = ({ userProfile, onProfileRefresh }) => {
+  // Check if feature should be locked - also check if limit reached
+  const hasReachedLimit = userProfile && !userProfile.is_admin && userProfile.videos_used >= userProfile.video_limit;
   const isLocked = userProfile && !userProfile.is_admin && (!userProfile.is_approved || userProfile.video_limit <= 0);
   const [prompt, setPrompt] = useState('');
   const [duration, setDuration] = useState<10 | 15>(10);
@@ -256,8 +258,9 @@ const SoraStudio: React.FC<SoraStudioProps> = ({ userProfile }) => {
   const handleGenerate = async () => {
     if (!prompt.trim()) return;
     
-    if (userProfile && userProfile.videos_used >= userProfile.video_limit) {
-      toast.error('Had penjanaan video telah dicapai');
+    // Check limit using hasReachedLimit which is synced with profile
+    if (hasReachedLimit) {
+      toast.error('Had penjanaan video telah dicapai. Sila hubungi admin.');
       return;
     }
 
@@ -283,7 +286,7 @@ const SoraStudio: React.FC<SoraStudioProps> = ({ userProfile }) => {
           prompt,
           duration,
           aspect_ratio: aspectRatio,
-          reference_image_url: uploadedImageUrl, // Use uploaded URL instead of base64
+          reference_image_url: uploadedImageUrl,
         },
       });
 
@@ -313,9 +316,13 @@ const SoraStudio: React.FC<SoraStudioProps> = ({ userProfile }) => {
         setSelectedGenerationId(video_id);
       }
 
+      // Refresh profile to update videos_used count
+      if (onProfileRefresh) {
+        await onProfileRefresh();
+      }
+
       // Clear only prompt for next generation - keep image for I2V spam
       setPrompt('');
-      // DON'T clear filePreview and uploadedImageUrl - allow user to reuse same image for multiple I2V generations
 
     } catch (error: any) {
       console.error('Generation error:', error);
@@ -469,6 +476,33 @@ const SoraStudio: React.FC<SoraStudioProps> = ({ userProfile }) => {
           </p>
         </div>
 
+        {/* Limit Reached Warning Banner */}
+        {hasReachedLimit && (
+          <div className="mb-4 p-4 rounded-xl bg-amber-500/10 border border-amber-500/30 animate-fade-in">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-full bg-amber-500/20 flex items-center justify-center flex-shrink-0">
+                <svg className="w-5 h-5 text-amber-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                </svg>
+              </div>
+              <div className="flex-1">
+                <h3 className="text-sm font-bold text-amber-500">Had Video Telah Dicapai</h3>
+                <p className="text-xs text-muted-foreground">
+                  Anda telah menggunakan {userProfile?.videos_used}/{userProfile?.video_limit} video. Anda masih boleh melihat dan memuat turun video yang telah dijana.
+                </p>
+              </div>
+              <a 
+                href={`https://wa.me/601158833804?text=${encodeURIComponent(`Hai Admin, saya ${userProfile?.username || 'user'} ingin mohon tambahan had video. Video saya: ${userProfile?.videos_used}/${userProfile?.video_limit}`)}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="px-4 py-2 rounded-lg bg-green-500 hover:bg-green-600 text-white text-xs font-bold transition-all flex-shrink-0"
+              >
+                Hubungi Admin
+              </a>
+            </div>
+          </div>
+        )}
+
         {/* Active & Completed Generations Status Bar */}
         {allGenerations.length > 0 && (
           <div className="mb-4 p-3 rounded-xl bg-secondary/30 border border-border/50 animate-fade-in">
@@ -531,9 +565,9 @@ const SoraStudio: React.FC<SoraStudioProps> = ({ userProfile }) => {
               <Textarea
                 value={prompt}
                 onChange={(e) => setPrompt(e.target.value)}
-                placeholder="Describe your video scene in detail... The more specific, the better the result."
+                placeholder={hasReachedLimit ? "Had video telah dicapai. Hubungi admin untuk tambahan." : "Describe your video scene in detail... The more specific, the better the result."}
                 className="min-h-[140px]"
-                disabled={isGenerating}
+                disabled={isGenerating || hasReachedLimit}
               />
               <div className="flex justify-between mt-2">
                 <span className="text-xs text-muted-foreground">{prompt.length} characters</span>
@@ -553,12 +587,13 @@ const SoraStudio: React.FC<SoraStudioProps> = ({ userProfile }) => {
                     <button
                       key={d}
                       onClick={() => setDuration(d)}
-                      disabled={isGenerating}
+                      disabled={isGenerating || hasReachedLimit}
                       className={cn(
                         "flex-1 py-3 px-4 rounded-xl text-sm font-bold transition-all duration-300 border",
                         duration === d
                           ? "bg-primary/20 border-primary/50 text-primary"
-                          : "bg-secondary/50 border-border text-muted-foreground hover:border-primary/30"
+                          : "bg-secondary/50 border-border text-muted-foreground hover:border-primary/30",
+                        hasReachedLimit && "opacity-50 cursor-not-allowed"
                       )}
                     >
                       {d}s
@@ -577,12 +612,13 @@ const SoraStudio: React.FC<SoraStudioProps> = ({ userProfile }) => {
                     <button
                       key={ar}
                       onClick={() => setAspectRatio(ar)}
-                      disabled={isGenerating}
+                      disabled={isGenerating || hasReachedLimit}
                       className={cn(
                         "flex-1 py-3 px-4 rounded-xl text-sm font-bold transition-all duration-300 border flex items-center justify-center gap-2",
                         aspectRatio === ar
                           ? "bg-primary/20 border-primary/50 text-primary"
-                          : "bg-secondary/50 border-border text-muted-foreground hover:border-primary/30"
+                          : "bg-secondary/50 border-border text-muted-foreground hover:border-primary/30",
+                        hasReachedLimit && "opacity-50 cursor-not-allowed"
                       )}
                     >
                       <div className={cn(
@@ -595,62 +631,65 @@ const SoraStudio: React.FC<SoraStudioProps> = ({ userProfile }) => {
               </div>
             </div>
 
-            {/* Reference Image */}
-            <div className="mb-6">
-              <label className="block text-[10px] font-black text-muted-foreground uppercase tracking-widest mb-3">
-                Reference Image (Optional - Image to Video)
-              </label>
-              <input
-                type="file"
-                ref={fileInputRef}
-                onChange={handleFileChange}
-                accept="image/*"
-                className="hidden"
-                disabled={isUploadingImage}
-              />
-              {!filePreview ? (
-                <div
-                  onClick={() => !isUploadingImage && fileInputRef.current?.click()}
-                  className={cn(
-                    "w-full border-2 border-dashed border-border rounded-xl p-6 flex flex-col items-center justify-center gap-2 transition-all duration-300",
-                    isUploadingImage ? "opacity-50 cursor-not-allowed" : "cursor-pointer hover:border-primary/30 hover:bg-primary/5"
-                  )}
-                >
-                  <svg className="w-8 h-8 text-muted-foreground" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                  </svg>
-                  <span className="text-xs text-muted-foreground">Click to upload reference (I2V)</span>
-                </div>
-              ) : (
-                <div className="relative rounded-xl overflow-hidden">
-                  <img src={filePreview} alt="Reference" className="w-full h-32 object-cover" />
-                  {isUploadingImage && (
-                    <div className="absolute inset-0 bg-background/80 flex items-center justify-center">
-                      <div className="flex items-center gap-2">
-                        <div className="w-4 h-4 border-2 border-primary/30 border-t-primary rounded-full animate-spin" />
-                        <span className="text-xs text-primary">Memuat naik...</span>
-                      </div>
-                    </div>
-                  )}
-                  {uploadedImageUrl && !isUploadingImage && (
-                    <div className="absolute top-2 left-2 px-2 py-1 bg-green-500/90 rounded-lg">
-                      <span className="text-[10px] text-white font-bold">✓ Dimuat naik</span>
-                    </div>
-                  )}
-                  <button
-                    onClick={removeFile}
-                    disabled={isUploadingImage}
-                    className="absolute top-2 right-2 p-1.5 bg-background/80 backdrop-blur-sm rounded-lg text-destructive hover:bg-destructive hover:text-destructive-foreground transition-all duration-300"
+            {/* Reference Image - hide if limit reached */}
+            {!hasReachedLimit && (
+              <div className="mb-6">
+                <label className="block text-[10px] font-black text-muted-foreground uppercase tracking-widest mb-3">
+                  Reference Image (Optional - Image to Video)
+                </label>
+                <input
+                  type="file"
+                  ref={fileInputRef}
+                  onChange={handleFileChange}
+                  accept="image/*"
+                  className="hidden"
+                  disabled={isUploadingImage}
+                />
+                {!filePreview ? (
+                  <div
+                    onClick={() => !isUploadingImage && fileInputRef.current?.click()}
+                    className={cn(
+                      "w-full border-2 border-dashed border-border rounded-xl p-6 flex flex-col items-center justify-center gap-2 transition-all duration-300",
+                      isUploadingImage ? "opacity-50 cursor-not-allowed" : "cursor-pointer hover:border-primary/30 hover:bg-primary/5"
+                    )}
                   >
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                    <svg className="w-8 h-8 text-muted-foreground" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
                     </svg>
-                  </button>
-                </div>
-              )}
-            </div>
+                    <span className="text-xs text-muted-foreground">Click to upload reference (I2V)</span>
+                  </div>
+                ) : (
+                  <div className="relative rounded-xl overflow-hidden">
+                    <img src={filePreview} alt="Reference" className="w-full h-32 object-cover" />
+                    {isUploadingImage && (
+                      <div className="absolute inset-0 bg-background/80 flex items-center justify-center">
+                        <div className="flex items-center gap-2">
+                          <div className="w-4 h-4 border-2 border-primary/30 border-t-primary rounded-full animate-spin" />
+                          <span className="text-xs text-primary">Memuat naik...</span>
+                        </div>
+                      </div>
+                    )}
+                    {uploadedImageUrl && !isUploadingImage && (
+                      <div className="absolute top-2 left-2 px-2 py-1 bg-green-500/90 rounded-lg">
+                        <span className="text-[10px] text-white font-bold">✓ Dimuat naik</span>
+                      </div>
+                    )}
+                    <button
+                      onClick={removeFile}
+                      disabled={isUploadingImage}
+                      className="absolute top-2 right-2 p-1.5 bg-background/80 backdrop-blur-sm rounded-lg text-destructive hover:bg-destructive hover:text-destructive-foreground transition-all duration-300"
+                    >
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                      </svg>
+                    </button>
+                  </div>
+                )}
+              </div>
+            )}
 
-            {/* UGC Prompt Generator */}
+            {/* UGC Prompt Generator - hide if limit reached */}
+            {!hasReachedLimit && (
             <div className="mb-6">
               <button
                 onClick={() => setShowPromptGenerator(!showPromptGenerator)}
@@ -892,40 +931,55 @@ const SoraStudio: React.FC<SoraStudioProps> = ({ userProfile }) => {
                 </div>
               )}
             </div>
+            )}
 
-            {/* Generate Button */}
-            <Button
-              onClick={handleGenerate}
-              disabled={!prompt.trim() || isGenerating || isUploadingImage || processingCount >= MAX_CONCURRENT_VIDEOS}
-              variant="neon"
-              size="lg"
-              className="w-full"
-            >
-              {isGenerating ? (
-                <>
-                  <div className="flex items-center gap-1 h-3">
-                    <span className="w-1 h-full bg-primary-foreground rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
-                    <span className="w-1 h-full bg-primary-foreground rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
-                    <span className="w-1 h-full bg-primary-foreground rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
-                  </div>
-                  <span>Memulakan...</span>
-                </>
-              ) : processingCount >= MAX_CONCURRENT_VIDEOS ? (
-                <>
-                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                  </svg>
-                  <span>Tunggu video siap ({processingCount}/{MAX_CONCURRENT_VIDEOS})</span>
-                </>
-              ) : (
-                <>
-                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
-                  </svg>
-                  <span>Generate Video</span>
-                </>
-              )}
-            </Button>
+            {/* Generate Button - show different state if limit reached */}
+            {hasReachedLimit ? (
+              <Button
+                disabled
+                variant="outline"
+                size="lg"
+                className="w-full opacity-50 cursor-not-allowed"
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                </svg>
+                <span>Had Dicapai - Hubungi Admin</span>
+              </Button>
+            ) : (
+              <Button
+                onClick={handleGenerate}
+                disabled={!prompt.trim() || isGenerating || isUploadingImage || processingCount >= MAX_CONCURRENT_VIDEOS}
+                variant="neon"
+                size="lg"
+                className="w-full"
+              >
+                {isGenerating ? (
+                  <>
+                    <div className="flex items-center gap-1 h-3">
+                      <span className="w-1 h-full bg-primary-foreground rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
+                      <span className="w-1 h-full bg-primary-foreground rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
+                      <span className="w-1 h-full bg-primary-foreground rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
+                    </div>
+                    <span>Memulakan...</span>
+                  </>
+                ) : processingCount >= MAX_CONCURRENT_VIDEOS ? (
+                  <>
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                    <span>Tunggu video siap ({processingCount}/{MAX_CONCURRENT_VIDEOS})</span>
+                  </>
+                ) : (
+                  <>
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+                    </svg>
+                    <span>Generate Video</span>
+                  </>
+                )}
+              </Button>
+            )}
 
             {/* Usage Info */}
             {userProfile && (

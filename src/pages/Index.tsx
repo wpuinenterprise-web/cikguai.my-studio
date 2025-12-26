@@ -51,7 +51,7 @@ const Index = () => {
     return () => subscription.unsubscribe();
   }, []);
 
-  const fetchProfile = async (userId: string) => {
+  const fetchProfile = async (userId: string, skipLoading = false) => {
     try {
       // Fetch profile
       const { data: profileData, error: profileError } = await supabase
@@ -62,7 +62,7 @@ const Index = () => {
 
       if (profileError) {
         console.error('Error fetching profile:', profileError);
-        setLoading(false);
+        if (!skipLoading) setLoading(false);
         return;
       }
 
@@ -90,14 +90,21 @@ const Index = () => {
         });
         
         // Set default view based on role - admin goes to dashboard
-        if (isAdmin) {
+        if (isAdmin && !skipLoading) {
           setActiveView(AppView.ADMIN_DASHBOARD);
         }
       }
     } catch (err) {
       console.error('Error in fetchProfile:', err);
     } finally {
-      setLoading(false);
+      if (!skipLoading) setLoading(false);
+    }
+  };
+
+  // Refresh profile after video generation
+  const handleProfileRefresh = async () => {
+    if (user?.id) {
+      await fetchProfile(user.id, true);
     }
   };
 
@@ -115,13 +122,13 @@ const Index = () => {
   const renderView = () => {
     switch (activeView) {
       case AppView.SORA_STUDIO:
-        return <SoraStudio userProfile={profile!} />;
+        return <SoraStudio userProfile={profile!} onProfileRefresh={handleProfileRefresh} />;
       case AppView.HISTORY:
         return <HistoryVault userProfile={profile!} />;
       case AppView.ADMIN_DASHBOARD:
-        return profile?.is_admin ? <AdminDashboard /> : <SoraStudio userProfile={profile!} />;
+        return profile?.is_admin ? <AdminDashboard /> : <SoraStudio userProfile={profile!} onProfileRefresh={handleProfileRefresh} />;
       default:
-        return <SoraStudio userProfile={profile!} />;
+        return <SoraStudio userProfile={profile!} onProfileRefresh={handleProfileRefresh} />;
     }
   };
 
