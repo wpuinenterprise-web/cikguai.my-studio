@@ -165,24 +165,38 @@ DO NOT use timestamps or bullet points in the videoPrompt. Write it as one cohes
       const jsonMatch = generatedContent.match(/```json\n?([\s\S]*?)\n?```/) || 
                         generatedContent.match(/```\n?([\s\S]*?)\n?```/);
       
-      let jsonString = jsonMatch ? jsonMatch[1].trim() : generatedContent.trim();
-      
-      // If no code block found, try to find JSON object directly
-      if (!jsonMatch) {
-        const jsonStartIndex = generatedContent.indexOf('{');
-        const jsonEndIndex = generatedContent.lastIndexOf('}');
-        if (jsonStartIndex !== -1 && jsonEndIndex !== -1) {
-          jsonString = generatedContent.substring(jsonStartIndex, jsonEndIndex + 1);
+      if (jsonMatch) {
+        // Found JSON in code block
+        const jsonString = jsonMatch[1].trim();
+        console.log('Found JSON in code block, parsing...');
+        parsedContent = JSON.parse(jsonString);
+        console.log('Successfully parsed JSON from code block, videoPrompt length:', parsedContent.videoPrompt?.length || 0);
+      } else {
+        // Check if the content starts with { (JSON object)
+        const trimmedContent = generatedContent.trim();
+        if (trimmedContent.startsWith('{') && trimmedContent.endsWith('}')) {
+          console.log('Content looks like JSON object, parsing...');
+          parsedContent = JSON.parse(trimmedContent);
+          console.log('Successfully parsed JSON object, videoPrompt length:', parsedContent.videoPrompt?.length || 0);
+        } else {
+          // Content is plain text - use it directly as videoPrompt
+          // Remove surrounding quotes if present
+          let cleanContent = trimmedContent;
+          if (cleanContent.startsWith('"') && cleanContent.endsWith('"')) {
+            cleanContent = cleanContent.slice(1, -1);
+          }
+          console.log('Content is plain text, using as videoPrompt directly. Length:', cleanContent.length);
+          parsedContent = { videoPrompt: cleanContent, dialogScript: '', segments: [] };
         }
       }
-      
-      console.log('Attempting to parse JSON:', jsonString.substring(0, 200));
-      parsedContent = JSON.parse(jsonString);
-      console.log('Successfully parsed JSON, videoPrompt length:', parsedContent.videoPrompt?.length || 0);
     } catch (parseError) {
-      console.log('JSON parse failed, using raw content as videoPrompt');
+      console.log('JSON parse failed, using raw content as videoPrompt. Error:', parseError);
       // If parsing fails, use the entire content as videoPrompt
-      parsedContent = { videoPrompt: generatedContent, dialogScript: '', segments: [] };
+      let cleanContent = generatedContent.trim();
+      if (cleanContent.startsWith('"') && cleanContent.endsWith('"')) {
+        cleanContent = cleanContent.slice(1, -1);
+      }
+      parsedContent = { videoPrompt: cleanContent, dialogScript: '', segments: [] };
     }
 
     return new Response(
