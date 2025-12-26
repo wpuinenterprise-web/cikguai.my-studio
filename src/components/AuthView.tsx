@@ -1,12 +1,14 @@
 import React, { useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
+import { useLanguage } from '@/contexts/LanguageContext';
 
 interface AuthViewProps {
   onAuthSuccess: () => void;
 }
 
 const AuthView: React.FC<AuthViewProps> = ({ onAuthSuccess }) => {
+  const { language, setLanguage, t } = useLanguage();
   const [isLogin, setIsLogin] = useState(true);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -126,16 +128,24 @@ const AuthView: React.FC<AuthViewProps> = ({ onAuthSuccess }) => {
         <div className="absolute -inset-1 bg-gradient-to-r from-cyan-500/20 via-purple-500/10 to-cyan-500/20 rounded-[2.5rem] blur-xl opacity-50 -z-10"></div>
         
         <div className="flex flex-col items-center mb-10">
+          {/* Language Toggle */}
+          <button
+            onClick={() => setLanguage(language === 'ms' ? 'en' : 'ms')}
+            className="absolute top-4 right-4 text-[10px] font-bold text-cyan-400 uppercase tracking-widest border border-cyan-500/30 px-3 py-2 rounded-xl bg-cyan-500/10 hover:bg-cyan-500/20 transition-all"
+          >
+            {language === 'ms' ? 'EN' : 'BM'}
+          </button>
+          
           {/* Larger logo with enhanced glow */}
           <div className="relative mb-6">
             <div className="absolute inset-0 bg-cyan-500/30 blur-2xl rounded-full animate-pulse scale-150"></div>
             <img src={logoUrl} alt="Azmeer AI Studio Logo" className="w-24 h-24 relative z-10 logo-glow-animate drop-shadow-[0_0_25px_rgba(34,211,238,0.5)]" />
           </div>
           <h2 className="text-3xl font-black text-white tracking-tighter uppercase leading-none animate-fade-in" style={{ animationDelay: '0.1s' }}>
-            {isLogin ? 'Selamat Kembali!' : 'Jom Daftar!'}
+            {isLogin ? t.welcomeBack : t.letsRegister}
           </h2>
           <p className="text-slate-400 text-xs font-medium mt-3 text-center animate-fade-in" style={{ animationDelay: '0.2s' }}>
-            {isLogin ? 'Masuk ke studio AI anda' : 'Cipta akaun baru dalam masa 30 saat'}
+            {isLogin ? t.loginToStudio : t.createAccount}
           </p>
           <div className="flex items-center gap-2 mt-4 animate-fade-in" style={{ animationDelay: '0.3s' }}>
             <div className="w-2 h-2 bg-cyan-500 rounded-full animate-pulse"></div>
