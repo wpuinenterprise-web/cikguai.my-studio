@@ -396,17 +396,12 @@ const SoraStudio: React.FC<SoraStudioProps> = ({ userProfile, onProfileRefresh }
 
   const handleDownload = async (generation: ActiveGeneration) => {
     if (!generation.geminigen_uuid) {
-      // Fallback to existing URL if no UUID
-      if (generation.video_url) {
-        window.open(generation.video_url, '_blank');
-      } else {
-        toast.error('Tiada URL video');
-      }
+      toast.error('Tiada UUID video');
       return;
     }
 
     setDownloadingId(generation.id);
-    toast.info('Mendapatkan URL muat turun terkini...');
+    toast.info('Memuat turun video...');
 
     try {
       const response = await supabase.functions.invoke('get-fresh-video-url', {
@@ -415,23 +410,33 @@ const SoraStudio: React.FC<SoraStudioProps> = ({ userProfile, onProfileRefresh }
 
       console.log('Fresh download URL response:', response.data);
 
-      if (response.data?.success && response.data?.download_url) {
-        window.open(response.data.download_url, '_blank');
-        toast.success('Video dibuka di tab baru');
-      } else if (generation.video_url) {
-        // Fallback to existing URL
-        window.open(generation.video_url, '_blank');
-        toast.success('Video dibuka di tab baru');
-      } else {
+      const downloadUrl = response.data?.download_url || response.data?.video_url || generation.video_url;
+      
+      if (!downloadUrl) {
         toast.error('Gagal mendapatkan URL video');
+        return;
       }
+
+      // Fetch video and trigger real download
+      const videoResponse = await fetch(downloadUrl);
+      if (!videoResponse.ok) {
+        throw new Error('Failed to fetch video');
+      }
+      
+      const blob = await videoResponse.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `video-${generation.id.substring(0, 8)}.mp4`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      window.URL.revokeObjectURL(url);
+      
+      toast.success('Video berjaya dimuat turun!');
     } catch (error) {
-      console.error('Error getting fresh download URL:', error);
-      if (generation.video_url) {
-        window.open(generation.video_url, '_blank');
-      } else {
-        toast.error('Gagal mendapatkan URL video');
-      }
+      console.error('Error downloading video:', error);
+      toast.error('Gagal memuat turun video');
     } finally {
       setDownloadingId(null);
     }
