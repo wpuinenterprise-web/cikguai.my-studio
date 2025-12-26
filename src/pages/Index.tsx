@@ -7,7 +7,7 @@ import SoraStudio from '@/components/SoraStudio';
 import HistoryVault from '@/components/HistoryVault';
 import AdminDashboard from '@/components/AdminDashboard';
 import AuthView from '@/components/AuthView';
-
+import AnimatedBackground from '@/components/AnimatedBackground';
 const Index = () => {
   const [user, setUser] = useState<User | null>(null);
   const [session, setSession] = useState<Session | null>(null);
@@ -153,8 +153,9 @@ const Index = () => {
   const percentage = profile.is_admin ? 100 : Math.min(100, (Math.max(0, bakiCount as number) / (profile.video_limit || 1)) * 100);
 
   return (
-    <div className="flex flex-col md:flex-row h-screen w-full bg-[#020617] text-slate-200 overflow-hidden font-sans">
-      <Sidebar 
+    <div className="flex flex-col md:flex-row h-screen w-full bg-[#020617] text-slate-200 overflow-hidden font-sans relative">
+      <AnimatedBackground />
+      <Sidebar
         activeView={activeView} 
         onViewChange={setActiveView} 
         userProfile={profile}

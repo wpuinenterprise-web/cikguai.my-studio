@@ -424,3 +424,123 @@
     min-height: 44px;
   }
 }
+
+/* ========== ANIMATED BACKGROUND ========== */
+
+/* Twinkling stars */
+@keyframes twinkle {
+  0%, 100% {
+    opacity: 0.3;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.2);
+  }
+}
+
+.animate-twinkle {
+  animation: twinkle 3s ease-in-out infinite;
+}
+
+/* Meteor shower */
+@keyframes meteor {
+  0% {
+    transform: translateX(0) translateY(0) rotate(215deg);
+    opacity: 1;
+  }
+  70% {
+    opacity: 1;
+  }
+  100% {
+    transform: translateX(-500px) translateY(500px) rotate(215deg);
+    opacity: 0;
+  }
+}
+
+.meteor {
+  width: 2px;
+  height: 80px;
+  background: linear-gradient(to bottom, hsl(var(--neon-cyan)), transparent);
+  border-radius: 50%;
+  box-shadow: 0 0 10px hsl(var(--neon-cyan) / 0.5);
+  animation: meteor 3s ease-in-out infinite;
+  opacity: 0;
+}
+
+.meteor::before {
+  content: '';
+  position: absolute;
+  width: 4px;
+  height: 4px;
+  background: white;
+  border-radius: 50%;
+  top: 0;
+  left: -1px;
+  box-shadow: 0 0 10px 2px hsl(var(--neon-cyan));
+}
+
+/* Aurora/Galaxy floating glow */
+@keyframes aurora-1 {
+  0%, 100% {
+    transform: translate(0, 0) scale(1);
+    opacity: 0.3;
+  }
+  33% {
+    transform: translate(30px, -20px) scale(1.1);
+    opacity: 0.4;
+  }
+  66% {
+    transform: translate(-20px, 20px) scale(0.9);
+    opacity: 0.25;
+  }
+}
+
+@keyframes aurora-2 {
+  0%, 100% {
+    transform: translate(0, 0) scale(1);
+    opacity: 0.25;
+  }
+  50% {
+    transform: translate(-40px, 30px) scale(1.15);
+    opacity: 0.35;
+  }
+}
+
+@keyframes aurora-3 {
+  0%, 100% {
+    transform: translate(0, 0) scale(1);
+    opacity: 0.2;
+  }
+  40% {
+    transform: translate(25px, -15px) scale(1.05);
+    opacity: 0.3;
+  }
+  70% {
+    transform: translate(-15px, 25px) scale(0.95);
+    opacity: 0.2;
+  }
+}
+
+.animate-aurora-1 {
+  animation: aurora-1 15s ease-in-out infinite;
+}
+
+.animate-aurora-2 {
+  animation: aurora-2 18s ease-in-out infinite;
+}
+
+.animate-aurora-3 {
+  animation: aurora-3 20s ease-in-out infinite;
+}
+
+/* GPU acceleration for smoother animations */
+.meteor,
+.animate-twinkle,
+.animate-aurora-1,
+.animate-aurora-2,
+.animate-aurora-3 {
+  will-change: transform, opacity;
+  transform: translateZ(0);
+  backface-visibility: hidden;
+}
