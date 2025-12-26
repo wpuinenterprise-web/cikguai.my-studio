@@ -48,12 +48,34 @@ CRITICAL RULES:
 4. NO text/subtitles in video EXCEPT CTA text overlay at the very end
 5. Include casual Malaysian Malay dialog for character speech (in quotes)
 6. Describe everything in vivid detail: expressions, gestures, lighting, camera movements
+7. NEVER START WITH "Hai semua!" - Use creative visual hooks instead!
 
 CHARACTER:
 ${characterDescription}
 
+HOOK TYPES (RANDOMLY SELECT ONE - NEVER USE "Hai semua!"):
+1. PROBLEM HOOK: Start with character showing frustration/problem, then discovering product as solution
+   - Example visual: Character sighing while looking at problem, then eyes widen seeing the product
+   - Example dialog: "Aku dah penat dah..." / "Korang pernah tak rasa macam ni?" / "Masalah ni selalu sangat..."
+   
+2. VISUAL PRODUCT HOOK: Start with dramatic close-up of product, then reveal character
+   - Example visual: Cinematic slow-mo of product being placed on table, camera pulls back to reveal impressed character
+   - Example dialog: "Tengok ni..." / "Korang kena tengok benda ni..." / "Best gila benda ni..."
+   
+3. CURIOSITY HOOK: Character looking secretive/excited about sharing something
+   - Example visual: Character leaning in close to camera with mysterious smile, whispering
+   - Example dialog: "Jangan bagitahu orang..." / "Aku nak share secret..." / "Korang nak tahu tak..."
+   
+4. BEFORE/AFTER HOOK: Quick contrast showing transformation
+   - Example visual: Split-second of 'before' state, dramatic transition to 'after' with product
+   - Example dialog: "Dulu macam ni..." / "Sekarang? Tengok!" / "Beza dia gila..."
+   
+5. ACTION HOOK: Start mid-action with product, capture attention immediately
+   - Example visual: Character already using product with visible results, energetic movement
+   - Example dialog: "Tengok result dia!" / "Serious berkesan!" / "Confirm korang nak ni..."
+
 STRUCTURE to follow (but write as ONE PARAGRAPH):
-- 0-3s: HOOK - Medium shot, warm greeting, friendly wave
+- 0-3s: HOOK - Use one of the creative hooks above (NEVER "Hai semua!")
 - 3-6s: PRODUCT INTRO - Close-up of product, showcase features
 - 6-9s: DEMONSTRATION - Dynamic side shot, show how to use
 - 9-12s: RESULT/BENEFIT - Close-up face, satisfied expression
@@ -61,12 +83,24 @@ STRUCTURE to follow (but write as ONE PARAGRAPH):
 
 OUTPUT FORMAT (JSON):
 {
-  "videoPrompt": "ONE COMPLETE PARAGRAPH describing the entire 15-second video. Start with opening shot description, then flow naturally through each scene change. Include camera angles (medium shot, close-up, side shot, eye-level), character actions and expressions, product interactions, lighting descriptions, and Malaysian Malay dialog in quotes. End with CTA text overlay description. NO TIMESTAMPS in the prompt - just flowing description.",
-  "dialogScript": "Dialog bahasa Melayu Malaysia dengan timestamp:\\n0-3s: 'Hai semua!'\\n3-6s: 'Ni [produk] yang best gila!'\\n6-9s: 'Senang gila nak guna!'\\n9-12s: 'Confirm puas hati!'\\n12-15s: [CTA text]"
+  "videoPrompt": "ONE COMPLETE PARAGRAPH with CREATIVE VISUAL HOOK. Start with an attention-grabbing opening (problem, product reveal, curiosity, or action). Include camera angles, character expressions, product interactions, lighting, and Malaysian Malay dialog in quotes. NO TIMESTAMPS. End with CTA text overlay.",
+  "dialogScript": "Dialog bahasa Melayu Malaysia dengan timestamp:\\n0-3s: '[CREATIVE HOOK - NOT Hai semua!]'\\n3-6s: '[product excitement]'\\n6-9s: '[demonstration]'\\n9-12s: '[satisfaction]'\\n12-15s: [CTA text]"
 }
 
-EXAMPLE OUTPUT FORMAT:
-"The video opens with a medium shot of a 30-year-old Malay woman wearing a stylish hijab and trendy modest clothing. She smiles warmly at the camera and waves enthusiastically, creating an inviting atmosphere. The lighting is bright and cheerful, highlighting her friendly expression. 'Hai semua!' she says. The camera transitions to a close-up shot of the product, showcasing its sleek design and features. The focus is on the product details. 'Ni [produk] yang best gila!' she explains. The camera shifts to a dynamic side shot as the character picks up the product with excitement. She gestures animatedly while explaining how easy it is to use. 'Senang gila nak guna!' she adds. A close-up shot captures her face as she shows a satisfied expression, eyes lighting up with joy. She nods and smiles, conveying genuine happiness. 'Confirm puas hati!' she shares. The final scene is an eye-level shot where she points directly at the camera with enthusiasm. The background is slightly blurred to focus on her engaging expression. The video ends with the text overlay: '${ctaText}'."`;
+EXAMPLE OUTPUTS (VARY THE HOOK TYPE):
+
+PROBLEM HOOK EXAMPLE:
+"The video opens with a close-up of a 30-year-old Malay woman in hijab looking frustrated, rubbing her temples with a tired expression. Soft dramatic lighting emphasizes her struggle. 'Aku dah penat dah dengan masalah ni...' she sighs. Suddenly her eyes widen as the camera whip-pans to reveal the product on the table with dramatic lighting. She picks it up with growing excitement..."
+
+VISUAL PRODUCT HOOK EXAMPLE:
+"The video opens with a cinematic extreme close-up of the product being slowly placed on a marble surface, golden hour lighting catching its features. The camera smoothly pulls back in a dramatic reveal to show a 30-year-old Malay woman in stylish hijab looking impressed. 'Tengok ni best gila...' she says with wide eyes..."
+
+CURIOSITY HOOK EXAMPLE:
+"The video opens with a tight close-up of a 30-year-old Malay woman in hijab leaning towards the camera with a mischievous smile, finger to her lips. Intimate lighting creates a secretive mood. 'Jangan bagitahu orang tau...' she whispers conspiratorially, then pulls back to reveal the product she's been hiding..."
+
+ACTION HOOK EXAMPLE:
+"The video opens mid-action with a dynamic shot of a 30-year-old Malay woman in hijab actively using the product, visible results already showing. Energetic camera movement follows her excitement. 'Tengok result dia! Gila kan?' she exclaims with genuine amazement..."`;
+
 
     const userPrompt = `Create an UGC video prompt for:
 
@@ -75,15 +109,21 @@ DESCRIPTION: ${productDescription}
 PLATFORM: ${platform}
 CHARACTER: ${gender === 'female' ? 'Perempuan Melayu bertudung, 30-an' : 'Lelaki Melayu sopan, 30-an, tiada aksesori'}
 
-Write ONE FLOWING PARAGRAPH prompt (like the example) that describes the entire 15-second video naturally. Include:
-1. Camera shots and angles for each scene transition
-2. Character expressions, gestures, clothing
-3. Product showcase moments
-4. Malaysian Malay dialog in quotes
-5. Lighting and atmosphere descriptions
-6. End with CTA text overlay: "${ctaText}"
+IMPORTANT: 
+- RANDOMLY select ONE hook type from: PROBLEM, VISUAL PRODUCT, CURIOSITY, BEFORE/AFTER, or ACTION hook
+- NEVER start with "Hai semua!" or any generic greeting
+- The hook must grab attention in the first 3 seconds
 
-DO NOT use timestamps or bullet points in the videoPrompt. Write it as one cohesive paragraph.`;
+Write ONE FLOWING PARAGRAPH prompt that describes the entire 15-second video naturally. Include:
+1. CREATIVE VISUAL HOOK (first 3 seconds - problem/curiosity/action/product reveal)
+2. Camera shots and angles for each scene transition
+3. Character expressions, gestures, clothing
+4. Product showcase moments
+5. Malaysian Malay dialog in quotes (casual, relatable language)
+6. Lighting and atmosphere descriptions
+7. End with CTA text overlay: "${ctaText}"
+
+DO NOT use timestamps or bullet points in the videoPrompt. Write it as one cohesive paragraph starting with an attention-grabbing visual hook.`;
 
     console.log('Calling OpenAI API for detailed UGC prompt generation...');
 
