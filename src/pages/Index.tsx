@@ -8,7 +8,10 @@ import HistoryVault from '@/components/HistoryVault';
 import AdminDashboard from '@/components/AdminDashboard';
 import AuthView from '@/components/AuthView';
 import AnimatedBackground from '@/components/AnimatedBackground';
+import { useLanguage } from '@/contexts/LanguageContext';
+
 const Index = () => {
+  const { language, setLanguage, t } = useLanguage();
   const [user, setUser] = useState<User | null>(null);
   const [session, setSession] = useState<Session | null>(null);
   const [profile, setProfile] = useState<UserProfile | null>(null);
@@ -138,7 +141,7 @@ const Index = () => {
       <div className="h-screen w-full bg-[#020617] flex items-center justify-center">
         <div className="text-center">
           <div className="w-12 h-12 border-4 border-cyan-500/10 border-t-cyan-500 rounded-full animate-spin mx-auto mb-4"></div>
-          <p className="text-slate-500 text-[10px] font-bold uppercase tracking-widest">Memuatkan...</p>
+          <p className="text-slate-500 text-[10px] font-bold uppercase tracking-widest">{t.loading}</p>
         </div>
       </div>
     );
@@ -173,11 +176,11 @@ const Index = () => {
               </div>
               <div>
                 <h1 className="text-sm font-black tracking-tighter text-white uppercase leading-none">azmeer</h1>
-                <p className="text-[8px] font-bold text-cyan-500 tracking-[0.2em] uppercase opacity-80 leading-none">ai studio</p>
+                <p className="text-[8px] font-bold text-cyan-500 tracking-[0.2em] uppercase opacity-80 leading-none">{t.aiStudio.toLowerCase()}</p>
                 <div className="mt-1 flex flex-col gap-1">
                   <div className="inline-flex items-center bg-cyan-500/20 border border-cyan-500/30 px-2 py-0.5 rounded-md shadow-[0_0_10px_rgba(34,211,238,0.2)]">
                     <span className="text-[9px] font-black text-cyan-400 uppercase tracking-widest whitespace-nowrap">
-                      BAKI: {bakiCount} VIDEO
+                      {t.balance}: {bakiCount} {t.video}
                     </span>
                   </div>
                   {/* Progress bar for mobile visibility */}
@@ -192,12 +195,21 @@ const Index = () => {
                 </div>
               </div>
             </div>
-            <button 
-              onClick={handleSignOut} 
-              className="text-[9px] font-black text-rose-500 uppercase tracking-widest border border-rose-500/20 px-4 py-2 rounded-xl bg-rose-500/5 active:scale-95"
-            >
-              Exit
-            </button>
+            <div className="flex items-center gap-2">
+              {/* Language Toggle */}
+              <button
+                onClick={() => setLanguage(language === 'ms' ? 'en' : 'ms')}
+                className="text-[9px] font-black text-cyan-400 uppercase tracking-widest border border-cyan-500/20 px-3 py-2 rounded-xl bg-cyan-500/5 active:scale-95 transition-all"
+              >
+                {language === 'ms' ? 'EN' : 'BM'}
+              </button>
+              <button 
+                onClick={handleSignOut} 
+                className="text-[9px] font-black text-rose-500 uppercase tracking-widest border border-rose-500/20 px-4 py-2 rounded-xl bg-rose-500/5 active:scale-95"
+              >
+                {t.exit}
+              </button>
+            </div>
           </div>
 
           <nav className="flex px-4 pb-3 gap-2 overflow-x-auto no-scrollbar">
@@ -207,7 +219,7 @@ const Index = () => {
                 activeView === AppView.SORA_STUDIO ? 'bg-cyan-500/10 border-cyan-500/40 text-cyan-400 shadow-[0_0_15px_rgba(34,211,238,0.1)]' : 'bg-slate-900/50 border-slate-800 text-slate-500'
               }`}
             >
-              Studio
+              {t.studio}
             </button>
             <button 
               onClick={() => setActiveView(AppView.HISTORY)}
@@ -215,7 +227,7 @@ const Index = () => {
                 activeView === AppView.HISTORY ? 'bg-cyan-500/10 border-cyan-500/40 text-cyan-400 shadow-[0_0_15px_rgba(34,211,238,0.1)]' : 'bg-slate-900/50 border-slate-800 text-slate-500'
               }`}
             >
-              Vault
+              {t.vault}
             </button>
             {profile.is_admin && (
               <button 
@@ -224,7 +236,7 @@ const Index = () => {
                   activeView === AppView.ADMIN_DASHBOARD ? 'bg-cyan-500/10 border-cyan-500/40 text-cyan-400 shadow-[0_0_15px_rgba(34,211,238,0.1)]' : 'bg-slate-900/50 border-slate-800 text-slate-500'
                 }`}
               >
-                Admin
+                {t.admin}
               </button>
             )}
           </nav>
