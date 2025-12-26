@@ -56,11 +56,12 @@ serve(async (req) => {
     const data = await response.json();
     console.log('GeminiGen response status:', data.status);
 
-    // Get download URL
+    // Get download URL - use video_url (signed R2 URL) as file_download_url returns 403
     let downloadUrl = null;
     if (data.generated_video && data.generated_video.length > 0) {
       const video = data.generated_video[0];
-      downloadUrl = video.file_download_url || video.video_url;
+      // Prefer video_url (signed URL) over file_download_url which returns 403
+      downloadUrl = video.video_url || video.file_download_url;
     }
 
     if (!downloadUrl) {
