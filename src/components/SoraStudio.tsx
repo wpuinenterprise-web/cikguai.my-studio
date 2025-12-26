@@ -44,6 +44,8 @@ const SoraStudio: React.FC<SoraStudioProps> = ({ userProfile, onProfileRefresh }
   // Active generations - allow up to 4 concurrent
   const [activeGenerations, setActiveGenerations] = useState<ActiveGeneration[]>([]);
   const [selectedGenerationId, setSelectedGenerationId] = useState<string | null>(null);
+  const [previewVideoUrl, setPreviewVideoUrl] = useState<string | null>(null);
+  const [loadingPreview, setLoadingPreview] = useState(false);
 
   // UGC Prompt Generator state - load from localStorage
   const [showPromptGenerator, setShowPromptGenerator] = useState(false);
@@ -176,6 +178,11 @@ const SoraStudio: React.FC<SoraStudioProps> = ({ userProfile, onProfileRefresh }
             // Keep only latest 10 completed videos
             return newCompleted.slice(0, 10);
           });
+          
+          // Auto-select the first completed video for preview
+          if (newlyCompleted[0]) {
+            setSelectedGenerationId(newlyCompleted[0].id);
+          }
         }
       }
     }, 3000); // Poll every 3 seconds
@@ -344,6 +351,48 @@ const SoraStudio: React.FC<SoraStudioProps> = ({ userProfile, onProfileRefresh }
   };
 
   const [downloadingId, setDownloadingId] = useState<string | null>(null);
+
+  // Fetch fresh video URL for preview/download
+  const getFreshVideoUrl = async (geminigenUuid: string): Promise<string | null> => {
+    try {
+      const response = await supabase.functions.invoke('get-fresh-video-url', {
+        body: { geminigen_uuid: geminigenUuid },
+      });
+
+      console.log('Fresh URL response:', response.data);
+
+      if (response.data?.success && response.data?.video_url) {
+        return response.data.video_url;
+      }
+      return null;
+    } catch (error) {
+      console.error('Error fetching fresh URL:', error);
+      return null;
+    }
+  };
+
+  // Load fresh video URL when selecting a completed generation
+  useEffect(() => {
+    const loadPreviewUrl = async () => {
+      if (!selectedGenerationId) {
+        setPreviewVideoUrl(null);
+        return;
+      }
+
+      const gen = completedGenerations.find(g => g.id === selectedGenerationId);
+      if (!gen || gen.status !== 'completed' || !gen.geminigen_uuid) {
+        setPreviewVideoUrl(null);
+        return;
+      }
+
+      setLoadingPreview(true);
+      const freshUrl = await getFreshVideoUrl(gen.geminigen_uuid);
+      setPreviewVideoUrl(freshUrl || gen.video_url);
+      setLoadingPreview(false);
+    };
+
+    loadPreviewUrl();
+  }, [selectedGenerationId, completedGenerations]);
 
   const handleDownload = async (generation: ActiveGeneration) => {
     if (!generation.geminigen_uuid) {
@@ -1054,31 +1103,45 @@ const SoraStudio: React.FC<SoraStudioProps> = ({ userProfile, onProfileRefresh }
                       {selectedGeneration.prompt.substring(0, 50)}...
                     </p>
                   </div>
-                ) : selectedGeneration.status === 'completed' && selectedGeneration.video_url ? (
-                  <div className="relative w-full h-full">
-                    <video 
-                      src={selectedGeneration.video_url} 
-                      controls 
-                      className="w-full h-full object-contain"
-                      autoPlay
-                    />
-                    <button
-                      onClick={() => handleDownload(selectedGeneration)}
-                      disabled={downloadingId === selectedGeneration.id}
-                      className="absolute top-3 right-3 p-2 bg-primary/90 hover:bg-primary rounded-lg text-primary-foreground transition-all disabled:opacity-50"
-                    >
-                      {downloadingId === selectedGeneration.id ? (
-                        <svg className="w-5 h-5 animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" className="opacity-25" fill="none" />
-                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
-                        </svg>
-                      ) : (
-                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
-                        </svg>
-                      )}
-                    </button>
-                  </div>
+                ) : selectedGeneration.status === 'completed' ? (
+                  loadingPreview ? (
+                    <div className="text-center p-8">
+                      <div className="w-12 h-12 mx-auto mb-4 rounded-full border-2 border-primary/30 border-t-primary animate-spin" />
+                      <p className="text-sm text-muted-foreground">Memuatkan video...</p>
+                    </div>
+                  ) : previewVideoUrl ? (
+                    <div className="relative w-full h-full">
+                      <video 
+                        src={previewVideoUrl} 
+                        controls 
+                        className="w-full h-full object-contain"
+                        autoPlay
+                      />
+                      <button
+                        onClick={() => handleDownload(selectedGeneration)}
+                        disabled={downloadingId === selectedGeneration.id}
+                        className="absolute top-3 right-3 p-2 bg-primary/90 hover:bg-primary rounded-lg text-primary-foreground transition-all disabled:opacity-50"
+                      >
+                        {downloadingId === selectedGeneration.id ? (
+                          <svg className="w-5 h-5 animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" className="opacity-25" fill="none" />
+                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                          </svg>
+                        ) : (
+                          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                          </svg>
+                        )}
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="text-center p-8">
+                      <svg className="w-12 h-12 mx-auto mb-4 text-muted-foreground" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                      </svg>
+                      <p className="text-sm text-muted-foreground">Video tidak tersedia</p>
+                    </div>
+                  )
                 ) : (
                   <div className="text-center p-8">
                     <svg className="w-12 h-12 mx-auto mb-4 text-destructive" fill="none" stroke="currentColor" viewBox="0 0 24 24">
