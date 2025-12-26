@@ -290,17 +290,25 @@ const HistoryVault: React.FC<HistoryVaultProps> = ({ userProfile }) => {
     toast.info('Memuat turun video...');
 
     try {
-      // Use download-video edge function to proxy the download (avoids CORS)
-      const response = await supabase.functions.invoke('download-video', {
-        body: { geminigen_uuid: video.geminigen_uuid },
-      });
+      // Use fetch directly to get binary response properly
+      const response = await fetch(
+        `https://detznytjwofbqrvwqcdx.supabase.co/functions/v1/download-video`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRldHpueXRqd29mYnFydndxY2R4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjY2NjU1NjMsImV4cCI6MjA4MjI0MTU2M30.7tH1Q-MMXHJE02gob8sNJ727Z1L1j7RVkDieAqgJ4Y0`,
+          },
+          body: JSON.stringify({ geminigen_uuid: video.geminigen_uuid }),
+        }
+      );
 
-      if (response.error) {
-        throw new Error(response.error.message);
+      if (!response.ok) {
+        throw new Error('Failed to download video');
       }
 
-      // The response.data is the video blob
-      const blob = new Blob([response.data], { type: 'video/mp4' });
+      // Get the response as blob directly
+      const blob = await response.blob();
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
