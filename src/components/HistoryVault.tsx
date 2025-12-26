@@ -3,9 +3,10 @@ import { cn } from '@/lib/utils';
 import { UserProfile } from '@/types';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
-import { Download, Play, RefreshCw, Loader2, Search, X, Trash2 } from 'lucide-react';
+import { Download, Play, RefreshCw, Loader2, Search, X, Trash2, Check, CheckSquare, Square } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Checkbox } from '@/components/ui/checkbox';
 import {
   Select,
   SelectContent,
@@ -45,6 +46,12 @@ const HistoryVault: React.FC<HistoryVaultProps> = ({ userProfile }) => {
   // Search and filter states
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
+  
+  // Selection states for bulk actions
+  const [isSelectMode, setIsSelectMode] = useState(false);
+  const [selectedVideos, setSelectedVideos] = useState<Set<string>>(new Set());
+  const [isBulkDeleting, setIsBulkDeleting] = useState(false);
+  const [isBulkDownloading, setIsBulkDownloading] = useState(false);
   const [aspectFilter, setAspectFilter] = useState<string>('all');
 
   // Separate recent videos (last 24 hours or processing)
@@ -355,6 +362,130 @@ const HistoryVault: React.FC<HistoryVaultProps> = ({ userProfile }) => {
     }
   };
 
+  // Toggle video selection
+  const toggleVideoSelection = (videoId: string) => {
+    setSelectedVideos(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(videoId)) {
+        newSet.delete(videoId);
+      } else {
+        newSet.add(videoId);
+      }
+      return newSet;
+    });
+  };
+
+  // Select all visible videos
+  const selectAllVideos = () => {
+    const allIds = filteredVideos.map(v => v.id);
+    setSelectedVideos(new Set(allIds));
+  };
+
+  // Deselect all
+  const deselectAllVideos = () => {
+    setSelectedVideos(new Set());
+  };
+
+  // Toggle select mode
+  const toggleSelectMode = () => {
+    if (isSelectMode) {
+      // Exiting select mode, clear selection
+      setSelectedVideos(new Set());
+    }
+    setIsSelectMode(!isSelectMode);
+  };
+
+  // Bulk delete selected videos
+  const handleBulkDelete = async () => {
+    if (selectedVideos.size === 0) {
+      toast.error('Sila pilih video untuk dipadam');
+      return;
+    }
+
+    if (!confirm(`Adakah anda pasti mahu padam ${selectedVideos.size} video?`)) return;
+
+    setIsBulkDeleting(true);
+    
+    try {
+      const idsToDelete = Array.from(selectedVideos);
+      const { error } = await supabase
+        .from('video_generations')
+        .delete()
+        .in('id', idsToDelete);
+
+      if (error) throw error;
+
+      // Remove from local state
+      setVideos(prev => prev.filter(v => !selectedVideos.has(v.id)));
+      toast.success(`${selectedVideos.size} video berjaya dipadam`);
+      setSelectedVideos(new Set());
+      setIsSelectMode(false);
+    } catch (error) {
+      console.error('Error bulk deleting:', error);
+      toast.error('Gagal memadam video');
+    } finally {
+      setIsBulkDeleting(false);
+    }
+  };
+
+  // Bulk download selected videos
+  const handleBulkDownload = async () => {
+    const selectedList = filteredVideos.filter(v => 
+      selectedVideos.has(v.id) && v.status === 'completed' && v.geminigen_uuid
+    );
+
+    if (selectedList.length === 0) {
+      toast.error('Tiada video yang boleh dimuat turun dipilih');
+      return;
+    }
+
+    setIsBulkDownloading(true);
+    toast.info(`Memuat turun ${selectedList.length} video...`);
+
+    let successCount = 0;
+    for (const video of selectedList) {
+      try {
+        const response = await fetch(
+          `https://detznytjwofbqrvwqcdx.supabase.co/functions/v1/download-video`,
+          {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRldHpueXRqd29mYnFydndxY2R4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjY2NjU1NjMsImV4cCI6MjA4MjI0MTU2M30.7tH1Q-MMXHJE02gob8sNJ727Z1L1j7RVkDieAqgJ4Y0`,
+            },
+            body: JSON.stringify({ geminigen_uuid: video.geminigen_uuid }),
+          }
+        );
+
+        if (response.ok) {
+          const blob = await response.blob();
+          const url = window.URL.createObjectURL(blob);
+          const a = document.createElement('a');
+          a.href = url;
+          a.download = `video-${video.id.substring(0, 8)}.mp4`;
+          document.body.appendChild(a);
+          a.click();
+          document.body.removeChild(a);
+          window.URL.revokeObjectURL(url);
+          successCount++;
+          // Small delay between downloads
+          await new Promise(r => setTimeout(r, 500));
+        }
+      } catch (error) {
+        console.error('Error downloading video:', video.id, error);
+      }
+    }
+
+    setIsBulkDownloading(false);
+    if (successCount > 0) {
+      toast.success(`${successCount} video berjaya dimuat turun`);
+    } else {
+      toast.error('Gagal memuat turun video');
+    }
+    setSelectedVideos(new Set());
+    setIsSelectMode(false);
+  };
+
   const handlePreview = async (video: VideoGeneration) => {
     if (!video.geminigen_uuid) {
       if (video.video_url) {
@@ -391,119 +522,148 @@ const HistoryVault: React.FC<HistoryVaultProps> = ({ userProfile }) => {
   };
 
   // Render a single video card
-  const renderVideoCard = (video: VideoGeneration, index: number, compact = false) => (
-    <div
-      key={video.id}
-      className={cn(
-        "glass-panel-elevated overflow-hidden group animate-fade-in hover:border-primary/30 transition-all duration-300 flex-shrink-0",
-        compact && "w-[200px] sm:w-[240px]"
-      )}
-      style={{ animationDelay: `${Math.min(index * 50, 500)}ms` }}
-    >
-      {/* Thumbnail */}
-      <div className={cn(
-        "relative overflow-hidden bg-background/50",
-        compact ? "aspect-video" : (video.aspect_ratio === 'portrait' ? "aspect-[9/16]" : "aspect-video")
-      )}>
-        {video.status === 'processing' ? (
-          <div className="absolute inset-0 flex flex-col items-center justify-center">
-            <div className="w-10 h-10 rounded-full border-2 border-primary/30 border-t-primary animate-spin mb-2" />
-            <span className="text-xs text-muted-foreground">{video.status_percentage}%</span>
-            <button
-              onClick={() => checkAndUpdateStatus(video)}
-              className="mt-1 text-[10px] text-primary hover:text-primary/80"
-            >
-              Semak Status
-            </button>
-          </div>
-        ) : video.status === 'completed' ? (
-          <>
-            {video.thumbnail_url ? (
-              <img 
-                src={video.thumbnail_url} 
-                alt="Thumbnail" 
-                className="w-full h-full object-cover"
-              />
-            ) : (
-              <div className="absolute inset-0 flex items-center justify-center bg-gradient-to-br from-primary/10 to-neon-blue/10">
-                <Play className="w-8 h-8 text-primary/40" />
-              </div>
-            )}
-            {/* Play Overlay - always visible on mobile */}
-            <div 
-              className={cn(
-                "absolute inset-0 flex items-center justify-center bg-black/40 transition-opacity cursor-pointer",
-                "opacity-100 sm:opacity-0 sm:group-hover:opacity-100",
-                loadingUrl === video.id && "opacity-100"
-              )}
-              onClick={() => handlePreview(video)}
-            >
-              {loadingUrl === video.id ? (
-                <Loader2 className="w-6 h-6 text-white animate-spin" />
-              ) : (
-                <div className="w-10 h-10 rounded-full bg-primary/90 flex items-center justify-center">
-                  <Play className="w-4 h-4 text-primary-foreground ml-0.5" />
-                </div>
-              )}
+  const renderVideoCard = (video: VideoGeneration, index: number, compact = false) => {
+    const isSelected = selectedVideos.has(video.id);
+    
+    return (
+      <div
+        key={video.id}
+        className={cn(
+          "glass-panel-elevated overflow-hidden group animate-fade-in transition-all duration-300 flex-shrink-0 relative",
+          compact && "w-[200px] sm:w-[240px]",
+          isSelectMode && "cursor-pointer",
+          isSelected ? "border-primary ring-2 ring-primary/30" : "hover:border-primary/30"
+        )}
+        style={{ animationDelay: `${Math.min(index * 50, 500)}ms` }}
+        onClick={isSelectMode ? () => toggleVideoSelection(video.id) : undefined}
+      >
+        {/* Selection Checkbox */}
+        {isSelectMode && (
+          <div className="absolute top-2 left-2 z-20">
+            <div className={cn(
+              "w-5 h-5 rounded border-2 flex items-center justify-center transition-all",
+              isSelected 
+                ? "bg-primary border-primary" 
+                : "bg-background/80 border-muted-foreground/50 backdrop-blur-sm"
+            )}>
+              {isSelected && <Check className="w-3 h-3 text-primary-foreground" />}
             </div>
-          </>
-        ) : (
-          <div className="absolute inset-0 flex items-center justify-center bg-destructive/10">
-            <span className="text-destructive text-xs">Gagal</span>
           </div>
         )}
         
-        {/* Status Badge */}
+        {/* Thumbnail */}
         <div className={cn(
-          "absolute top-2 right-2 px-1.5 py-0.5 rounded text-[9px] font-bold uppercase tracking-wider",
-          video.status === 'completed' && "bg-primary/20 text-primary border border-primary/30",
-          video.status === 'processing' && "bg-amber-500/20 text-amber-400 border border-amber-500/30",
-          video.status === 'failed' && "bg-destructive/20 text-destructive border border-destructive/30"
+          "relative overflow-hidden bg-background/50",
+          compact ? "aspect-video" : (video.aspect_ratio === 'portrait' ? "aspect-[9/16]" : "aspect-video")
         )}>
-          {video.status === 'processing' ? 'Memproses' : video.status === 'completed' ? 'Siap' : 'Gagal'}
-        </div>
-
-        {/* Duration */}
-        <div className="absolute bottom-2 right-2 px-1.5 py-0.5 rounded bg-background/80 backdrop-blur-sm text-[10px] font-mono text-foreground">
-          {video.duration}s
-        </div>
-      </div>
-
-      {/* Content */}
-      <div className="p-3">
-        <p className="text-xs text-foreground line-clamp-2 mb-2">{video.prompt}</p>
-        <div className="flex items-center justify-between gap-2">
-          <span className="text-[10px] text-muted-foreground truncate">{formatDate(video.created_at)}</span>
-          <div className="flex items-center gap-2">
-            {video.status === 'completed' && video.geminigen_uuid && (
-              <button 
-                onClick={() => handleDownload(video)}
-                disabled={loadingUrl === video.id}
-                className="flex items-center gap-1 text-[10px] text-primary hover:text-primary/80 font-semibold transition-colors disabled:opacity-50"
+          {video.status === 'processing' ? (
+            <div className="absolute inset-0 flex flex-col items-center justify-center">
+              <div className="w-10 h-10 rounded-full border-2 border-primary/30 border-t-primary animate-spin mb-2" />
+              <span className="text-xs text-muted-foreground">{video.status_percentage}%</span>
+              <button
+                onClick={() => checkAndUpdateStatus(video)}
+                className="mt-1 text-[10px] text-primary hover:text-primary/80"
+              >
+                Semak Status
+              </button>
+            </div>
+          ) : video.status === 'completed' ? (
+            <>
+              {video.thumbnail_url ? (
+                <img 
+                  src={video.thumbnail_url} 
+                  alt="Thumbnail" 
+                  className="w-full h-full object-cover"
+                />
+              ) : (
+                <div className="absolute inset-0 flex items-center justify-center bg-gradient-to-br from-primary/10 to-neon-blue/10">
+                  <Play className="w-8 h-8 text-primary/40" />
+                </div>
+              )}
+              {/* Play Overlay - always visible on mobile */}
+              <div 
+                className={cn(
+                  "absolute inset-0 flex items-center justify-center bg-black/40 transition-opacity cursor-pointer",
+                  "opacity-100 sm:opacity-0 sm:group-hover:opacity-100",
+                  loadingUrl === video.id && "opacity-100",
+                  isSelectMode && "opacity-50"
+                )}
+                onClick={(e) => { 
+                  if (!isSelectMode) {
+                    e.stopPropagation();
+                    handlePreview(video); 
+                  }
+                }}
               >
                 {loadingUrl === video.id ? (
-                  <Loader2 className="w-3 h-3 animate-spin" />
+                  <Loader2 className="w-6 h-6 text-white animate-spin" />
                 ) : (
-                  <Download className="w-3 h-3" />
+                  <div className="w-10 h-10 rounded-full bg-primary/90 flex items-center justify-center">
+                    <Play className="w-4 h-4 text-primary-foreground ml-0.5" />
+                  </div>
                 )}
-              </button>
-            )}
-            <button 
-              onClick={() => handleDelete(video)}
-              disabled={deletingId === video.id}
-              className="flex items-center gap-1 text-[10px] text-destructive hover:text-destructive/80 font-semibold transition-colors disabled:opacity-50"
-            >
-              {deletingId === video.id ? (
-                <Loader2 className="w-3 h-3 animate-spin" />
-              ) : (
-                <Trash2 className="w-3 h-3" />
+              </div>
+            </>
+          ) : (
+            <div className="absolute inset-0 flex items-center justify-center bg-destructive/10">
+              <span className="text-destructive text-xs">Gagal</span>
+            </div>
+          )}
+          
+          {/* Status Badge */}
+          <div className={cn(
+            "absolute top-2 right-2 px-1.5 py-0.5 rounded text-[9px] font-bold uppercase tracking-wider",
+            video.status === 'completed' && "bg-primary/20 text-primary border border-primary/30",
+            video.status === 'processing' && "bg-amber-500/20 text-amber-400 border border-amber-500/30",
+            video.status === 'failed' && "bg-destructive/20 text-destructive border border-destructive/30"
+          )}>
+            {video.status === 'processing' ? 'Memproses' : video.status === 'completed' ? 'Siap' : 'Gagal'}
+          </div>
+
+          {/* Duration */}
+          <div className="absolute bottom-2 right-2 px-1.5 py-0.5 rounded bg-background/80 backdrop-blur-sm text-[10px] font-mono text-foreground">
+            {video.duration}s
+          </div>
+        </div>
+
+        {/* Content */}
+        <div className="p-3">
+          <p className="text-xs text-foreground line-clamp-2 mb-2">{video.prompt}</p>
+          <div className="flex items-center justify-between gap-2">
+            <span className="text-[10px] text-muted-foreground truncate">{formatDate(video.created_at)}</span>
+            <div className="flex items-center gap-2">
+              {!isSelectMode && video.status === 'completed' && video.geminigen_uuid && (
+                <button 
+                  onClick={(e) => { e.stopPropagation(); handleDownload(video); }}
+                  disabled={loadingUrl === video.id}
+                  className="flex items-center gap-1 text-[10px] text-primary hover:text-primary/80 font-semibold transition-colors disabled:opacity-50"
+                >
+                  {loadingUrl === video.id ? (
+                    <Loader2 className="w-3 h-3 animate-spin" />
+                  ) : (
+                    <Download className="w-3 h-3" />
+                  )}
+                </button>
               )}
-            </button>
+              {!isSelectMode && (
+                <button 
+                  onClick={(e) => { e.stopPropagation(); handleDelete(video); }}
+                  disabled={deletingId === video.id}
+                  className="flex items-center gap-1 text-[10px] text-destructive hover:text-destructive/80 font-semibold transition-colors disabled:opacity-50"
+                >
+                  {deletingId === video.id ? (
+                    <Loader2 className="w-3 h-3 animate-spin" />
+                  ) : (
+                    <Trash2 className="w-3 h-3" />
+                  )}
+                </button>
+              )}
+            </div>
           </div>
         </div>
       </div>
-    </div>
-  );
+    );
+  };
 
   // Locked UI component
   if (isLocked) {
@@ -581,17 +741,79 @@ const HistoryVault: React.FC<HistoryVaultProps> = ({ userProfile }) => {
               )}
             </p>
           </div>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={handleRefresh}
-            disabled={refreshing || isSyncing}
-            className="gap-2 self-start sm:self-auto"
-          >
-            <RefreshCw className={cn("w-4 h-4", (refreshing || isSyncing) && "animate-spin")} />
-            {isSyncing ? 'Syncing...' : 'Refresh'}
-          </Button>
+          <div className="flex items-center gap-2 self-start sm:self-auto">
+            <Button
+              variant={isSelectMode ? "default" : "outline"}
+              size="sm"
+              onClick={toggleSelectMode}
+              className="gap-2"
+            >
+              {isSelectMode ? <CheckSquare className="w-4 h-4" /> : <Square className="w-4 h-4" />}
+              {isSelectMode ? 'Batal' : 'Pilih'}
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleRefresh}
+              disabled={refreshing || isSyncing}
+              className="gap-2"
+            >
+              <RefreshCw className={cn("w-4 h-4", (refreshing || isSyncing) && "animate-spin")} />
+              {isSyncing ? 'Syncing...' : 'Refresh'}
+            </Button>
+          </div>
         </div>
+
+        {/* Bulk Action Bar - Show when in select mode */}
+        {isSelectMode && (
+          <div className="mb-4 glass-panel p-3 animate-fade-in border-primary/30">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div className="flex items-center gap-3">
+                <span className="text-sm text-muted-foreground">
+                  {selectedVideos.size} dipilih
+                </span>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={selectedVideos.size === filteredVideos.length ? deselectAllVideos : selectAllVideos}
+                  className="text-xs"
+                >
+                  {selectedVideos.size === filteredVideos.length ? 'Nyahpilih Semua' : 'Pilih Semua'}
+                </Button>
+              </div>
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleBulkDownload}
+                  disabled={isBulkDownloading || selectedVideos.size === 0}
+                  className="gap-2 text-primary border-primary/30 hover:bg-primary/10"
+                >
+                  {isBulkDownloading ? (
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                  ) : (
+                    <Download className="w-4 h-4" />
+                  )}
+                  Muat Turun
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleBulkDelete}
+                  disabled={isBulkDeleting || selectedVideos.size === 0}
+                  className="gap-2 text-destructive border-destructive/30 hover:bg-destructive/10"
+                >
+                  {isBulkDeleting ? (
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                  ) : (
+                    <Trash2 className="w-4 h-4" />
+                  )}
+                  Padam
+                </Button>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Search and Filter Bar */}
         <div className="mb-6 glass-panel p-4 animate-fade-in">
