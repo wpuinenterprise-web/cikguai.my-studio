@@ -287,19 +287,39 @@ const HistoryVault: React.FC<HistoryVaultProps> = ({ userProfile }) => {
     }
 
     setLoadingUrl(video.id);
-    toast.info('Mendapatkan URL muat turun...');
+    toast.info('Memuat turun video...');
 
-    const { downloadUrl } = await getFreshVideoUrl(video.geminigen_uuid);
-    setLoadingUrl(null);
+    try {
+      const { downloadUrl } = await getFreshVideoUrl(video.geminigen_uuid);
+      const urlToDownload = downloadUrl || video.video_url;
 
-    if (downloadUrl) {
-      window.open(downloadUrl, '_blank');
-      toast.success('Video dibuka di tab baru');
-    } else if (video.video_url) {
-      window.open(video.video_url, '_blank');
-      toast.success('Video dibuka di tab baru');
-    } else {
-      toast.error('Gagal mendapatkan URL video');
+      if (!urlToDownload) {
+        toast.error('Gagal mendapatkan URL video');
+        return;
+      }
+
+      // Fetch video and trigger real download
+      const videoResponse = await fetch(urlToDownload);
+      if (!videoResponse.ok) {
+        throw new Error('Failed to fetch video');
+      }
+      
+      const blob = await videoResponse.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `video-${video.id.substring(0, 8)}.mp4`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      window.URL.revokeObjectURL(url);
+      
+      toast.success('Video berjaya dimuat turun!');
+    } catch (error) {
+      console.error('Error downloading video:', error);
+      toast.error('Gagal memuat turun video');
+    } finally {
+      setLoadingUrl(null);
     }
   };
 
