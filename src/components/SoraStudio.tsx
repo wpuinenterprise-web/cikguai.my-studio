@@ -116,6 +116,9 @@ const SoraStudio: React.FC<SoraStudioProps> = ({ userProfile }) => {
     fetchActiveGenerations();
   }, []);
 
+  // Completed generations - separate state to keep for preview/download
+  const [completedGenerations, setCompletedGenerations] = useState<ActiveGeneration[]>([]);
+
   // Poll for active generations status - faster polling (3s)
   useEffect(() => {
     if (activeGenerations.length === 0) return;
@@ -123,6 +126,7 @@ const SoraStudio: React.FC<SoraStudioProps> = ({ userProfile }) => {
     const pollInterval = setInterval(async () => {
       const updatedGenerations = [...activeGenerations];
       let hasChanges = false;
+      const newlyCompleted: ActiveGeneration[] = [];
 
       for (let i = 0; i < updatedGenerations.length; i++) {
         const gen = updatedGenerations[i];
@@ -148,6 +152,7 @@ const SoraStudio: React.FC<SoraStudioProps> = ({ userProfile }) => {
 
               if (status === 'completed' && video_url) {
                 toast.success(`Video \"${gen.prompt.substring(0, 20)}...\" siap!`);
+                newlyCompleted.push(updatedGenerations[i]);
               } else if (status === 'failed') {
                 toast.error(`Video \"${gen.prompt.substring(0, 20)}...\" gagal`);
               }
@@ -159,24 +164,22 @@ const SoraStudio: React.FC<SoraStudioProps> = ({ userProfile }) => {
       }
 
       if (hasChanges) {
-        // Remove completed/failed from active list but keep in state briefly for viewing
+        // Keep only processing ones in active list
         setActiveGenerations(updatedGenerations.filter(g => g.status === 'processing'));
         
-        // If selected generation completed, update UI
-        const selectedGen = updatedGenerations.find(g => g.id === selectedGenerationId);
-        if (selectedGen && selectedGen.status === 'completed') {
-          // Keep it visible for preview
-          setActiveGenerations(prev => {
-            const exists = prev.find(p => p.id === selectedGen.id);
-            if (!exists) return [...prev, selectedGen];
-            return prev.map(p => p.id === selectedGen.id ? selectedGen : p);
+        // Add newly completed to completedGenerations for preview/download
+        if (newlyCompleted.length > 0) {
+          setCompletedGenerations(prev => {
+            const newCompleted = [...newlyCompleted, ...prev];
+            // Keep only latest 10 completed videos
+            return newCompleted.slice(0, 10);
           });
         }
       }
     }, 3000); // Poll every 3 seconds
 
     return () => clearInterval(pollInterval);
-  }, [activeGenerations, selectedGenerationId]);
+  }, [activeGenerations]);
 
   // Upload image to Supabase Storage
   const uploadImageToStorage = async (base64Data: string): Promise<string | null> => {
@@ -388,9 +391,13 @@ const SoraStudio: React.FC<SoraStudioProps> = ({ userProfile }) => {
     }
   };
 
-  // Get selected generation for preview
-  const selectedGeneration = activeGenerations.find(g => g.id === selectedGenerationId);
+  // Get selected generation for preview - check both active and completed
+  const selectedGeneration = activeGenerations.find(g => g.id === selectedGenerationId) 
+    || completedGenerations.find(g => g.id === selectedGenerationId);
   const processingCount = activeGenerations.filter(g => g.status === 'processing').length;
+
+  // All generations for display (active + completed)
+  const allGenerations = [...activeGenerations, ...completedGenerations];
 
   // Locked UI component
   if (isLocked) {
@@ -462,16 +469,21 @@ const SoraStudio: React.FC<SoraStudioProps> = ({ userProfile }) => {
           </p>
         </div>
 
-        {/* Active Generations Status Bar */}
-        {activeGenerations.length > 0 && (
+        {/* Active & Completed Generations Status Bar */}
+        {allGenerations.length > 0 && (
           <div className="mb-4 p-3 rounded-xl bg-secondary/30 border border-border/50 animate-fade-in">
             <div className="flex items-center justify-between mb-2">
               <span className="text-xs font-bold text-muted-foreground uppercase tracking-wider">
-                Video Aktif ({processingCount}/{MAX_CONCURRENT_VIDEOS})
+                Video ({processingCount} aktif / {MAX_CONCURRENT_VIDEOS} max)
               </span>
+              {completedGenerations.length > 0 && (
+                <span className="text-xs text-green-500 font-medium">
+                  {completedGenerations.length} siap
+                </span>
+              )}
             </div>
             <div className="flex flex-wrap gap-2">
-              {activeGenerations.map((gen) => (
+              {allGenerations.map((gen) => (
                 <button
                   key={gen.id}
                   onClick={() => setSelectedGenerationId(gen.id)}
@@ -479,7 +491,9 @@ const SoraStudio: React.FC<SoraStudioProps> = ({ userProfile }) => {
                     "flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-medium transition-all",
                     selectedGenerationId === gen.id
                       ? "bg-primary/20 border border-primary/50 text-primary"
-                      : "bg-secondary/50 border border-border text-muted-foreground hover:border-primary/30"
+                      : gen.status === 'completed'
+                        ? "bg-green-500/10 border border-green-500/30 text-green-500 hover:border-green-500/50"
+                        : "bg-secondary/50 border border-border text-muted-foreground hover:border-primary/30"
                   )}
                 >
                   {gen.status === 'processing' ? (
@@ -494,7 +508,12 @@ const SoraStudio: React.FC<SoraStudioProps> = ({ userProfile }) => {
                     </svg>
                   )}
                   <span className="max-w-[100px] truncate">{gen.prompt.substring(0, 15)}...</span>
-                  <span className="text-[10px] text-muted-foreground">{gen.status_percentage}%</span>
+                  {gen.status === 'processing' && (
+                    <span className="text-[10px] text-muted-foreground">{gen.status_percentage}%</span>
+                  )}
+                  {gen.status === 'completed' && (
+                    <span className="text-[10px] text-green-500">✓</span>
+                  )}
                 </button>
               ))}
             </div>
@@ -587,12 +606,15 @@ const SoraStudio: React.FC<SoraStudioProps> = ({ userProfile }) => {
                 onChange={handleFileChange}
                 accept="image/*"
                 className="hidden"
-                disabled={isGenerating || isUploadingImage}
+                disabled={isUploadingImage}
               />
               {!filePreview ? (
                 <div
-                  onClick={() => !isGenerating && !isUploadingImage && fileInputRef.current?.click()}
-                  className="w-full border-2 border-dashed border-border rounded-xl p-6 flex flex-col items-center justify-center gap-2 cursor-pointer hover:border-primary/30 hover:bg-primary/5 transition-all duration-300"
+                  onClick={() => !isUploadingImage && fileInputRef.current?.click()}
+                  className={cn(
+                    "w-full border-2 border-dashed border-border rounded-xl p-6 flex flex-col items-center justify-center gap-2 transition-all duration-300",
+                    isUploadingImage ? "opacity-50 cursor-not-allowed" : "cursor-pointer hover:border-primary/30 hover:bg-primary/5"
+                  )}
                 >
                   <svg className="w-8 h-8 text-muted-foreground" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
