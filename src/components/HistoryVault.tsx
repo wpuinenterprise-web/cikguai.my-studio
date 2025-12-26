@@ -3,7 +3,7 @@ import { cn } from '@/lib/utils';
 import { UserProfile } from '@/types';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
-import { Download, Play, RefreshCw, Loader2, Search, X } from 'lucide-react';
+import { Download, Play, RefreshCw, Loader2, Search, X, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import {
@@ -327,6 +327,34 @@ const HistoryVault: React.FC<HistoryVaultProps> = ({ userProfile }) => {
     }
   };
 
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+
+  const handleDelete = async (video: VideoGeneration) => {
+    if (!confirm('Adakah anda pasti mahu padam video ini?')) return;
+
+    setDeletingId(video.id);
+    
+    try {
+      const { error } = await supabase
+        .from('video_generations')
+        .delete()
+        .eq('id', video.id);
+
+      if (error) {
+        throw error;
+      }
+
+      // Remove from local state
+      setVideos(prev => prev.filter(v => v.id !== video.id));
+      toast.success('Video berjaya dipadam');
+    } catch (error) {
+      console.error('Error deleting video:', error);
+      toast.error('Gagal memadam video');
+    } finally {
+      setDeletingId(null);
+    }
+  };
+
   const handlePreview = async (video: VideoGeneration) => {
     if (!video.geminigen_uuid) {
       if (video.video_url) {
@@ -446,19 +474,32 @@ const HistoryVault: React.FC<HistoryVaultProps> = ({ userProfile }) => {
         <p className="text-xs text-foreground line-clamp-2 mb-2">{video.prompt}</p>
         <div className="flex items-center justify-between gap-2">
           <span className="text-[10px] text-muted-foreground truncate">{formatDate(video.created_at)}</span>
-          {video.status === 'completed' && video.geminigen_uuid && (
+          <div className="flex items-center gap-2">
+            {video.status === 'completed' && video.geminigen_uuid && (
+              <button 
+                onClick={() => handleDownload(video)}
+                disabled={loadingUrl === video.id}
+                className="flex items-center gap-1 text-[10px] text-primary hover:text-primary/80 font-semibold transition-colors disabled:opacity-50"
+              >
+                {loadingUrl === video.id ? (
+                  <Loader2 className="w-3 h-3 animate-spin" />
+                ) : (
+                  <Download className="w-3 h-3" />
+                )}
+              </button>
+            )}
             <button 
-              onClick={() => handleDownload(video)}
-              disabled={loadingUrl === video.id}
-              className="flex items-center gap-1 text-[10px] text-primary hover:text-primary/80 font-semibold transition-colors disabled:opacity-50"
+              onClick={() => handleDelete(video)}
+              disabled={deletingId === video.id}
+              className="flex items-center gap-1 text-[10px] text-destructive hover:text-destructive/80 font-semibold transition-colors disabled:opacity-50"
             >
-              {loadingUrl === video.id ? (
+              {deletingId === video.id ? (
                 <Loader2 className="w-3 h-3 animate-spin" />
               ) : (
-                <Download className="w-3 h-3" />
+                <Trash2 className="w-3 h-3" />
               )}
             </button>
-          )}
+          </div>
         </div>
       </div>
     </div>
