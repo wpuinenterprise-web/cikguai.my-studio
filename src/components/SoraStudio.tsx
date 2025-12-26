@@ -229,6 +229,11 @@ const SoraStudio: React.FC<SoraStudioProps> = ({ userProfile }) => {
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
+      // Reset input value to allow re-uploading same file if needed
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
+      
       const reader = new FileReader();
       reader.onloadend = async () => {
         const base64Data = reader.result as string;
@@ -305,10 +310,9 @@ const SoraStudio: React.FC<SoraStudioProps> = ({ userProfile }) => {
         setSelectedGenerationId(video_id);
       }
 
-      // Clear input for next generation
+      // Clear only prompt for next generation - keep image for I2V spam
       setPrompt('');
-      setFilePreview(null);
-      setUploadedImageUrl(null);
+      // DON'T clear filePreview and uploadedImageUrl - allow user to reuse same image for multiple I2V generations
 
     } catch (error: any) {
       console.error('Generation error:', error);
@@ -318,10 +322,15 @@ const SoraStudio: React.FC<SoraStudioProps> = ({ userProfile }) => {
     }
   };
 
-  const removeFile = () => {
+  // Separate function to clear image when user explicitly wants to
+  const clearImage = () => {
     setFilePreview(null);
     setUploadedImageUrl(null);
     if (fileInputRef.current) fileInputRef.current.value = '';
+  };
+
+  const removeFile = () => {
+    clearImage();
   };
 
   const handleDownload = (videoUrl: string) => {
