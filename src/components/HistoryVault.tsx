@@ -290,21 +290,17 @@ const HistoryVault: React.FC<HistoryVaultProps> = ({ userProfile }) => {
     toast.info('Memuat turun video...');
 
     try {
-      const { downloadUrl } = await getFreshVideoUrl(video.geminigen_uuid);
-      const urlToDownload = downloadUrl || video.video_url;
+      // Use download-video edge function to proxy the download (avoids CORS)
+      const response = await supabase.functions.invoke('download-video', {
+        body: { geminigen_uuid: video.geminigen_uuid },
+      });
 
-      if (!urlToDownload) {
-        toast.error('Gagal mendapatkan URL video');
-        return;
+      if (response.error) {
+        throw new Error(response.error.message);
       }
 
-      // Fetch video and trigger real download
-      const videoResponse = await fetch(urlToDownload);
-      if (!videoResponse.ok) {
-        throw new Error('Failed to fetch video');
-      }
-      
-      const blob = await videoResponse.blob();
+      // The response.data is the video blob
+      const blob = new Blob([response.data], { type: 'video/mp4' });
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;

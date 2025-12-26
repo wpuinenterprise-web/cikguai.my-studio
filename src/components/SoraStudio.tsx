@@ -404,26 +404,17 @@ const SoraStudio: React.FC<SoraStudioProps> = ({ userProfile, onProfileRefresh }
     toast.info('Memuat turun video...');
 
     try {
-      const response = await supabase.functions.invoke('get-fresh-video-url', {
+      // Use download-video edge function to proxy the download (avoids CORS)
+      const response = await supabase.functions.invoke('download-video', {
         body: { geminigen_uuid: generation.geminigen_uuid },
       });
 
-      console.log('Fresh download URL response:', response.data);
-
-      const downloadUrl = response.data?.download_url || response.data?.video_url || generation.video_url;
-      
-      if (!downloadUrl) {
-        toast.error('Gagal mendapatkan URL video');
-        return;
+      if (response.error) {
+        throw new Error(response.error.message);
       }
 
-      // Fetch video and trigger real download
-      const videoResponse = await fetch(downloadUrl);
-      if (!videoResponse.ok) {
-        throw new Error('Failed to fetch video');
-      }
-      
-      const blob = await videoResponse.blob();
+      // The response.data is the video blob
+      const blob = new Blob([response.data], { type: 'video/mp4' });
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
