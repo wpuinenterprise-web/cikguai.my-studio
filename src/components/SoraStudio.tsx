@@ -343,9 +343,48 @@ const SoraStudio: React.FC<SoraStudioProps> = ({ userProfile, onProfileRefresh }
     clearImage();
   };
 
-  const handleDownload = (videoUrl: string) => {
-    if (videoUrl) {
-      window.open(videoUrl, '_blank');
+  const [downloadingId, setDownloadingId] = useState<string | null>(null);
+
+  const handleDownload = async (generation: ActiveGeneration) => {
+    if (!generation.geminigen_uuid) {
+      // Fallback to existing URL if no UUID
+      if (generation.video_url) {
+        window.open(generation.video_url, '_blank');
+      } else {
+        toast.error('Tiada URL video');
+      }
+      return;
+    }
+
+    setDownloadingId(generation.id);
+    toast.info('Mendapatkan URL muat turun terkini...');
+
+    try {
+      const response = await supabase.functions.invoke('get-fresh-video-url', {
+        body: { geminigen_uuid: generation.geminigen_uuid },
+      });
+
+      console.log('Fresh download URL response:', response.data);
+
+      if (response.data?.success && response.data?.download_url) {
+        window.open(response.data.download_url, '_blank');
+        toast.success('Video dibuka di tab baru');
+      } else if (generation.video_url) {
+        // Fallback to existing URL
+        window.open(generation.video_url, '_blank');
+        toast.success('Video dibuka di tab baru');
+      } else {
+        toast.error('Gagal mendapatkan URL video');
+      }
+    } catch (error) {
+      console.error('Error getting fresh download URL:', error);
+      if (generation.video_url) {
+        window.open(generation.video_url, '_blank');
+      } else {
+        toast.error('Gagal mendapatkan URL video');
+      }
+    } finally {
+      setDownloadingId(null);
     }
   };
 
@@ -1024,12 +1063,20 @@ const SoraStudio: React.FC<SoraStudioProps> = ({ userProfile, onProfileRefresh }
                       autoPlay
                     />
                     <button
-                      onClick={() => handleDownload(selectedGeneration.video_url!)}
-                      className="absolute top-3 right-3 p-2 bg-primary/90 hover:bg-primary rounded-lg text-primary-foreground transition-all"
+                      onClick={() => handleDownload(selectedGeneration)}
+                      disabled={downloadingId === selectedGeneration.id}
+                      className="absolute top-3 right-3 p-2 bg-primary/90 hover:bg-primary rounded-lg text-primary-foreground transition-all disabled:opacity-50"
                     >
-                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
-                      </svg>
+                      {downloadingId === selectedGeneration.id ? (
+                        <svg className="w-5 h-5 animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" className="opacity-25" fill="none" />
+                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                        </svg>
+                      ) : (
+                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                        </svg>
+                      )}
                     </button>
                   </div>
                 ) : (
