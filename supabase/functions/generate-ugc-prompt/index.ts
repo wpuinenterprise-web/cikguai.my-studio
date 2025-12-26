@@ -156,7 +156,7 @@ DO NOT use timestamps or bullet points in the videoPrompt. Write it as one cohes
     const data = await response.json();
     const generatedContent = data.choices[0].message.content;
 
-    console.log('Generated UGC prompt successfully');
+    console.log('Raw generated content:', generatedContent.substring(0, 500));
 
     // Try to parse as JSON, otherwise return as text
     let parsedContent;
@@ -164,9 +164,24 @@ DO NOT use timestamps or bullet points in the videoPrompt. Write it as one cohes
       // Extract JSON from markdown code blocks if present
       const jsonMatch = generatedContent.match(/```json\n?([\s\S]*?)\n?```/) || 
                         generatedContent.match(/```\n?([\s\S]*?)\n?```/);
-      const jsonString = jsonMatch ? jsonMatch[1] : generatedContent;
+      
+      let jsonString = jsonMatch ? jsonMatch[1].trim() : generatedContent.trim();
+      
+      // If no code block found, try to find JSON object directly
+      if (!jsonMatch) {
+        const jsonStartIndex = generatedContent.indexOf('{');
+        const jsonEndIndex = generatedContent.lastIndexOf('}');
+        if (jsonStartIndex !== -1 && jsonEndIndex !== -1) {
+          jsonString = generatedContent.substring(jsonStartIndex, jsonEndIndex + 1);
+        }
+      }
+      
+      console.log('Attempting to parse JSON:', jsonString.substring(0, 200));
       parsedContent = JSON.parse(jsonString);
-    } catch {
+      console.log('Successfully parsed JSON, videoPrompt length:', parsedContent.videoPrompt?.length || 0);
+    } catch (parseError) {
+      console.log('JSON parse failed, using raw content as videoPrompt');
+      // If parsing fails, use the entire content as videoPrompt
       parsedContent = { videoPrompt: generatedContent, dialogScript: '', segments: [] };
     }
 
