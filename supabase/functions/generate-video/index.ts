@@ -91,14 +91,24 @@ serve(async (req) => {
     formData.append('aspect_ratio', aspect_ratio);
     
     // Send reference image URL for I2V (Image to Video)
+    // Try multiple parameter names that GeminiGen API might accept
     if (reference_image_url && reference_image_url.startsWith('http')) {
       console.log('Adding reference image for I2V:', reference_image_url);
+      // Add as multiple possible parameter names for I2V
+      formData.append('first_frame_url', reference_image_url);
+      formData.append('image_url', reference_image_url);
       formData.append('file_urls', reference_image_url);
     } else if (reference_image_url) {
       console.log('Invalid reference image URL format:', reference_image_url.substring(0, 50));
     }
 
-    console.log('Calling GeminiGen API...');
+    console.log('Calling GeminiGen API with params:', {
+      prompt: prompt.substring(0, 100) + '...',
+      model: 'sora-2',
+      duration,
+      aspect_ratio,
+      has_reference_image: !!reference_image_url,
+    });
 
     const geminigenResponse = await fetch('https://api.geminigen.ai/uapi/v1/video-gen/sora', {
       method: 'POST',
