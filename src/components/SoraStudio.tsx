@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Input } from '@/components/ui/input';
@@ -25,6 +25,8 @@ interface SoraStudioProps {
   } | null;
 }
 
+const MAX_CONCURRENT_VIDEOS = 4;
+
 const SoraStudio: React.FC<SoraStudioProps> = ({ userProfile }) => {
   // Check if feature should be locked
   const isLocked = userProfile && !userProfile.is_admin && (!userProfile.is_approved || userProfile.video_limit <= 0);
@@ -33,21 +35,22 @@ const SoraStudio: React.FC<SoraStudioProps> = ({ userProfile }) => {
   const [aspectRatio, setAspectRatio] = useState<'landscape' | 'portrait'>('landscape');
   const [isGenerating, setIsGenerating] = useState(false);
   const [filePreview, setFilePreview] = useState<string | null>(null);
-  const [generatedVideoUrl, setGeneratedVideoUrl] = useState<string | null>(null);
-  const [generationProgress, setGenerationProgress] = useState(0);
+  const [isUploadingImage, setIsUploadingImage] = useState(false);
+  const [uploadedImageUrl, setUploadedImageUrl] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   
-  // Active generations - persisted from database
+  // Active generations - allow up to 4 concurrent
   const [activeGenerations, setActiveGenerations] = useState<ActiveGeneration[]>([]);
-  const [currentGenerationId, setCurrentGenerationId] = useState<string | null>(null);
+  const [selectedGenerationId, setSelectedGenerationId] = useState<string | null>(null);
 
-  // UGC Prompt Generator state
+  // UGC Prompt Generator state - load from localStorage
   const [showPromptGenerator, setShowPromptGenerator] = useState(false);
-  const [productName, setProductName] = useState('');
-  const [productDescription, setProductDescription] = useState('');
-  const [platform, setPlatform] = useState<'tiktok' | 'facebook'>('tiktok');
-  const [gender, setGender] = useState<'male' | 'female'>('female');
-  const [openaiApiKey, setOpenaiApiKey] = useState('');
+  const [productName, setProductName] = useState(() => localStorage.getItem('ugc_productName') || '');
+  const [productDescription, setProductDescription] = useState(() => localStorage.getItem('ugc_productDescription') || '');
+  const [platform, setPlatform] = useState<'tiktok' | 'facebook'>(() => (localStorage.getItem('ugc_platform') as 'tiktok' | 'facebook') || 'tiktok');
+  const [gender, setGender] = useState<'male' | 'female'>(() => (localStorage.getItem('ugc_gender') as 'male' | 'female') || 'female');
+  const [openaiApiKey, setOpenaiApiKey] = useState(() => localStorage.getItem('ugc_openaiApiKey') || '');
+  const [isApiKeySaved, setIsApiKeySaved] = useState(() => !!localStorage.getItem('ugc_openaiApiKey'));
   const [isGeneratingPrompt, setIsGeneratingPrompt] = useState(false);
   const [generatedDialog, setGeneratedDialog] = useState('');
   const [generatedSegments, setGeneratedSegments] = useState<Array<{
@@ -62,6 +65,30 @@ const SoraStudio: React.FC<SoraStudioProps> = ({ userProfile }) => {
     visualStyle: string;
   }>>([]); 
 
+  // Save UGC data to localStorage when changed
+  const saveProductData = useCallback(() => {
+    localStorage.setItem('ugc_productName', productName);
+    localStorage.setItem('ugc_productDescription', productDescription);
+    localStorage.setItem('ugc_platform', platform);
+    localStorage.setItem('ugc_gender', gender);
+    toast.success('Data produk disimpan!');
+  }, [productName, productDescription, platform, gender]);
+
+  const saveApiKey = useCallback(() => {
+    if (openaiApiKey.trim()) {
+      localStorage.setItem('ugc_openaiApiKey', openaiApiKey);
+      setIsApiKeySaved(true);
+      toast.success('API Key disimpan!');
+    }
+  }, [openaiApiKey]);
+
+  const clearApiKey = useCallback(() => {
+    localStorage.removeItem('ugc_openaiApiKey');
+    setOpenaiApiKey('');
+    setIsApiKeySaved(false);
+    toast.success('API Key dipadam!');
+  }, []);
+
   // Fetch active/processing videos on mount
   useEffect(() => {
     const fetchActiveGenerations = async () => {
@@ -73,17 +100,15 @@ const SoraStudio: React.FC<SoraStudioProps> = ({ userProfile }) => {
         .select('id, geminigen_uuid, prompt, status, status_percentage, video_url')
         .eq('user_id', session.user.id)
         .eq('status', 'processing')
-        .order('created_at', { ascending: false });
+        .order('created_at', { ascending: false })
+        .limit(MAX_CONCURRENT_VIDEOS);
 
       if (videos && videos.length > 0) {
         const activeVids = videos.filter(v => v.geminigen_uuid) as ActiveGeneration[];
         setActiveGenerations(activeVids);
         
-        // If there's a processing video, show its status
         if (activeVids.length > 0) {
-          setIsGenerating(true);
-          setCurrentGenerationId(activeVids[0].id);
-          setGenerationProgress(activeVids[0].status_percentage || 0);
+          setSelectedGenerationId(activeVids[0].id);
         }
       }
     };
@@ -91,12 +116,16 @@ const SoraStudio: React.FC<SoraStudioProps> = ({ userProfile }) => {
     fetchActiveGenerations();
   }, []);
 
-  // Poll for active generations status
+  // Poll for active generations status - faster polling (3s)
   useEffect(() => {
     if (activeGenerations.length === 0) return;
 
     const pollInterval = setInterval(async () => {
-      for (const gen of activeGenerations) {
+      const updatedGenerations = [...activeGenerations];
+      let hasChanges = false;
+
+      for (let i = 0; i < updatedGenerations.length; i++) {
+        const gen = updatedGenerations[i];
         if (!gen.geminigen_uuid) continue;
 
         try {
@@ -106,33 +135,21 @@ const SoraStudio: React.FC<SoraStudioProps> = ({ userProfile }) => {
 
           if (response.data?.success) {
             const { status, status_percentage, video_url } = response.data;
-
-            // Update local state
-            setActiveGenerations(prev => prev.map(g => 
-              g.id === gen.id 
-                ? { ...g, status, status_percentage: status_percentage || g.status_percentage, video_url }
-                : g
-            ));
-
-            // Update UI if this is the current generation
-            if (gen.id === currentGenerationId) {
-              setGenerationProgress(status_percentage || 0);
+            
+            // Update generation in list
+            if (status !== gen.status || status_percentage !== gen.status_percentage || video_url !== gen.video_url) {
+              hasChanges = true;
+              updatedGenerations[i] = {
+                ...gen,
+                status,
+                status_percentage: status_percentage || gen.status_percentage,
+                video_url: video_url || gen.video_url,
+              };
 
               if (status === 'completed' && video_url) {
-                setGeneratedVideoUrl(video_url);
-                setIsGenerating(false);
-                setActiveGenerations(prev => prev.filter(g => g.id !== gen.id));
-                toast.success('Video berjaya dijana!');
+                toast.success(`Video \"${gen.prompt.substring(0, 20)}...\" siap!`);
               } else if (status === 'failed') {
-                setIsGenerating(false);
-                setActiveGenerations(prev => prev.filter(g => g.id !== gen.id));
-                toast.error('Gagal menjana video');
-              }
-            } else if (status === 'completed' || status === 'failed') {
-              // Remove completed/failed from active list
-              setActiveGenerations(prev => prev.filter(g => g.id !== gen.id));
-              if (status === 'completed') {
-                toast.success(`Video "${gen.prompt.substring(0, 30)}..." siap!`);
+                toast.error(`Video \"${gen.prompt.substring(0, 20)}...\" gagal`);
               }
             }
           }
@@ -140,78 +157,92 @@ const SoraStudio: React.FC<SoraStudioProps> = ({ userProfile }) => {
           console.error('Error polling status:', error);
         }
       }
-    }, 5000);
+
+      if (hasChanges) {
+        // Remove completed/failed from active list but keep in state briefly for viewing
+        setActiveGenerations(updatedGenerations.filter(g => g.status === 'processing'));
+        
+        // If selected generation completed, update UI
+        const selectedGen = updatedGenerations.find(g => g.id === selectedGenerationId);
+        if (selectedGen && selectedGen.status === 'completed') {
+          // Keep it visible for preview
+          setActiveGenerations(prev => {
+            const exists = prev.find(p => p.id === selectedGen.id);
+            if (!exists) return [...prev, selectedGen];
+            return prev.map(p => p.id === selectedGen.id ? selectedGen : p);
+          });
+        }
+      }
+    }, 3000); // Poll every 3 seconds
 
     return () => clearInterval(pollInterval);
-  }, [activeGenerations, currentGenerationId]);
+  }, [activeGenerations, selectedGenerationId]);
 
+  // Upload image to Supabase Storage
+  const uploadImageToStorage = async (base64Data: string): Promise<string | null> => {
+    try {
+      setIsUploadingImage(true);
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        toast.error('Sila log masuk semula');
+        return null;
+      }
 
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+      // Convert base64 to blob
+      const base64Response = await fetch(base64Data);
+      const blob = await base64Response.blob();
+      
+      // Generate unique filename
+      const fileExt = blob.type.split('/')[1] || 'png';
+      const fileName = `${session.user.id}/${Date.now()}.${fileExt}`;
+
+      // Upload to Supabase Storage
+      const { data, error } = await supabase.storage
+        .from('reference-images')
+        .upload(fileName, blob, {
+          contentType: blob.type,
+          upsert: true,
+        });
+
+      if (error) {
+        console.error('Upload error:', error);
+        toast.error('Gagal memuat naik gambar');
+        return null;
+      }
+
+      // Get public URL
+      const { data: { publicUrl } } = supabase.storage
+        .from('reference-images')
+        .getPublicUrl(data.path);
+
+      console.log('Image uploaded successfully:', publicUrl);
+      return publicUrl;
+    } catch (error) {
+      console.error('Upload error:', error);
+      toast.error('Gagal memuat naik gambar');
+      return null;
+    } finally {
+      setIsUploadingImage(false);
+    }
+  };
+
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
       const reader = new FileReader();
-      reader.onloadend = () => {
-        setFilePreview(reader.result as string);
+      reader.onloadend = async () => {
+        const base64Data = reader.result as string;
+        setFilePreview(base64Data);
+        
+        // Upload immediately and store URL
+        const publicUrl = await uploadImageToStorage(base64Data);
+        if (publicUrl) {
+          setUploadedImageUrl(publicUrl);
+          toast.success('Gambar berjaya dimuat naik!');
+        }
       };
       reader.readAsDataURL(file);
     }
-  };
-
-  const checkVideoStatus = async (geminigenUuid: string): Promise<boolean> => {
-    try {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) return false;
-
-      const response = await supabase.functions.invoke('check-video-status', {
-        body: { geminigen_uuid: geminigenUuid },
-      });
-
-      if (response.error) {
-        console.error('Status check error:', response.error);
-        return false;
-      }
-
-      const { status, status_percentage, video_url, error_message } = response.data;
-
-      setGenerationProgress(status_percentage || 0);
-
-      if (status === 'completed' && video_url) {
-        setGeneratedVideoUrl(video_url);
-        setIsGenerating(false);
-        toast.success('Video berjaya dijana!');
-        return true;
-      } else if (status === 'failed') {
-        setIsGenerating(false);
-        toast.error(error_message || 'Gagal menjana video');
-        return true;
-      }
-
-      return false;
-    } catch (error) {
-      console.error('Error checking status:', error);
-      return false;
-    }
-  };
-
-  const pollVideoStatus = async (geminigenUuid: string) => {
-    let attempts = 0;
-    const maxAttempts = 60; // 5 minutes max (5s interval)
-
-    const poll = async () => {
-      if (attempts >= maxAttempts) {
-        setIsGenerating(false);
-        toast.error('Penjanaan video tamat masa. Sila semak History.');
-        return;
-      }
-
-      const isDone = await checkVideoStatus(geminigenUuid);
-      if (!isDone) {
-        attempts++;
-        setTimeout(poll, 5000); // Check every 5 seconds
-      }
-    };
-
-    poll();
   };
 
   const handleGenerate = async () => {
@@ -222,9 +253,14 @@ const SoraStudio: React.FC<SoraStudioProps> = ({ userProfile }) => {
       return;
     }
 
+    // Check concurrent limit
+    const processingCount = activeGenerations.filter(g => g.status === 'processing').length;
+    if (processingCount >= MAX_CONCURRENT_VIDEOS) {
+      toast.error(`Maksimum ${MAX_CONCURRENT_VIDEOS} video boleh dijana serentak. Sila tunggu sebentar.`);
+      return;
+    }
+
     setIsGenerating(true);
-    setGeneratedVideoUrl(null);
-    setGenerationProgress(1);
 
     try {
       const { data: { session } } = await supabase.auth.getSession();
@@ -239,7 +275,7 @@ const SoraStudio: React.FC<SoraStudioProps> = ({ userProfile }) => {
           prompt,
           duration,
           aspect_ratio: aspectRatio,
-          reference_image_url: filePreview,
+          reference_image_url: uploadedImageUrl, // Use uploaded URL instead of base64
         },
       });
 
@@ -266,24 +302,31 @@ const SoraStudio: React.FC<SoraStudioProps> = ({ userProfile }) => {
           video_url: null,
         };
         setActiveGenerations(prev => [newGeneration, ...prev]);
-        setCurrentGenerationId(video_id);
+        setSelectedGenerationId(video_id);
       }
+
+      // Clear input for next generation
+      setPrompt('');
+      setFilePreview(null);
+      setUploadedImageUrl(null);
 
     } catch (error: any) {
       console.error('Generation error:', error);
       toast.error(error.message || 'Gagal menjana video');
+    } finally {
       setIsGenerating(false);
     }
   };
 
   const removeFile = () => {
     setFilePreview(null);
+    setUploadedImageUrl(null);
     if (fileInputRef.current) fileInputRef.current.value = '';
   };
 
-  const handleDownload = () => {
-    if (generatedVideoUrl) {
-      window.open(generatedVideoUrl, '_blank');
+  const handleDownload = (videoUrl: string) => {
+    if (videoUrl) {
+      window.open(videoUrl, '_blank');
     }
   };
 
@@ -336,9 +379,13 @@ const SoraStudio: React.FC<SoraStudioProps> = ({ userProfile }) => {
     }
   };
 
+  // Get selected generation for preview
+  const selectedGeneration = activeGenerations.find(g => g.id === selectedGenerationId);
+  const processingCount = activeGenerations.filter(g => g.status === 'processing').length;
+
   // Locked UI component
   if (isLocked) {
-    const whatsappNumber = "601158833804"; // Admin WhatsApp number
+    const whatsappNumber = "601158833804";
     const whatsappMessage = encodeURIComponent(
       `Hai Admin, saya ${userProfile?.username || 'user baru'} ingin mohon kelulusan akaun / tambah had video untuk akaun saya. Email: ${userProfile ? 'registered user' : 'unknown'}`
     );
@@ -405,6 +452,45 @@ const SoraStudio: React.FC<SoraStudioProps> = ({ userProfile }) => {
             State-of-the-art video synthesis powered by advanced AI. Transform your imagination into stunning visual narratives.
           </p>
         </div>
+
+        {/* Active Generations Status Bar */}
+        {activeGenerations.length > 0 && (
+          <div className="mb-4 p-3 rounded-xl bg-secondary/30 border border-border/50 animate-fade-in">
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-xs font-bold text-muted-foreground uppercase tracking-wider">
+                Video Aktif ({processingCount}/{MAX_CONCURRENT_VIDEOS})
+              </span>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              {activeGenerations.map((gen) => (
+                <button
+                  key={gen.id}
+                  onClick={() => setSelectedGenerationId(gen.id)}
+                  className={cn(
+                    "flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-medium transition-all",
+                    selectedGenerationId === gen.id
+                      ? "bg-primary/20 border border-primary/50 text-primary"
+                      : "bg-secondary/50 border border-border text-muted-foreground hover:border-primary/30"
+                  )}
+                >
+                  {gen.status === 'processing' ? (
+                    <div className="w-3 h-3 border-2 border-primary/30 border-t-primary rounded-full animate-spin" />
+                  ) : gen.status === 'completed' ? (
+                    <svg className="w-3 h-3 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                    </svg>
+                  ) : (
+                    <svg className="w-3 h-3 text-destructive" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                  )}
+                  <span className="max-w-[100px] truncate">{gen.prompt.substring(0, 15)}...</span>
+                  <span className="text-[10px] text-muted-foreground">{gen.status_percentage}%</span>
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
 
         <div className="grid lg:grid-cols-2 gap-4 sm:gap-6">
           {/* Left Panel - Input */}
@@ -492,11 +578,11 @@ const SoraStudio: React.FC<SoraStudioProps> = ({ userProfile }) => {
                 onChange={handleFileChange}
                 accept="image/*"
                 className="hidden"
-                disabled={isGenerating}
+                disabled={isGenerating || isUploadingImage}
               />
               {!filePreview ? (
                 <div
-                  onClick={() => !isGenerating && fileInputRef.current?.click()}
+                  onClick={() => !isGenerating && !isUploadingImage && fileInputRef.current?.click()}
                   className="w-full border-2 border-dashed border-border rounded-xl p-6 flex flex-col items-center justify-center gap-2 cursor-pointer hover:border-primary/30 hover:bg-primary/5 transition-all duration-300"
                 >
                   <svg className="w-8 h-8 text-muted-foreground" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -507,8 +593,22 @@ const SoraStudio: React.FC<SoraStudioProps> = ({ userProfile }) => {
               ) : (
                 <div className="relative rounded-xl overflow-hidden">
                   <img src={filePreview} alt="Reference" className="w-full h-32 object-cover" />
+                  {isUploadingImage && (
+                    <div className="absolute inset-0 bg-background/80 flex items-center justify-center">
+                      <div className="flex items-center gap-2">
+                        <div className="w-4 h-4 border-2 border-primary/30 border-t-primary rounded-full animate-spin" />
+                        <span className="text-xs text-primary">Memuat naik...</span>
+                      </div>
+                    </div>
+                  )}
+                  {uploadedImageUrl && !isUploadingImage && (
+                    <div className="absolute top-2 left-2 px-2 py-1 bg-green-500/90 rounded-lg">
+                      <span className="text-[10px] text-white font-bold">✓ Dimuat naik</span>
+                    </div>
+                  )}
                   <button
                     onClick={removeFile}
+                    disabled={isUploadingImage}
                     className="absolute top-2 right-2 p-1.5 bg-background/80 backdrop-blur-sm rounded-lg text-destructive hover:bg-destructive hover:text-destructive-foreground transition-all duration-300"
                   >
                     <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -538,18 +638,50 @@ const SoraStudio: React.FC<SoraStudioProps> = ({ userProfile }) => {
 
               {showPromptGenerator && (
                 <div className="mt-4 p-4 rounded-xl bg-secondary/30 border border-border/50 space-y-4">
-                  {/* OpenAI API Key */}
+                  {/* OpenAI API Key with Save Button */}
                   <div>
                     <label className="block text-[10px] font-black text-muted-foreground uppercase tracking-widest mb-2">
                       OpenAI API Key
                     </label>
-                    <Input
-                      type="password"
-                      value={openaiApiKey}
-                      onChange={(e) => setOpenaiApiKey(e.target.value)}
-                      placeholder="sk-proj-..."
-                      className="text-sm"
-                    />
+                    <div className="flex gap-2">
+                      <Input
+                        type="password"
+                        value={openaiApiKey}
+                        onChange={(e) => {
+                          setOpenaiApiKey(e.target.value);
+                          setIsApiKeySaved(false);
+                        }}
+                        placeholder="sk-proj-..."
+                        className="text-sm flex-1"
+                      />
+                      {isApiKeySaved ? (
+                        <Button
+                          onClick={clearApiKey}
+                          variant="outline"
+                          size="sm"
+                          className="text-destructive border-destructive/50 hover:bg-destructive/10"
+                        >
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                          </svg>
+                        </Button>
+                      ) : (
+                        <Button
+                          onClick={saveApiKey}
+                          variant="outline"
+                          size="sm"
+                          disabled={!openaiApiKey.trim()}
+                          className="text-primary border-primary/50 hover:bg-primary/10"
+                        >
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                          </svg>
+                        </Button>
+                      )}
+                    </div>
+                    {isApiKeySaved && (
+                      <p className="text-[10px] text-green-500 mt-1">✓ API Key disimpan dalam browser</p>
+                    )}
                   </div>
 
                   {/* Product Name */}
@@ -623,6 +755,20 @@ const SoraStudio: React.FC<SoraStudioProps> = ({ userProfile }) => {
                       </div>
                     </div>
                   </div>
+
+                  {/* Save Product Data Button */}
+                  <Button
+                    onClick={saveProductData}
+                    variant="outline"
+                    size="sm"
+                    className="w-full"
+                    disabled={!productName.trim() || !productDescription.trim()}
+                  >
+                    <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4" />
+                    </svg>
+                    Simpan Data Produk
+                  </Button>
 
                   {/* Generate Prompt Button */}
                   <Button
@@ -719,7 +865,7 @@ const SoraStudio: React.FC<SoraStudioProps> = ({ userProfile }) => {
             {/* Generate Button */}
             <Button
               onClick={handleGenerate}
-              disabled={!prompt.trim() || isGenerating}
+              disabled={!prompt.trim() || isGenerating || isUploadingImage || processingCount >= MAX_CONCURRENT_VIDEOS}
               variant="neon"
               size="lg"
               className="w-full"
@@ -731,7 +877,14 @@ const SoraStudio: React.FC<SoraStudioProps> = ({ userProfile }) => {
                     <span className="w-1 h-full bg-primary-foreground rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
                     <span className="w-1 h-full bg-primary-foreground rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
                   </div>
-                  <span>Generating... {generationProgress}%</span>
+                  <span>Memulakan...</span>
+                </>
+              ) : processingCount >= MAX_CONCURRENT_VIDEOS ? (
+                <>
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                  <span>Tunggu video siap ({processingCount}/{MAX_CONCURRENT_VIDEOS})</span>
                 </>
               ) : (
                 <>
@@ -761,30 +914,47 @@ const SoraStudio: React.FC<SoraStudioProps> = ({ userProfile }) => {
               "rounded-xl bg-background/50 border border-border/50 overflow-hidden flex items-center justify-center",
               aspectRatio === 'landscape' ? "aspect-video" : "aspect-[9/16] max-h-[400px]"
             )}>
-              {isGenerating ? (
-                <div className="text-center p-8">
-                  <div className="w-16 h-16 mx-auto mb-4 rounded-full border-2 border-primary/30 border-t-primary animate-spin" />
-                  <p className="text-primary font-medium animate-pulse mb-2">Processing your vision...</p>
-                  <p className="text-xs text-muted-foreground italic">Progress: {generationProgress}%</p>
-                  <p className="text-xs text-muted-foreground mt-1">This usually takes 2-4 minutes</p>
-                </div>
-              ) : generatedVideoUrl ? (
-                <div className="relative w-full h-full">
-                  <video 
-                    src={generatedVideoUrl} 
-                    controls 
-                    className="w-full h-full object-contain"
-                    autoPlay
-                  />
-                  <button
-                    onClick={handleDownload}
-                    className="absolute top-3 right-3 p-2 bg-primary/90 hover:bg-primary rounded-lg text-primary-foreground transition-all"
-                  >
-                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+              {selectedGeneration ? (
+                selectedGeneration.status === 'processing' ? (
+                  <div className="text-center p-8">
+                    <div className="w-16 h-16 mx-auto mb-4 rounded-full border-2 border-primary/30 border-t-primary animate-spin" />
+                    <p className="text-primary font-medium animate-pulse mb-2">Processing your vision...</p>
+                    <p className="text-xs text-muted-foreground italic">Progress: {selectedGeneration.status_percentage}%</p>
+                    <div className="w-full max-w-[200px] mx-auto mt-3 h-2 bg-secondary/50 rounded-full overflow-hidden">
+                      <div 
+                        className="h-full bg-primary transition-all duration-500"
+                        style={{ width: `${selectedGeneration.status_percentage}%` }}
+                      />
+                    </div>
+                    <p className="text-xs text-muted-foreground mt-3">
+                      {selectedGeneration.prompt.substring(0, 50)}...
+                    </p>
+                  </div>
+                ) : selectedGeneration.status === 'completed' && selectedGeneration.video_url ? (
+                  <div className="relative w-full h-full">
+                    <video 
+                      src={selectedGeneration.video_url} 
+                      controls 
+                      className="w-full h-full object-contain"
+                      autoPlay
+                    />
+                    <button
+                      onClick={() => handleDownload(selectedGeneration.video_url!)}
+                      className="absolute top-3 right-3 p-2 bg-primary/90 hover:bg-primary rounded-lg text-primary-foreground transition-all"
+                    >
+                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                      </svg>
+                    </button>
+                  </div>
+                ) : (
+                  <div className="text-center p-8">
+                    <svg className="w-12 h-12 mx-auto mb-4 text-destructive" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
                     </svg>
-                  </button>
-                </div>
+                    <p className="text-sm text-destructive">Penjanaan gagal</p>
+                  </div>
+                )
               ) : (
                 <div className="text-center p-12 opacity-40">
                   <svg className="w-16 h-16 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -793,17 +963,6 @@ const SoraStudio: React.FC<SoraStudioProps> = ({ userProfile }) => {
                   <p className="text-sm">Video output will appear here</p>
                 </div>
               )}
-            </div>
-
-            {/* Quick Tips */}
-            <div className="mt-6 p-4 rounded-xl bg-secondary/30 border border-border/30">
-              <h4 className="text-xs font-bold text-foreground uppercase tracking-wider mb-2">Pro Tips</h4>
-              <ul className="text-xs text-muted-foreground space-y-1">
-                <li>• Be descriptive about camera movement and lighting</li>
-                <li>• Specify the mood and atmosphere you want</li>
-                <li>• Include details about subjects and environment</li>
-                <li>• Upload reference image for Image-to-Video (I2V)</li>
-              </ul>
             </div>
           </div>
         </div>

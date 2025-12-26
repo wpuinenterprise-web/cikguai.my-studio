@@ -90,11 +90,12 @@ serve(async (req) => {
     formData.append('duration', duration.toString());
     formData.append('aspect_ratio', aspect_ratio);
     
-    // Only send reference image if it's a valid URL (not base64 data URL)
-    if (reference_image_url && !reference_image_url.startsWith('data:')) {
+    // Send reference image URL for I2V (Image to Video)
+    if (reference_image_url && reference_image_url.startsWith('http')) {
+      console.log('Adding reference image for I2V:', reference_image_url);
       formData.append('file_urls', reference_image_url);
-    } else if (reference_image_url && reference_image_url.startsWith('data:')) {
-      console.log('Skipping base64 reference image - GeminiGen requires a downloadable URL');
+    } else if (reference_image_url) {
+      console.log('Invalid reference image URL format:', reference_image_url.substring(0, 50));
     }
 
     console.log('Calling GeminiGen API...');
