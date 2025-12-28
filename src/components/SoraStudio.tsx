@@ -32,9 +32,16 @@ const SoraStudio: React.FC<SoraStudioProps> = ({ userProfile, onProfileRefresh }
   // Check if feature should be locked - also check if limit reached
   const hasReachedLimit = userProfile && !userProfile.is_admin && userProfile.videos_used >= userProfile.video_limit;
   const isLocked = userProfile && !userProfile.is_admin && (!userProfile.is_approved || userProfile.video_limit <= 0);
-  const [prompt, setPrompt] = useState('');
-  const [duration, setDuration] = useState<10 | 15>(10);
-  const [aspectRatio, setAspectRatio] = useState<'landscape' | 'portrait'>('landscape');
+  // Load prompt, duration, aspectRatio from sessionStorage to persist across tab switches
+  const [prompt, setPrompt] = useState(() => sessionStorage.getItem('studio_prompt') || '');
+  const [duration, setDuration] = useState<10 | 15>(() => {
+    const saved = sessionStorage.getItem('studio_duration');
+    return saved === '15' ? 15 : 10;
+  });
+  const [aspectRatio, setAspectRatio] = useState<'landscape' | 'portrait'>(() => {
+    const saved = sessionStorage.getItem('studio_aspectRatio');
+    return saved === 'portrait' ? 'portrait' : 'landscape';
+  });
   const [isGenerating, setIsGenerating] = useState(false);
   const [filePreview, setFilePreview] = useState<string | null>(null);
   const [isUploadingImage, setIsUploadingImage] = useState(false);
@@ -68,6 +75,19 @@ const SoraStudio: React.FC<SoraStudioProps> = ({ userProfile, onProfileRefresh }
     dialog?: string;
     visualStyle: string;
   }>>([]); 
+
+  // Save prompt, duration, aspectRatio to sessionStorage when changed
+  useEffect(() => {
+    sessionStorage.setItem('studio_prompt', prompt);
+  }, [prompt]);
+
+  useEffect(() => {
+    sessionStorage.setItem('studio_duration', String(duration));
+  }, [duration]);
+
+  useEffect(() => {
+    sessionStorage.setItem('studio_aspectRatio', aspectRatio);
+  }, [aspectRatio]);
 
   // Save UGC data to localStorage when changed
   const saveProductData = useCallback(() => {
