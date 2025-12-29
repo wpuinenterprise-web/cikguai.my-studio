@@ -198,6 +198,24 @@ const Index = () => {
               </div>
             </div>
             <div className="flex items-center gap-2">
+              {/* Share Affiliate Link - Mobile */}
+              <button
+                onClick={() => {
+                  const refCode = profile?.referral_code || profile?.id?.slice(0, 8) || 'NOCODE';
+                  const link = `${window.location.origin}/?ref=${refCode}`;
+                  navigator.clipboard.writeText(link);
+                  const btn = document.getElementById('mobile-share-btn');
+                  if (btn) {
+                    btn.textContent = '✓';
+                    setTimeout(() => { btn.textContent = '🔗'; }, 1500);
+                  }
+                }}
+                id="mobile-share-btn"
+                className="text-[12px] font-black text-green-400 border border-green-500/30 px-3 py-2 rounded-xl bg-green-500/10 active:scale-95 transition-all"
+                title="Kongsi Link Affiliate"
+              >
+                🔗
+              </button>
               {/* Language Toggle */}
               <button
                 onClick={() => setLanguage(language === 'ms' ? 'en' : 'ms')}
