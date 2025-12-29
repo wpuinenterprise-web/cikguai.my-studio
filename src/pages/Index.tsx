@@ -26,7 +26,7 @@ const Index = () => {
       (event, session) => {
         setSession(session);
         setUser(session?.user ?? null);
-        
+
         // Defer profile fetch to avoid deadlock
         if (session?.user) {
           setTimeout(() => {
@@ -43,7 +43,7 @@ const Index = () => {
     supabase.auth.getSession().then(({ data: { session } }) => {
       setSession(session);
       setUser(session?.user ?? null);
-      
+
       if (session?.user) {
         fetchProfile(session.user.id);
       } else {
@@ -90,8 +90,10 @@ const Index = () => {
           images_used: profileData.images_used,
           video_limit: profileData.video_limit,
           image_limit: profileData.image_limit,
+          referral_code: profileData.referral_code,
+          referred_by: profileData.referred_by,
         });
-        
+
         // Set default view based on role - admin goes to dashboard
         if (isAdmin && !skipLoading) {
           setActiveView(AppView.ADMIN_DASHBOARD);
@@ -159,8 +161,8 @@ const Index = () => {
     <div className="flex flex-col md:flex-row h-screen w-full bg-[#020617] text-slate-200 overflow-hidden font-sans relative">
       <AnimatedBackground />
       <Sidebar
-        activeView={activeView} 
-        onViewChange={setActiveView} 
+        activeView={activeView}
+        onViewChange={setActiveView}
         userProfile={profile}
         onSignOut={handleSignOut}
       />
@@ -186,8 +188,8 @@ const Index = () => {
                   {/* Progress bar for mobile visibility */}
                   {!profile.is_admin && (
                     <div className="w-20 h-1 bg-slate-800 rounded-full overflow-hidden">
-                      <div 
-                        className="h-full bg-cyan-500 shadow-[0_0_5px_rgba(34,211,238,0.5)] transition-all duration-1000" 
+                      <div
+                        className="h-full bg-cyan-500 shadow-[0_0_5px_rgba(34,211,238,0.5)] transition-all duration-1000"
                         style={{ width: `${percentage}%` }}
                       ></div>
                     </div>
@@ -203,8 +205,8 @@ const Index = () => {
               >
                 {language === 'ms' ? 'EN' : 'BM'}
               </button>
-              <button 
-                onClick={handleSignOut} 
+              <button
+                onClick={handleSignOut}
                 className="text-[9px] font-black text-rose-500 uppercase tracking-widest border border-rose-500/20 px-4 py-2 rounded-xl bg-rose-500/5 active:scale-95"
               >
                 {t.exit}
@@ -213,28 +215,25 @@ const Index = () => {
           </div>
 
           <nav className="flex px-4 pb-3 gap-2 overflow-x-auto no-scrollbar">
-            <button 
+            <button
               onClick={() => setActiveView(AppView.SORA_STUDIO)}
-              className={`flex-1 min-w-[80px] py-3 rounded-xl transition-all border font-black text-[10px] uppercase tracking-widest ${
-                activeView === AppView.SORA_STUDIO ? 'bg-cyan-500/10 border-cyan-500/40 text-cyan-400 shadow-[0_0_15px_rgba(34,211,238,0.1)]' : 'bg-slate-900/50 border-slate-800 text-slate-500'
-              }`}
+              className={`flex-1 min-w-[80px] py-3 rounded-xl transition-all border font-black text-[10px] uppercase tracking-widest ${activeView === AppView.SORA_STUDIO ? 'bg-cyan-500/10 border-cyan-500/40 text-cyan-400 shadow-[0_0_15px_rgba(34,211,238,0.1)]' : 'bg-slate-900/50 border-slate-800 text-slate-500'
+                }`}
             >
               {t.studio}
             </button>
-            <button 
+            <button
               onClick={() => setActiveView(AppView.HISTORY)}
-              className={`flex-1 min-w-[80px] py-3 rounded-xl transition-all border font-black text-[10px] uppercase tracking-widest ${
-                activeView === AppView.HISTORY ? 'bg-cyan-500/10 border-cyan-500/40 text-cyan-400 shadow-[0_0_15px_rgba(34,211,238,0.1)]' : 'bg-slate-900/50 border-slate-800 text-slate-500'
-              }`}
+              className={`flex-1 min-w-[80px] py-3 rounded-xl transition-all border font-black text-[10px] uppercase tracking-widest ${activeView === AppView.HISTORY ? 'bg-cyan-500/10 border-cyan-500/40 text-cyan-400 shadow-[0_0_15px_rgba(34,211,238,0.1)]' : 'bg-slate-900/50 border-slate-800 text-slate-500'
+                }`}
             >
               {t.vault}
             </button>
             {profile.is_admin && (
-              <button 
+              <button
                 onClick={() => setActiveView(AppView.ADMIN_DASHBOARD)}
-                className={`flex-1 min-w-[80px] py-3 rounded-xl transition-all border font-black text-[10px] uppercase tracking-widest ${
-                  activeView === AppView.ADMIN_DASHBOARD ? 'bg-cyan-500/10 border-cyan-500/40 text-cyan-400 shadow-[0_0_15px_rgba(34,211,238,0.1)]' : 'bg-slate-900/50 border-slate-800 text-slate-500'
-                }`}
+                className={`flex-1 min-w-[80px] py-3 rounded-xl transition-all border font-black text-[10px] uppercase tracking-widest ${activeView === AppView.ADMIN_DASHBOARD ? 'bg-cyan-500/10 border-cyan-500/40 text-cyan-400 shadow-[0_0_15px_rgba(34,211,238,0.1)]' : 'bg-slate-900/50 border-slate-800 text-slate-500'
+                  }`}
               >
                 {t.admin}
               </button>

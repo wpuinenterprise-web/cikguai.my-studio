@@ -16,6 +16,8 @@ export interface UserProfile {
   images_used: number;
   video_limit: number;
   image_limit: number;
+  referral_code?: string;
+  referred_by?: string;
   created_at?: string;
 }
 

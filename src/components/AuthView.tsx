@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { useLanguage } from '@/contexts/LanguageContext';
@@ -17,8 +17,27 @@ const AuthView: React.FC<AuthViewProps> = ({ onAuthSuccess }) => {
   const [error, setError] = useState<string | null>(null);
   const [emailSent, setEmailSent] = useState(false);
   const { toast } = useToast();
+  const [referralCode, setReferralCode] = useState<string | null>(null);
 
   const logoUrl = "https://i.ibb.co/xqgH2MQ4/Untitled-design-18.png";
+
+  // Capture referral code from URL on page load
+  useEffect(() => {
+    const urlParams = new URLSearchParams(window.location.search);
+    const refCode = urlParams.get('ref');
+    if (refCode) {
+      setReferralCode(refCode);
+      sessionStorage.setItem('referral_code', refCode);
+      // Clean URL without refreshing page
+      window.history.replaceState({}, '', window.location.pathname);
+    } else {
+      // Check if there's a saved referral code in sessionStorage
+      const savedRef = sessionStorage.getItem('referral_code');
+      if (savedRef) {
+        setReferralCode(savedRef);
+      }
+    }
+  }, []);
 
   const handleAuth = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -68,7 +87,7 @@ const AuthView: React.FC<AuthViewProps> = ({ onAuthSuccess }) => {
         }
       } else {
         const redirectUrl = `${window.location.origin}/`;
-        
+
         const { data, error } = await supabase.auth.signUp({
           email,
           password,
@@ -76,6 +95,7 @@ const AuthView: React.FC<AuthViewProps> = ({ onAuthSuccess }) => {
             emailRedirectTo: redirectUrl,
             data: {
               username: username || email.split('@')[0],
+              referred_by_code: referralCode || undefined,
             },
           },
         });
@@ -126,7 +146,7 @@ const AuthView: React.FC<AuthViewProps> = ({ onAuthSuccess }) => {
       <div className="max-w-md w-full bg-[#0f172a]/80 backdrop-blur-2xl border border-slate-700/50 rounded-[2.5rem] p-10 shadow-2xl animate-fade-in relative z-10">
         {/* Glow effect behind card */}
         <div className="absolute -inset-1 bg-gradient-to-r from-cyan-500/20 via-purple-500/10 to-cyan-500/20 rounded-[2.5rem] blur-xl opacity-50 -z-10"></div>
-        
+
         <div className="flex flex-col items-center mb-10">
           {/* Language Toggle */}
           <button
@@ -135,7 +155,7 @@ const AuthView: React.FC<AuthViewProps> = ({ onAuthSuccess }) => {
           >
             {language === 'ms' ? 'EN' : 'BM'}
           </button>
-          
+
           {/* Larger logo with enhanced glow */}
           <div className="relative mb-6">
             <div className="absolute inset-0 bg-cyan-500/30 blur-2xl rounded-full animate-pulse scale-150"></div>
@@ -171,7 +191,7 @@ const AuthView: React.FC<AuthViewProps> = ({ onAuthSuccess }) => {
                 Sila klik link dalam email untuk mengaktifkan akaun anda. Semak folder spam jika tak jumpa.
               </p>
             </div>
-            
+
             <button
               onClick={() => {
                 setEmailSent(false);
@@ -199,9 +219,9 @@ const AuthView: React.FC<AuthViewProps> = ({ onAuthSuccess }) => {
                   <label className="text-xs font-semibold text-slate-400 ml-1 flex items-center gap-2">
                     <span>👤</span> Nama Pengguna
                   </label>
-                  <input 
-                    type="text" 
-                    value={username} 
+                  <input
+                    type="text"
+                    value={username}
                     onChange={(e) => setUsername(e.target.value)}
                     className="w-full bg-slate-950/50 border border-slate-700/50 rounded-2xl py-4 px-5 text-sm text-white outline-none focus:border-cyan-500/50 focus:bg-slate-900/50 focus:shadow-[0_0_20px_rgba(34,211,238,0.1)] transition-all duration-300 placeholder:text-slate-600"
                     placeholder="Contoh: Ali"
@@ -213,9 +233,9 @@ const AuthView: React.FC<AuthViewProps> = ({ onAuthSuccess }) => {
                 <label className="text-xs font-semibold text-slate-400 ml-1 flex items-center gap-2">
                   <span>📧</span> Alamat Email
                 </label>
-                <input 
-                  type="email" 
-                  value={email} 
+                <input
+                  type="email"
+                  value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   className="w-full bg-slate-950/50 border border-slate-700/50 rounded-2xl py-4 px-5 text-sm text-white outline-none focus:border-cyan-500/50 focus:bg-slate-900/50 focus:shadow-[0_0_20px_rgba(34,211,238,0.1)] transition-all duration-300 placeholder:text-slate-600"
                   placeholder="contoh@email.com"
@@ -227,9 +247,9 @@ const AuthView: React.FC<AuthViewProps> = ({ onAuthSuccess }) => {
                 <label className="text-xs font-semibold text-slate-400 ml-1 flex items-center gap-2">
                   <span>🔒</span> Kata Laluan
                 </label>
-                <input 
-                  type="password" 
-                  value={password} 
+                <input
+                  type="password"
+                  value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   className="w-full bg-slate-950/50 border border-slate-700/50 rounded-2xl py-4 px-5 text-sm text-white outline-none focus:border-cyan-500/50 focus:bg-slate-900/50 focus:shadow-[0_0_20px_rgba(34,211,238,0.1)] transition-all duration-300 placeholder:text-slate-600"
                   placeholder="Minimum 6 aksara"
@@ -256,7 +276,7 @@ const AuthView: React.FC<AuthViewProps> = ({ onAuthSuccess }) => {
             </form>
 
             <div className="mt-8 text-center animate-fade-in" style={{ animationDelay: '0.5s' }}>
-              <button 
+              <button
                 onClick={() => {
                   setIsLogin(!isLogin);
                   setError(null);

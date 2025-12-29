@@ -24,6 +24,8 @@ interface UserData {
   images_used: number;
   video_limit: number;
   image_limit: number;
+  referral_code: string | null;
+  referred_by: string | null;
   created_at: string;
 }
 
@@ -68,7 +70,7 @@ const AdminDashboard: React.FC = () => {
         .eq('id', userId);
 
       if (error) throw error;
-      
+
       toast.success('Pengguna telah diluluskan');
       fetchUsers();
     } catch (error: any) {
@@ -82,7 +84,7 @@ const AdminDashboard: React.FC = () => {
 
   const confirmReject = async () => {
     if (!deleteDialog.user) return;
-    
+
     try {
       // Use edge function to properly delete user from auth and all tables
       const response = await supabase.functions.invoke('admin-delete-user', {
@@ -96,7 +98,7 @@ const AdminDashboard: React.FC = () => {
       if (!response.data?.success) {
         throw new Error(response.data?.error || 'Gagal memadam pengguna');
       }
-      
+
       toast.success('Pengguna telah dipadam sepenuhnya');
       setDeleteDialog({ open: false, user: null });
       fetchUsers();
@@ -115,14 +117,14 @@ const AdminDashboard: React.FC = () => {
     try {
       const { error } = await supabase
         .from('profiles')
-        .update({ 
-          video_limit: editLimits.video_limit, 
-          image_limit: editLimits.image_limit 
+        .update({
+          video_limit: editLimits.video_limit,
+          image_limit: editLimits.image_limit
         })
         .eq('id', userId);
 
       if (error) throw error;
-      
+
       toast.success('Had pengguna telah dikemaskini');
       setEditingUser(null);
       fetchUsers();
@@ -131,7 +133,7 @@ const AdminDashboard: React.FC = () => {
     }
   };
 
-  const filteredUsers = users.filter(user => 
+  const filteredUsers = users.filter(user =>
     user.email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
     user.username?.toLowerCase().includes(searchTerm.toLowerCase()) ||
     user.id.toLowerCase().includes(searchTerm.toLowerCase())
@@ -142,6 +144,12 @@ const AdminDashboard: React.FC = () => {
     approved: users.filter(u => u.is_approved).length,
     pending: users.filter(u => !u.is_approved).length,
     totalVideos: users.reduce((acc, u) => acc + u.videos_used, 0),
+    totalReferrals: users.filter(u => u.referred_by).length,
+  };
+
+  // Get referral count for each user
+  const getReferralCount = (userId: string) => {
+    return users.filter(u => u.referred_by === userId).length;
   };
 
   return (
@@ -172,7 +180,7 @@ const AdminDashboard: React.FC = () => {
         </header>
 
         {/* Stats Cards - Mobile optimized */}
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4 mb-6 md:mb-8">
+        <div className="grid grid-cols-2 lg:grid-cols-5 gap-3 md:gap-4 mb-6 md:mb-8">
           <div className="stat-card animate-fade-in" style={{ animationDelay: '50ms' }}>
             <div className="flex items-center gap-3">
               <div className="p-2.5 bg-primary/10 rounded-xl">
@@ -220,6 +228,20 @@ const AdminDashboard: React.FC = () => {
               </div>
             </div>
           </div>
+
+          <div className="stat-card animate-fade-in" style={{ animationDelay: '250ms' }}>
+            <div className="flex items-center gap-3">
+              <div className="p-2.5 bg-green-500/10 rounded-xl">
+                <svg className="w-5 h-5 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
+                </svg>
+              </div>
+              <div className="min-w-0 flex-1">
+                <p className="text-xl md:text-2xl font-bold text-foreground">{stats.totalReferrals}</p>
+                <p className="text-[10px] md:text-xs text-muted-foreground truncate">Dari Referral</p>
+              </div>
+            </div>
+          </div>
         </div>
 
         {/* Search */}
@@ -257,8 +279,8 @@ const AdminDashboard: React.FC = () => {
               </div>
             ) : (
               filteredUsers.map((user, index) => (
-                <div 
-                  key={user.id} 
+                <div
+                  key={user.id}
                   className="p-4 data-table-row animate-fade-in"
                   style={{ animationDelay: `${350 + index * 50}ms` }}
                 >
@@ -467,7 +489,7 @@ const AdminDashboard: React.FC = () => {
           <DialogHeader>
             <DialogTitle className="text-foreground">Padam Pengguna</DialogTitle>
             <DialogDescription className="text-muted-foreground">
-              Adakah anda pasti ingin memadam pengguna <span className="text-primary font-medium">{deleteDialog.user?.email}</span>? 
+              Adakah anda pasti ingin memadam pengguna <span className="text-primary font-medium">{deleteDialog.user?.email}</span>?
               Tindakan ini tidak boleh dibatalkan.
             </DialogDescription>
           </DialogHeader>
