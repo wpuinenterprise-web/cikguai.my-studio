@@ -1,4 +1,6 @@
-# Welcome to your Lovable project
+# Welcome
+<!-- Trigger Vercel Deployment -->
+to your Lovable project
 
 ## Project info
 
