@@ -124,24 +124,23 @@ const Sidebar: React.FC<SidebarProps> = ({ activeView, onViewChange, userProfile
         </div>
 
         {/* Share Referral Link */}
-        {userProfile?.referral_code && (
-          <button
-            onClick={() => {
-              const link = `${window.location.origin}/?ref=${userProfile.referral_code}`;
-              navigator.clipboard.writeText(link);
-              // Show a brief visual feedback
-              const btn = document.getElementById('share-link-btn');
-              if (btn) {
-                btn.textContent = '✓ Link Disalin!';
-                setTimeout(() => { btn.textContent = '🔗 KONGSI LINK AFFILIATE'; }, 2000);
-              }
-            }}
-            id="share-link-btn"
-            className="w-full py-3 rounded-xl bg-gradient-to-r from-green-500/20 to-emerald-500/20 border border-green-500/30 text-[10px] font-bold text-green-400 uppercase tracking-wider hover:from-green-500/30 hover:to-emerald-500/30 transition-all duration-300 flex items-center justify-center gap-2 group"
-          >
-            🔗 KONGSI LINK AFFILIATE
-          </button>
-        )}
+        <button
+          onClick={() => {
+            const refCode = userProfile?.referral_code || userProfile?.id?.slice(0, 8) || 'NOCODE';
+            const link = `${window.location.origin}/?ref=${refCode}`;
+            navigator.clipboard.writeText(link);
+            // Show a brief visual feedback
+            const btn = document.getElementById('share-link-btn');
+            if (btn) {
+              btn.textContent = '✓ Link Disalin!';
+              setTimeout(() => { btn.textContent = '🔗 KONGSI LINK AFFILIATE'; }, 2000);
+            }
+          }}
+          id="share-link-btn"
+          className="w-full py-3 rounded-xl bg-gradient-to-r from-green-500/20 to-emerald-500/20 border border-green-500/30 text-[10px] font-bold text-green-400 uppercase tracking-wider hover:from-green-500/30 hover:to-emerald-500/30 transition-all duration-300 flex items-center justify-center gap-2 group"
+        >
+          🔗 KONGSI LINK AFFILIATE
+        </button>
 
         <button
           onClick={handleSignOut}
