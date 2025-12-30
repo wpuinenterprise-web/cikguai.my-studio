@@ -1,10 +1,10 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { toast } from 'sonner';
-import { Search, Check, X, Trash2, Edit2, Save, Users, Video, Shield, RefreshCw, UserCheck, Clock } from 'lucide-react';
+import { Search, Check, X, Trash2, Edit2, Save, Users, Video, Shield, RefreshCw, UserCheck, Clock, Link, Award, Eye, DollarSign } from 'lucide-react';
 import {
   Dialog,
   DialogContent,
@@ -29,6 +29,18 @@ interface UserData {
   created_at: string;
 }
 
+interface AffiliateData {
+  userId: string;
+  username: string | null;
+  email: string | null;
+  referralCode: string | null;
+  referralCount: number;
+  referrals: UserData[];
+  joinedAt: string;
+}
+
+type TabType = 'users' | 'affiliate';
+
 const AdminDashboard: React.FC = () => {
   const [users, setUsers] = useState<UserData[]>([]);
   const [loading, setLoading] = useState(true);
@@ -39,6 +51,9 @@ const AdminDashboard: React.FC = () => {
     open: false,
     user: null,
   });
+  const [activeTab, setActiveTab] = useState<TabType>('users');
+  const [selectedAffiliate, setSelectedAffiliate] = useState<AffiliateData | null>(null);
+  const [commissionPerReferral, setCommissionPerReferral] = useState(10); // RM per referral
 
   const fetchUsers = async () => {
     try {
@@ -61,6 +76,43 @@ const AdminDashboard: React.FC = () => {
   useEffect(() => {
     fetchUsers();
   }, []);
+
+  // Calculate affiliate data from users
+  const affiliateData = useMemo<AffiliateData[]>(() => {
+    const affiliateMap = new Map<string, AffiliateData>();
+
+    // First, create entries for all users with referral codes
+    users.forEach(user => {
+      if (user.referral_code) {
+        affiliateMap.set(user.id, {
+          userId: user.id,
+          username: user.username,
+          email: user.email,
+          referralCode: user.referral_code,
+          referralCount: 0,
+          referrals: [],
+          joinedAt: user.created_at,
+        });
+      }
+    });
+
+    // Then, count referrals for each affiliate
+    users.forEach(user => {
+      if (user.referred_by && affiliateMap.has(user.referred_by)) {
+        const affiliate = affiliateMap.get(user.referred_by)!;
+        affiliate.referralCount++;
+        affiliate.referrals.push(user);
+      }
+    });
+
+    // Sort by referral count (highest first)
+    return Array.from(affiliateMap.values())
+      .filter(a => a.referralCount > 0 || a.referralCode)
+      .sort((a, b) => b.referralCount - a.referralCount);
+  }, [users]);
+
+  // Filter affiliates with actual referrals
+  const activeAffiliates = affiliateData.filter(a => a.referralCount > 0);
 
   const handleApprove = async (userId: string) => {
     try {
@@ -86,7 +138,6 @@ const AdminDashboard: React.FC = () => {
     if (!deleteDialog.user) return;
 
     try {
-      // Use edge function to properly delete user from auth and all tables
       const response = await supabase.functions.invoke('admin-delete-user', {
         body: { user_id: deleteDialog.user.id },
       });
@@ -139,6 +190,12 @@ const AdminDashboard: React.FC = () => {
     user.id.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
+  const filteredAffiliates = affiliateData.filter(affiliate =>
+    affiliate.email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    affiliate.username?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    affiliate.referralCode?.toLowerCase().includes(searchTerm.toLowerCase())
+  );
+
   const stats = {
     total: users.length,
     approved: users.filter(u => u.is_approved).length,
@@ -147,9 +204,20 @@ const AdminDashboard: React.FC = () => {
     totalReferrals: users.filter(u => u.referred_by).length,
   };
 
-  // Get referral count for each user
-  const getReferralCount = (userId: string) => {
-    return users.filter(u => u.referred_by === userId).length;
+  const affiliateStats = {
+    totalAffiliates: affiliateData.length,
+    activeAffiliates: activeAffiliates.length,
+    totalReferrals: activeAffiliates.reduce((acc, a) => acc + a.referralCount, 0),
+    topAffiliate: activeAffiliates[0] || null,
+    estimatedCommission: activeAffiliates.reduce((acc, a) => acc + a.referralCount * commissionPerReferral, 0),
+  };
+
+  const formatDate = (dateString: string) => {
+    return new Date(dateString).toLocaleDateString('ms-MY', {
+      day: 'numeric',
+      month: 'short',
+      year: 'numeric'
+    });
   };
 
   return (
@@ -163,7 +231,7 @@ const AdminDashboard: React.FC = () => {
                 Admin <span className="gradient-text">Dashboard</span>
               </h2>
               <p className="text-muted-foreground text-xs md:text-sm">
-                Urus pengguna & monitor penggunaan sistem
+                Urus pengguna & monitor affiliate
               </p>
             </div>
             <Button
@@ -179,189 +247,305 @@ const AdminDashboard: React.FC = () => {
           </div>
         </header>
 
-        {/* Stats Cards - Mobile optimized */}
-        <div className="grid grid-cols-2 lg:grid-cols-5 gap-3 md:gap-4 mb-6 md:mb-8">
-          <div className="stat-card animate-fade-in" style={{ animationDelay: '50ms' }}>
-            <div className="flex items-center gap-3">
-              <div className="p-2.5 bg-primary/10 rounded-xl">
-                <Users className="w-5 h-5 text-primary" />
-              </div>
-              <div className="min-w-0 flex-1">
-                <p className="text-xl md:text-2xl font-bold text-foreground">{stats.total}</p>
-                <p className="text-[10px] md:text-xs text-muted-foreground truncate">Jumlah Pengguna</p>
-              </div>
-            </div>
-          </div>
-
-          <div className="stat-card animate-fade-in" style={{ animationDelay: '100ms' }}>
-            <div className="flex items-center gap-3">
-              <div className="p-2.5 bg-success/10 rounded-xl">
-                <UserCheck className="w-5 h-5 text-success" />
-              </div>
-              <div className="min-w-0 flex-1">
-                <p className="text-xl md:text-2xl font-bold text-foreground">{stats.approved}</p>
-                <p className="text-[10px] md:text-xs text-muted-foreground truncate">Diluluskan</p>
-              </div>
-            </div>
-          </div>
-
-          <div className="stat-card animate-fade-in" style={{ animationDelay: '150ms' }}>
-            <div className="flex items-center gap-3">
-              <div className="p-2.5 bg-warning/10 rounded-xl">
-                <Clock className="w-5 h-5 text-warning" />
-              </div>
-              <div className="min-w-0 flex-1">
-                <p className="text-xl md:text-2xl font-bold text-foreground">{stats.pending}</p>
-                <p className="text-[10px] md:text-xs text-muted-foreground truncate">Menunggu</p>
-              </div>
-            </div>
-          </div>
-
-          <div className="stat-card animate-fade-in" style={{ animationDelay: '200ms' }}>
-            <div className="flex items-center gap-3">
-              <div className="p-2.5 bg-accent/10 rounded-xl">
-                <Video className="w-5 h-5 text-accent" />
-              </div>
-              <div className="min-w-0 flex-1">
-                <p className="text-xl md:text-2xl font-bold text-foreground">{stats.totalVideos}</p>
-                <p className="text-[10px] md:text-xs text-muted-foreground truncate">Video Dijana</p>
-              </div>
-            </div>
-          </div>
-
-          <div className="stat-card animate-fade-in" style={{ animationDelay: '250ms' }}>
-            <div className="flex items-center gap-3">
-              <div className="p-2.5 bg-green-500/10 rounded-xl">
-                <svg className="w-5 h-5 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
-                </svg>
-              </div>
-              <div className="min-w-0 flex-1">
-                <p className="text-xl md:text-2xl font-bold text-foreground">{stats.totalReferrals}</p>
-                <p className="text-[10px] md:text-xs text-muted-foreground truncate">Dari Referral</p>
-              </div>
-            </div>
-          </div>
+        {/* Tab Navigation */}
+        <div className="flex gap-2 mb-6 animate-fade-in" style={{ animationDelay: '50ms' }}>
+          <Button
+            variant={activeTab === 'users' ? 'default' : 'outline'}
+            onClick={() => setActiveTab('users')}
+            className="gap-2"
+          >
+            <Users className="w-4 h-4" />
+            Pengguna
+          </Button>
+          <Button
+            variant={activeTab === 'affiliate' ? 'default' : 'outline'}
+            onClick={() => setActiveTab('affiliate')}
+            className="gap-2"
+          >
+            <Link className="w-4 h-4" />
+            Affiliate
+            {affiliateStats.totalReferrals > 0 && (
+              <Badge variant="secondary" className="ml-1 bg-green-500/20 text-green-400">
+                {affiliateStats.totalReferrals}
+              </Badge>
+            )}
+          </Button>
         </div>
 
-        {/* Search */}
-        <div className="relative mb-4 md:mb-6 animate-fade-in" style={{ animationDelay: '250ms' }}>
-          <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 md:w-5 md:h-5 text-muted-foreground" />
-          <Input
-            placeholder="Cari ID, email atau username..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="pl-11 md:pl-12 bg-secondary/50 border-border/50 text-foreground placeholder:text-muted-foreground h-11 md:h-12 rounded-xl"
-          />
-        </div>
-
-        {/* Users List - Mobile Card View / Desktop Table */}
-        <div className="glass-card overflow-hidden animate-fade-in" style={{ animationDelay: '300ms' }}>
-          {/* Desktop Table Header */}
-          <div className="hidden lg:grid lg:grid-cols-[2fr_1fr_1fr_1fr_1fr] gap-4 p-4 border-b border-border/30 bg-muted/30">
-            <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Pengguna</span>
-            <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Status</span>
-            <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Video Guna</span>
-            <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Had Video</span>
-            <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Tindakan</span>
-          </div>
-
-          {/* Content */}
-          <div className="divide-y divide-border/30">
-            {loading ? (
-              <div className="flex items-center justify-center gap-3 py-16">
-                <div className="w-5 h-5 border-2 border-primary border-t-transparent rounded-full animate-spin" />
-                <span className="text-muted-foreground">Memuatkan...</span>
+        {/* Users Tab */}
+        {activeTab === 'users' && (
+          <>
+            {/* Stats Cards - Mobile optimized */}
+            <div className="grid grid-cols-2 lg:grid-cols-5 gap-3 md:gap-4 mb-6 md:mb-8">
+              <div className="stat-card animate-fade-in" style={{ animationDelay: '50ms' }}>
+                <div className="flex items-center gap-3">
+                  <div className="p-2.5 bg-primary/10 rounded-xl">
+                    <Users className="w-5 h-5 text-primary" />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-xl md:text-2xl font-bold text-foreground">{stats.total}</p>
+                    <p className="text-[10px] md:text-xs text-muted-foreground truncate">Jumlah Pengguna</p>
+                  </div>
+                </div>
               </div>
-            ) : filteredUsers.length === 0 ? (
-              <div className="text-center py-16 text-muted-foreground">
-                Tiada pengguna dijumpai
-              </div>
-            ) : (
-              filteredUsers.map((user, index) => (
-                <div
-                  key={user.id}
-                  className="p-4 data-table-row animate-fade-in"
-                  style={{ animationDelay: `${350 + index * 50}ms` }}
-                >
-                  {/* Mobile Layout */}
-                  <div className="lg:hidden space-y-3">
-                    <div className="flex items-start justify-between gap-3">
-                      <div className="min-w-0 flex-1">
-                        <p className="text-sm font-semibold text-foreground truncate">{user.username || 'N/A'}</p>
-                        <p className="text-xs text-muted-foreground truncate">{user.email}</p>
-                        <p className="text-[10px] text-muted-foreground/60 font-mono mt-1">{user.id.slice(0, 12)}...</p>
-                      </div>
-                      {user.is_approved ? (
-                        <Badge variant="outline" className="bg-success/10 text-success border-success/20 shrink-0">
-                          Diluluskan
-                        </Badge>
-                      ) : (
-                        <Badge variant="outline" className="bg-warning/10 text-warning border-warning/20 shrink-0">
-                          Menunggu
-                        </Badge>
-                      )}
-                    </div>
 
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-4 text-sm">
-                        <span className="text-muted-foreground">
-                          Video: <span className="text-foreground font-medium">{user.videos_used}</span>
-                        </span>
-                        {editingUser === user.id ? (
-                          <div className="flex items-center gap-2">
-                            <span className="text-muted-foreground">Had:</span>
-                            <Input
-                              type="number"
-                              value={editLimits.video_limit}
-                              onChange={(e) => setEditLimits({ ...editLimits, video_limit: parseInt(e.target.value) || 0 })}
-                              className="w-16 h-8 text-sm bg-secondary border-border"
-                            />
+              <div className="stat-card animate-fade-in" style={{ animationDelay: '100ms' }}>
+                <div className="flex items-center gap-3">
+                  <div className="p-2.5 bg-success/10 rounded-xl">
+                    <UserCheck className="w-5 h-5 text-success" />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-xl md:text-2xl font-bold text-foreground">{stats.approved}</p>
+                    <p className="text-[10px] md:text-xs text-muted-foreground truncate">Diluluskan</p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="stat-card animate-fade-in" style={{ animationDelay: '150ms' }}>
+                <div className="flex items-center gap-3">
+                  <div className="p-2.5 bg-warning/10 rounded-xl">
+                    <Clock className="w-5 h-5 text-warning" />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-xl md:text-2xl font-bold text-foreground">{stats.pending}</p>
+                    <p className="text-[10px] md:text-xs text-muted-foreground truncate">Menunggu</p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="stat-card animate-fade-in" style={{ animationDelay: '200ms' }}>
+                <div className="flex items-center gap-3">
+                  <div className="p-2.5 bg-accent/10 rounded-xl">
+                    <Video className="w-5 h-5 text-accent" />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-xl md:text-2xl font-bold text-foreground">{stats.totalVideos}</p>
+                    <p className="text-[10px] md:text-xs text-muted-foreground truncate">Video Dijana</p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="stat-card animate-fade-in" style={{ animationDelay: '250ms' }}>
+                <div className="flex items-center gap-3">
+                  <div className="p-2.5 bg-green-500/10 rounded-xl">
+                    <Link className="w-5 h-5 text-green-500" />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-xl md:text-2xl font-bold text-foreground">{stats.totalReferrals}</p>
+                    <p className="text-[10px] md:text-xs text-muted-foreground truncate">Dari Referral</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Search */}
+            <div className="relative mb-4 md:mb-6 animate-fade-in" style={{ animationDelay: '250ms' }}>
+              <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 md:w-5 md:h-5 text-muted-foreground" />
+              <Input
+                placeholder="Cari ID, email atau username..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="pl-11 md:pl-12 bg-secondary/50 border-border/50 text-foreground placeholder:text-muted-foreground h-11 md:h-12 rounded-xl"
+              />
+            </div>
+
+            {/* Users List */}
+            <div className="glass-card overflow-hidden animate-fade-in" style={{ animationDelay: '300ms' }}>
+              <div className="hidden lg:grid lg:grid-cols-[2fr_1fr_1fr_1fr_1fr] gap-4 p-4 border-b border-border/30 bg-muted/30">
+                <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Pengguna</span>
+                <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Status</span>
+                <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Video Guna</span>
+                <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Had Video</span>
+                <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Tindakan</span>
+              </div>
+
+              <div className="divide-y divide-border/30">
+                {loading ? (
+                  <div className="flex items-center justify-center gap-3 py-16">
+                    <div className="w-5 h-5 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+                    <span className="text-muted-foreground">Memuatkan...</span>
+                  </div>
+                ) : filteredUsers.length === 0 ? (
+                  <div className="text-center py-16 text-muted-foreground">
+                    Tiada pengguna dijumpai
+                  </div>
+                ) : (
+                  filteredUsers.map((user, index) => (
+                    <div
+                      key={user.id}
+                      className="p-4 data-table-row animate-fade-in"
+                      style={{ animationDelay: `${350 + index * 50}ms` }}
+                    >
+                      {/* Mobile Layout */}
+                      <div className="lg:hidden space-y-3">
+                        <div className="flex items-start justify-between gap-3">
+                          <div className="min-w-0 flex-1">
+                            <p className="text-sm font-semibold text-foreground truncate">{user.username || 'N/A'}</p>
+                            <p className="text-xs text-muted-foreground truncate">{user.email}</p>
+                            <p className="text-[10px] text-muted-foreground/60 font-mono mt-1">{user.id.slice(0, 12)}...</p>
                           </div>
-                        ) : (
-                          <span className="text-muted-foreground">
-                            Had: <span className="text-foreground font-medium">{user.video_limit}</span>
-                          </span>
-                        )}
-                      </div>
-                    </div>
+                          {user.is_approved ? (
+                            <Badge variant="outline" className="bg-success/10 text-success border-success/20 shrink-0">
+                              Diluluskan
+                            </Badge>
+                          ) : (
+                            <Badge variant="outline" className="bg-warning/10 text-warning border-warning/20 shrink-0">
+                              Menunggu
+                            </Badge>
+                          )}
+                        </div>
 
-                    <div className="flex items-center gap-2 pt-1">
-                      {editingUser === user.id ? (
-                        <>
-                          <Button
-                            size="sm"
-                            onClick={() => handleSaveLimits(user.id)}
-                            className="h-9 flex-1 bg-success hover:bg-success/90 text-success-foreground"
-                          >
-                            <Save className="w-4 h-4 mr-1" />
-                            Simpan
-                          </Button>
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={() => setEditingUser(null)}
-                            className="h-9"
-                          >
-                            <X className="w-4 h-4" />
-                          </Button>
-                        </>
-                      ) : (
-                        <>
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={() => handleEditLimits(user)}
-                            className="h-9"
-                          >
-                            <Edit2 className="w-4 h-4 mr-1" />
-                            Edit
-                          </Button>
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-4 text-sm">
+                            <span className="text-muted-foreground">
+                              Video: <span className="text-foreground font-medium">{user.videos_used}</span>
+                            </span>
+                            {editingUser === user.id ? (
+                              <div className="flex items-center gap-2">
+                                <span className="text-muted-foreground">Had:</span>
+                                <Input
+                                  type="number"
+                                  value={editLimits.video_limit}
+                                  onChange={(e) => setEditLimits({ ...editLimits, video_limit: parseInt(e.target.value) || 0 })}
+                                  className="w-16 h-8 text-sm bg-secondary border-border"
+                                />
+                              </div>
+                            ) : (
+                              <span className="text-muted-foreground">
+                                Had: <span className="text-foreground font-medium">{user.video_limit}</span>
+                              </span>
+                            )}
+                          </div>
+                        </div>
+
+                        <div className="flex items-center gap-2 pt-1">
+                          {editingUser === user.id ? (
+                            <>
+                              <Button
+                                size="sm"
+                                onClick={() => handleSaveLimits(user.id)}
+                                className="h-9 flex-1 bg-success hover:bg-success/90 text-success-foreground"
+                              >
+                                <Save className="w-4 h-4 mr-1" />
+                                Simpan
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => setEditingUser(null)}
+                                className="h-9"
+                              >
+                                <X className="w-4 h-4" />
+                              </Button>
+                            </>
+                          ) : (
+                            <>
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => handleEditLimits(user)}
+                                className="h-9"
+                              >
+                                <Edit2 className="w-4 h-4 mr-1" />
+                                Edit
+                              </Button>
+                              {!user.is_approved && (
+                                <Button
+                                  size="sm"
+                                  onClick={() => handleApprove(user.id)}
+                                  className="h-9 flex-1 bg-success/10 text-success hover:bg-success/20 border border-success/20"
+                                >
+                                  <Check className="w-4 h-4 mr-1" />
+                                  Lulus
+                                </Button>
+                              )}
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                onClick={() => handleReject(user)}
+                                className="h-9 text-destructive hover:text-destructive hover:bg-destructive/10"
+                              >
+                                <Trash2 className="w-4 h-4" />
+                              </Button>
+                            </>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Desktop Layout */}
+                      <div className="hidden lg:grid lg:grid-cols-[2fr_1fr_1fr_1fr_1fr] gap-4 items-center">
+                        <div className="min-w-0">
+                          <p className="text-sm font-semibold text-foreground truncate">{user.username || 'N/A'}</p>
+                          <p className="text-xs text-muted-foreground truncate">{user.email}</p>
+                          <p className="text-[10px] text-muted-foreground/60 font-mono">{user.id.slice(0, 12)}...</p>
+                          {user.phone_number && (
+                            <p className="text-xs text-muted-foreground mt-1">{user.phone_number}</p>
+                          )}
+                        </div>
+
+                        <div>
+                          {user.is_approved ? (
+                            <Badge variant="outline" className="bg-success/10 text-success border-success/20">
+                              Diluluskan
+                            </Badge>
+                          ) : (
+                            <Badge variant="outline" className="bg-warning/10 text-warning border-warning/20">
+                              Menunggu
+                            </Badge>
+                          )}
+                        </div>
+
+                        <div>
+                          <p className="text-lg font-bold text-foreground">{user.videos_used}</p>
+                          <p className="text-[10px] text-muted-foreground">dijana</p>
+                        </div>
+
+                        <div>
+                          {editingUser === user.id ? (
+                            <div className="flex items-center gap-2">
+                              <Input
+                                type="number"
+                                value={editLimits.video_limit}
+                                onChange={(e) => setEditLimits({ ...editLimits, video_limit: parseInt(e.target.value) || 0 })}
+                                className="w-20 h-9 bg-secondary border-border text-sm"
+                              />
+                              <Button
+                                size="sm"
+                                onClick={() => handleSaveLimits(user.id)}
+                                className="h-9 w-9 p-0 bg-success hover:bg-success/90"
+                              >
+                                <Save className="w-4 h-4" />
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                onClick={() => setEditingUser(null)}
+                                className="h-9 w-9 p-0 text-muted-foreground hover:text-foreground"
+                              >
+                                <X className="w-4 h-4" />
+                              </Button>
+                            </div>
+                          ) : (
+                            <div className="flex items-center gap-2">
+                              <span className="text-lg font-bold text-foreground">{user.video_limit}</span>
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                onClick={() => handleEditLimits(user)}
+                                className="h-9 w-9 p-0 text-muted-foreground hover:text-primary"
+                              >
+                                <Edit2 className="w-4 h-4" />
+                              </Button>
+                            </div>
+                          )}
+                        </div>
+
+                        <div className="flex items-center gap-2">
                           {!user.is_approved && (
                             <Button
                               size="sm"
                               onClick={() => handleApprove(user.id)}
-                              className="h-9 flex-1 bg-success/10 text-success hover:bg-success/20 border border-success/20"
+                              className="h-9 bg-success/10 text-success hover:bg-success/20 border border-success/20"
                             >
                               <Check className="w-4 h-4 mr-1" />
                               Lulus
@@ -371,115 +555,243 @@ const AdminDashboard: React.FC = () => {
                             size="sm"
                             variant="ghost"
                             onClick={() => handleReject(user)}
-                            className="h-9 text-destructive hover:text-destructive hover:bg-destructive/10"
+                            className="h-9 w-9 p-0 text-destructive hover:text-destructive hover:bg-destructive/10"
                           >
                             <Trash2 className="w-4 h-4" />
                           </Button>
-                        </>
-                      )}
+                        </div>
+                      </div>
                     </div>
+                  ))
+                )}
+              </div>
+            </div>
+
+            {/* Results count */}
+            {!loading && filteredUsers.length > 0 && (
+              <p className="text-xs text-muted-foreground mt-4 text-center">
+                Menunjukkan {filteredUsers.length} daripada {users.length} pengguna
+              </p>
+            )}
+          </>
+        )}
+
+        {/* Affiliate Tab */}
+        {activeTab === 'affiliate' && (
+          <>
+            {/* Affiliate Stats Cards */}
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4 mb-6 md:mb-8">
+              <div className="stat-card animate-fade-in" style={{ animationDelay: '50ms' }}>
+                <div className="flex items-center gap-3">
+                  <div className="p-2.5 bg-primary/10 rounded-xl">
+                    <Users className="w-5 h-5 text-primary" />
                   </div>
-
-                  {/* Desktop Layout */}
-                  <div className="hidden lg:grid lg:grid-cols-[2fr_1fr_1fr_1fr_1fr] gap-4 items-center">
-                    <div className="min-w-0">
-                      <p className="text-sm font-semibold text-foreground truncate">{user.username || 'N/A'}</p>
-                      <p className="text-xs text-muted-foreground truncate">{user.email}</p>
-                      <p className="text-[10px] text-muted-foreground/60 font-mono">{user.id.slice(0, 12)}...</p>
-                      {user.phone_number && (
-                        <p className="text-xs text-muted-foreground mt-1">{user.phone_number}</p>
-                      )}
-                    </div>
-
-                    <div>
-                      {user.is_approved ? (
-                        <Badge variant="outline" className="bg-success/10 text-success border-success/20">
-                          Diluluskan
-                        </Badge>
-                      ) : (
-                        <Badge variant="outline" className="bg-warning/10 text-warning border-warning/20">
-                          Menunggu
-                        </Badge>
-                      )}
-                    </div>
-
-                    <div>
-                      <p className="text-lg font-bold text-foreground">{user.videos_used}</p>
-                      <p className="text-[10px] text-muted-foreground">dijana</p>
-                    </div>
-
-                    <div>
-                      {editingUser === user.id ? (
-                        <div className="flex items-center gap-2">
-                          <Input
-                            type="number"
-                            value={editLimits.video_limit}
-                            onChange={(e) => setEditLimits({ ...editLimits, video_limit: parseInt(e.target.value) || 0 })}
-                            className="w-20 h-9 bg-secondary border-border text-sm"
-                          />
-                          <Button
-                            size="sm"
-                            onClick={() => handleSaveLimits(user.id)}
-                            className="h-9 w-9 p-0 bg-success hover:bg-success/90"
-                          >
-                            <Save className="w-4 h-4" />
-                          </Button>
-                          <Button
-                            size="sm"
-                            variant="ghost"
-                            onClick={() => setEditingUser(null)}
-                            className="h-9 w-9 p-0 text-muted-foreground hover:text-foreground"
-                          >
-                            <X className="w-4 h-4" />
-                          </Button>
-                        </div>
-                      ) : (
-                        <div className="flex items-center gap-2">
-                          <span className="text-lg font-bold text-foreground">{user.video_limit}</span>
-                          <Button
-                            size="sm"
-                            variant="ghost"
-                            onClick={() => handleEditLimits(user)}
-                            className="h-9 w-9 p-0 text-muted-foreground hover:text-primary"
-                          >
-                            <Edit2 className="w-4 h-4" />
-                          </Button>
-                        </div>
-                      )}
-                    </div>
-
-                    <div className="flex items-center gap-2">
-                      {!user.is_approved && (
-                        <Button
-                          size="sm"
-                          onClick={() => handleApprove(user.id)}
-                          className="h-9 bg-success/10 text-success hover:bg-success/20 border border-success/20"
-                        >
-                          <Check className="w-4 h-4 mr-1" />
-                          Lulus
-                        </Button>
-                      )}
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        onClick={() => handleReject(user)}
-                        className="h-9 w-9 p-0 text-destructive hover:text-destructive hover:bg-destructive/10"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </Button>
-                    </div>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-xl md:text-2xl font-bold text-foreground">{affiliateStats.totalAffiliates}</p>
+                    <p className="text-[10px] md:text-xs text-muted-foreground truncate">Jumlah Affiliate</p>
                   </div>
                 </div>
-              ))
-            )}
-          </div>
-        </div>
+              </div>
 
-        {/* Results count */}
-        {!loading && filteredUsers.length > 0 && (
-          <p className="text-xs text-muted-foreground mt-4 text-center">
-            Menunjukkan {filteredUsers.length} daripada {users.length} pengguna
-          </p>
+              <div className="stat-card animate-fade-in" style={{ animationDelay: '100ms' }}>
+                <div className="flex items-center gap-3">
+                  <div className="p-2.5 bg-green-500/10 rounded-xl">
+                    <Link className="w-5 h-5 text-green-500" />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-xl md:text-2xl font-bold text-foreground">{affiliateStats.totalReferrals}</p>
+                    <p className="text-[10px] md:text-xs text-muted-foreground truncate">Total Referral</p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="stat-card animate-fade-in" style={{ animationDelay: '150ms' }}>
+                <div className="flex items-center gap-3">
+                  <div className="p-2.5 bg-yellow-500/10 rounded-xl">
+                    <Award className="w-5 h-5 text-yellow-500" />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-xl md:text-2xl font-bold text-foreground">{affiliateStats.activeAffiliates}</p>
+                    <p className="text-[10px] md:text-xs text-muted-foreground truncate">Affiliate Aktif</p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="stat-card animate-fade-in" style={{ animationDelay: '200ms' }}>
+                <div className="flex items-center gap-3">
+                  <div className="p-2.5 bg-emerald-500/10 rounded-xl">
+                    <DollarSign className="w-5 h-5 text-emerald-500" />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-xl md:text-2xl font-bold text-foreground">RM{affiliateStats.estimatedCommission}</p>
+                    <p className="text-[10px] md:text-xs text-muted-foreground truncate">Anggaran Komisen</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Commission Setting */}
+            <div className="glass-card p-4 mb-4 animate-fade-in" style={{ animationDelay: '220ms' }}>
+              <div className="flex items-center justify-between flex-wrap gap-3">
+                <div className="flex items-center gap-3">
+                  <DollarSign className="w-5 h-5 text-muted-foreground" />
+                  <span className="text-sm text-muted-foreground">Komisen per referral:</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="text-sm text-muted-foreground">RM</span>
+                  <Input
+                    type="number"
+                    value={commissionPerReferral}
+                    onChange={(e) => setCommissionPerReferral(parseInt(e.target.value) || 0)}
+                    className="w-20 h-9 bg-secondary border-border text-sm"
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* Top Affiliate Banner */}
+            {affiliateStats.topAffiliate && (
+              <div className="glass-card p-4 mb-4 bg-gradient-to-r from-yellow-500/10 to-orange-500/10 border-yellow-500/30 animate-fade-in" style={{ animationDelay: '240ms' }}>
+                <div className="flex items-center gap-3">
+                  <div className="p-2.5 bg-yellow-500/20 rounded-xl">
+                    <Award className="w-6 h-6 text-yellow-500" />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-xs text-yellow-400 uppercase tracking-wide font-medium">🏆 Top Affiliate</p>
+                    <p className="text-lg font-bold text-foreground">{affiliateStats.topAffiliate.username || affiliateStats.topAffiliate.email}</p>
+                    <p className="text-sm text-muted-foreground">{affiliateStats.topAffiliate.referralCount} referral • RM{affiliateStats.topAffiliate.referralCount * commissionPerReferral} komisen</p>
+                  </div>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => setSelectedAffiliate(affiliateStats.topAffiliate)}
+                    className="shrink-0 border-yellow-500/30 text-yellow-400 hover:bg-yellow-500/10"
+                  >
+                    <Eye className="w-4 h-4 mr-1" />
+                    Lihat
+                  </Button>
+                </div>
+              </div>
+            )}
+
+            {/* Search */}
+            <div className="relative mb-4 md:mb-6 animate-fade-in" style={{ animationDelay: '260ms' }}>
+              <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 md:w-5 md:h-5 text-muted-foreground" />
+              <Input
+                placeholder="Cari affiliate atau kod referral..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="pl-11 md:pl-12 bg-secondary/50 border-border/50 text-foreground placeholder:text-muted-foreground h-11 md:h-12 rounded-xl"
+              />
+            </div>
+
+            {/* Affiliate List */}
+            <div className="glass-card overflow-hidden animate-fade-in" style={{ animationDelay: '280ms' }}>
+              <div className="hidden lg:grid lg:grid-cols-[2fr_1fr_1fr_1fr_1fr] gap-4 p-4 border-b border-border/30 bg-muted/30">
+                <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Affiliate</span>
+                <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Kod Referral</span>
+                <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Jumlah Referral</span>
+                <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Komisen</span>
+                <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Tindakan</span>
+              </div>
+
+              <div className="divide-y divide-border/30">
+                {loading ? (
+                  <div className="flex items-center justify-center gap-3 py-16">
+                    <div className="w-5 h-5 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+                    <span className="text-muted-foreground">Memuatkan...</span>
+                  </div>
+                ) : filteredAffiliates.length === 0 ? (
+                  <div className="text-center py-16 text-muted-foreground">
+                    Tiada affiliate dijumpai
+                  </div>
+                ) : (
+                  filteredAffiliates.map((affiliate, index) => (
+                    <div
+                      key={affiliate.userId}
+                      className="p-4 data-table-row animate-fade-in hover:bg-muted/30 transition-colors"
+                      style={{ animationDelay: `${300 + index * 50}ms` }}
+                    >
+                      {/* Mobile Layout */}
+                      <div className="lg:hidden space-y-3">
+                        <div className="flex items-start justify-between gap-3">
+                          <div className="min-w-0 flex-1">
+                            <p className="text-sm font-semibold text-foreground truncate">{affiliate.username || 'N/A'}</p>
+                            <p className="text-xs text-muted-foreground truncate">{affiliate.email}</p>
+                          </div>
+                          <Badge variant="outline" className="bg-green-500/10 text-green-400 border-green-500/20 shrink-0">
+                            {affiliate.referralCount} referral
+                          </Badge>
+                        </div>
+
+                        <div className="flex items-center justify-between text-sm">
+                          <div className="flex items-center gap-2">
+                            <span className="text-muted-foreground">Kod:</span>
+                            <code className="px-2 py-0.5 bg-secondary rounded text-xs font-mono text-primary">{affiliate.referralCode}</code>
+                          </div>
+                          <span className="text-emerald-400 font-medium">RM{affiliate.referralCount * commissionPerReferral}</span>
+                        </div>
+
+                        <div className="flex items-center gap-2 pt-1">
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => setSelectedAffiliate(affiliate)}
+                            className="h-9 flex-1"
+                          >
+                            <Eye className="w-4 h-4 mr-1" />
+                            Lihat Referral
+                          </Button>
+                        </div>
+                      </div>
+
+                      {/* Desktop Layout */}
+                      <div className="hidden lg:grid lg:grid-cols-[2fr_1fr_1fr_1fr_1fr] gap-4 items-center">
+                        <div className="min-w-0">
+                          <p className="text-sm font-semibold text-foreground truncate">{affiliate.username || 'N/A'}</p>
+                          <p className="text-xs text-muted-foreground truncate">{affiliate.email}</p>
+                          <p className="text-[10px] text-muted-foreground/60 mt-1">Joined: {formatDate(affiliate.joinedAt)}</p>
+                        </div>
+
+                        <div>
+                          <code className="px-2 py-1 bg-secondary rounded text-xs font-mono text-primary">{affiliate.referralCode}</code>
+                        </div>
+
+                        <div>
+                          <p className="text-lg font-bold text-foreground">{affiliate.referralCount}</p>
+                          <p className="text-[10px] text-muted-foreground">referral</p>
+                        </div>
+
+                        <div>
+                          <p className="text-lg font-bold text-emerald-400">RM{affiliate.referralCount * commissionPerReferral}</p>
+                          <p className="text-[10px] text-muted-foreground">anggaran</p>
+                        </div>
+
+                        <div className="flex items-center gap-2">
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => setSelectedAffiliate(affiliate)}
+                            className="h-9"
+                          >
+                            <Eye className="w-4 h-4 mr-1" />
+                            Lihat
+                          </Button>
+                        </div>
+                      </div>
+                    </div>
+                  ))
+                )}
+              </div>
+            </div>
+
+            {/* Results count */}
+            {!loading && filteredAffiliates.length > 0 && (
+              <p className="text-xs text-muted-foreground mt-4 text-center">
+                Menunjukkan {filteredAffiliates.length} affiliate
+              </p>
+            )}
+          </>
         )}
       </div>
 
@@ -507,6 +819,83 @@ const AdminDashboard: React.FC = () => {
             >
               <Trash2 className="w-4 h-4 mr-2" />
               Padam
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Affiliate Detail Modal */}
+      <Dialog open={!!selectedAffiliate} onOpenChange={(open) => !open && setSelectedAffiliate(null)}>
+        <DialogContent className="bg-card border-border text-foreground max-w-lg mx-4 max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="text-foreground flex items-center gap-2">
+              <Link className="w-5 h-5 text-primary" />
+              Detail Affiliate
+            </DialogTitle>
+            <DialogDescription className="text-muted-foreground">
+              Senarai pengguna yang didaftarkan melalui kod referral affiliate ini.
+            </DialogDescription>
+          </DialogHeader>
+
+          {selectedAffiliate && (
+            <div className="space-y-4">
+              {/* Affiliate Info */}
+              <div className="p-4 bg-secondary/30 rounded-lg space-y-2">
+                <div className="flex items-center justify-between">
+                  <span className="text-sm text-muted-foreground">Affiliate:</span>
+                  <span className="text-sm font-medium text-foreground">{selectedAffiliate.username || selectedAffiliate.email}</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-sm text-muted-foreground">Kod Referral:</span>
+                  <code className="px-2 py-0.5 bg-secondary rounded text-xs font-mono text-primary">{selectedAffiliate.referralCode}</code>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-sm text-muted-foreground">Total Referral:</span>
+                  <span className="text-sm font-bold text-green-400">{selectedAffiliate.referralCount}</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-sm text-muted-foreground">Anggaran Komisen:</span>
+                  <span className="text-sm font-bold text-emerald-400">RM{selectedAffiliate.referralCount * commissionPerReferral}</span>
+                </div>
+              </div>
+
+              {/* Referrals List */}
+              <div>
+                <h4 className="text-sm font-semibold text-foreground mb-3">Senarai Referral ({selectedAffiliate.referrals.length})</h4>
+                {selectedAffiliate.referrals.length === 0 ? (
+                  <p className="text-sm text-muted-foreground text-center py-8">Tiada referral lagi</p>
+                ) : (
+                  <div className="space-y-2 max-h-60 overflow-y-auto">
+                    {selectedAffiliate.referrals.map((referral, idx) => (
+                      <div key={referral.id} className="p-3 bg-secondary/20 rounded-lg flex items-center justify-between gap-3">
+                        <div className="min-w-0 flex-1">
+                          <p className="text-sm font-medium text-foreground truncate">{referral.username || referral.email}</p>
+                          <p className="text-xs text-muted-foreground">{formatDate(referral.created_at)}</p>
+                        </div>
+                        {referral.is_approved ? (
+                          <Badge variant="outline" className="bg-success/10 text-success border-success/20 shrink-0 text-[10px]">
+                            Approved
+                          </Badge>
+                        ) : (
+                          <Badge variant="outline" className="bg-warning/10 text-warning border-warning/20 shrink-0 text-[10px]">
+                            Pending
+                          </Badge>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setSelectedAffiliate(null)}
+              className="w-full"
+            >
+              Tutup
             </Button>
           </DialogFooter>
         </DialogContent>
