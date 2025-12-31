@@ -30,6 +30,7 @@ export type Database = {
           username: string | null
           video_limit: number
           videos_used: number
+          total_videos_generated: number
         }
         Insert: {
           avatar_url?: string | null
@@ -46,6 +47,7 @@ export type Database = {
           username?: string | null
           video_limit?: number
           videos_used?: number
+          total_videos_generated?: number
         }
         Update: {
           avatar_url?: string | null
@@ -62,6 +64,7 @@ export type Database = {
           username?: string | null
           video_limit?: number
           videos_used?: number
+          total_videos_generated?: number
         }
         Relationships: []
       }

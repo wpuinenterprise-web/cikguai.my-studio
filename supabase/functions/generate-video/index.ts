@@ -32,7 +32,7 @@ serve(async (req) => {
     const { data: { user }, error: authError } = await supabase.auth.getUser(
       authHeader.replace('Bearer ', '')
     );
-    
+
     if (authError || !user) {
       throw new Error('Unauthorized');
     }
@@ -47,7 +47,7 @@ serve(async (req) => {
     // Check user's video limit
     const { data: profile, error: profileError } = await supabase
       .from('profiles')
-      .select('videos_used, video_limit')
+      .select('videos_used, video_limit, total_videos_generated')
       .eq('id', user.id)
       .single();
 
@@ -89,7 +89,7 @@ serve(async (req) => {
     formData.append('resolution', 'small');
     formData.append('duration', duration.toString());
     formData.append('aspect_ratio', aspect_ratio);
-    
+
     // Send reference image URL for I2V (Image to Video)
     // Try multiple parameter names that GeminiGen API might accept
     if (reference_image_url && reference_image_url.startsWith('http')) {
@@ -123,7 +123,7 @@ serve(async (req) => {
 
     if (!geminigenResponse.ok) {
       console.error('GeminiGen API error:', geminigenData);
-      
+
       // Update video record with failure
       await supabase
         .from('video_generations')
@@ -151,10 +151,13 @@ serve(async (req) => {
       console.log('Updated video with geminigen_uuid:', geminigenData.uuid);
     }
 
-    // Increment user's video count
+    // Increment user's video count (both used and total)
     await supabase
       .from('profiles')
-      .update({ videos_used: profile.videos_used + 1 })
+      .update({
+        videos_used: profile.videos_used + 1,
+        total_videos_generated: (profile.total_videos_generated || 0) + 1
+      })
       .eq('id', user.id);
 
     console.log('Video generation initiated successfully');
@@ -176,9 +179,9 @@ serve(async (req) => {
     console.error('Error in generate-video function:', error);
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
     return new Response(
-      JSON.stringify({ 
-        success: false, 
-        error: errorMessage 
+      JSON.stringify({
+        success: false,
+        error: errorMessage
       }),
       {
         status: 400,

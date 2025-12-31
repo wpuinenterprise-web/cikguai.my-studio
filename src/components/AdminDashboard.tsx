@@ -24,6 +24,7 @@ interface UserData {
   images_used: number;
   video_limit: number;
   image_limit: number;
+  total_videos_generated: number;
   referral_code: string | null;
   referred_by: string | null;
   created_at: string;
@@ -361,11 +362,12 @@ const AdminDashboard: React.FC = () => {
 
             {/* Users List */}
             <div className="glass-card overflow-hidden animate-fade-in" style={{ animationDelay: '300ms' }}>
-              <div className="hidden lg:grid lg:grid-cols-[2fr_1fr_1fr_1fr_1fr] gap-4 p-4 border-b border-border/30 bg-muted/30">
+              <div className="hidden lg:grid lg:grid-cols-[2fr_1fr_1fr_1fr_1fr_1fr] gap-4 p-4 border-b border-border/30 bg-muted/30">
                 <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Pengguna</span>
                 <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Status</span>
                 <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Dijana / Baki</span>
                 <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Had Video</span>
+                <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Total</span>
                 <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Tindakan</span>
               </div>
 
@@ -429,6 +431,10 @@ const AdminDashboard: React.FC = () => {
                               ) : (
                                 <span className="text-foreground font-bold">{user.video_limit}</span>
                               )}
+                            </div>
+                            <div className="flex flex-col">
+                              <span className="text-muted-foreground text-[9px] uppercase">Total</span>
+                              <span className="text-cyan-400 font-bold">{user.total_videos_generated || 0}</span>
                             </div>
                           </div>
                         </div>
@@ -504,7 +510,7 @@ const AdminDashboard: React.FC = () => {
                       </div>
 
                       {/* Desktop Layout */}
-                      <div className="hidden lg:grid lg:grid-cols-[2fr_1fr_1fr_1fr_1fr] gap-4 items-center">
+                      <div className="hidden lg:grid lg:grid-cols-[2fr_1fr_1fr_1fr_1fr_1fr] gap-4 items-center">
                         <div className="min-w-0">
                           <p className="text-sm font-semibold text-foreground truncate">{user.username || 'N/A'}</p>
                           <p className="text-xs text-muted-foreground truncate">{user.email}</p>
@@ -591,6 +597,12 @@ const AdminDashboard: React.FC = () => {
                               </Button>
                             </div>
                           )}
+                        </div>
+
+                        {/* Total Videos Column */}
+                        <div>
+                          <p className="text-lg font-bold text-cyan-400">{user.total_videos_generated || 0}</p>
+                          <p className="text-[10px] text-muted-foreground">sejak daftar</p>
                         </div>
 
                         <div className="flex items-center gap-2">
