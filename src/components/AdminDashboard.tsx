@@ -47,6 +47,7 @@ const AdminDashboard: React.FC = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [editingUser, setEditingUser] = useState<string | null>(null);
   const [editLimits, setEditLimits] = useState({ video_limit: 0, image_limit: 0 });
+  const [resetVideos, setResetVideos] = useState(false);
   const [deleteDialog, setDeleteDialog] = useState<{ open: boolean; user: UserData | null }>({
     open: false,
     user: null,
@@ -162,22 +163,31 @@ const AdminDashboard: React.FC = () => {
   const handleEditLimits = (user: UserData) => {
     setEditingUser(user.id);
     setEditLimits({ video_limit: user.video_limit, image_limit: user.image_limit });
+    setResetVideos(false); // Reset checkbox state
   };
 
   const handleSaveLimits = async (userId: string) => {
     try {
+      const updateData: { video_limit: number; image_limit: number; videos_used?: number } = {
+        video_limit: editLimits.video_limit,
+        image_limit: editLimits.image_limit
+      };
+
+      // If reset checkbox is checked, reset videos_used to 0
+      if (resetVideos) {
+        updateData.videos_used = 0;
+      }
+
       const { error } = await supabase
         .from('profiles')
-        .update({
-          video_limit: editLimits.video_limit,
-          image_limit: editLimits.image_limit
-        })
+        .update(updateData)
         .eq('id', userId);
 
       if (error) throw error;
 
-      toast.success('Had pengguna telah dikemaskini');
+      toast.success(resetVideos ? 'Had video dikemaskini dan video dijana direset' : 'Had pengguna telah dikemaskini');
       setEditingUser(null);
+      setResetVideos(false);
       fetchUsers();
     } catch (error: any) {
       toast.error('Gagal mengemaskini had');
@@ -354,7 +364,7 @@ const AdminDashboard: React.FC = () => {
               <div className="hidden lg:grid lg:grid-cols-[2fr_1fr_1fr_1fr_1fr] gap-4 p-4 border-b border-border/30 bg-muted/30">
                 <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Pengguna</span>
                 <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Status</span>
-                <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Video Guna</span>
+                <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Dijana / Baki</span>
                 <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Had Video</span>
                 <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Tindakan</span>
               </div>
@@ -396,27 +406,48 @@ const AdminDashboard: React.FC = () => {
                         </div>
 
                         <div className="flex items-center justify-between">
-                          <div className="flex items-center gap-4 text-sm">
-                            <span className="text-muted-foreground">
-                              Video: <span className="text-foreground font-medium">{user.videos_used}</span>
-                            </span>
-                            {editingUser === user.id ? (
-                              <div className="flex items-center gap-2">
-                                <span className="text-muted-foreground">Had:</span>
+                          <div className="flex items-center gap-3 text-xs flex-wrap">
+                            <div className="flex flex-col">
+                              <span className="text-muted-foreground text-[9px] uppercase">Dijana</span>
+                              <span className="text-foreground font-bold">{user.videos_used}</span>
+                            </div>
+                            <div className="flex flex-col">
+                              <span className="text-muted-foreground text-[9px] uppercase">Baki</span>
+                              <span className={`font-bold ${user.video_limit - user.videos_used <= 0 ? 'text-destructive' : 'text-green-500'}`}>
+                                {Math.max(0, user.video_limit - user.videos_used)}
+                              </span>
+                            </div>
+                            <div className="flex flex-col">
+                              <span className="text-muted-foreground text-[9px] uppercase">Had</span>
+                              {editingUser === user.id ? (
                                 <Input
                                   type="number"
                                   value={editLimits.video_limit}
                                   onChange={(e) => setEditLimits({ ...editLimits, video_limit: parseInt(e.target.value) || 0 })}
-                                  className="w-16 h-8 text-sm bg-secondary border-border"
+                                  className="w-14 h-6 text-xs bg-secondary border-border p-1"
                                 />
-                              </div>
-                            ) : (
-                              <span className="text-muted-foreground">
-                                Had: <span className="text-foreground font-medium">{user.video_limit}</span>
-                              </span>
-                            )}
+                              ) : (
+                                <span className="text-foreground font-bold">{user.video_limit}</span>
+                              )}
+                            </div>
                           </div>
                         </div>
+
+                        {/* Reset checkbox when editing */}
+                        {editingUser === user.id && (
+                          <div className="flex items-center gap-2 pt-1">
+                            <input
+                              type="checkbox"
+                              id={`reset-${user.id}`}
+                              checked={resetVideos}
+                              onChange={(e) => setResetVideos(e.target.checked)}
+                              className="w-4 h-4 rounded border-border bg-secondary accent-primary"
+                            />
+                            <label htmlFor={`reset-${user.id}`} className="text-xs text-muted-foreground">
+                              Reset video dijana ke 0
+                            </label>
+                          </div>
+                        )}
 
                         <div className="flex items-center gap-2 pt-1">
                           {editingUser === user.id ? (
@@ -496,34 +527,56 @@ const AdminDashboard: React.FC = () => {
                         </div>
 
                         <div>
-                          <p className="text-lg font-bold text-foreground">{user.videos_used}</p>
-                          <p className="text-[10px] text-muted-foreground">dijana</p>
+                          <div className="flex items-center gap-2">
+                            <div>
+                              <p className="text-lg font-bold text-foreground">{user.videos_used}</p>
+                              <p className="text-[10px] text-muted-foreground">dijana</p>
+                            </div>
+                            <span className="text-muted-foreground">/</span>
+                            <div>
+                              <p className={`text-lg font-bold ${user.video_limit - user.videos_used <= 0 ? 'text-destructive' : 'text-green-500'}`}>
+                                {Math.max(0, user.video_limit - user.videos_used)}
+                              </p>
+                              <p className="text-[10px] text-muted-foreground">baki</p>
+                            </div>
+                          </div>
                         </div>
 
                         <div>
                           {editingUser === user.id ? (
-                            <div className="flex items-center gap-2">
-                              <Input
-                                type="number"
-                                value={editLimits.video_limit}
-                                onChange={(e) => setEditLimits({ ...editLimits, video_limit: parseInt(e.target.value) || 0 })}
-                                className="w-20 h-9 bg-secondary border-border text-sm"
-                              />
-                              <Button
-                                size="sm"
-                                onClick={() => handleSaveLimits(user.id)}
-                                className="h-9 w-9 p-0 bg-success hover:bg-success/90"
-                              >
-                                <Save className="w-4 h-4" />
-                              </Button>
-                              <Button
-                                size="sm"
-                                variant="ghost"
-                                onClick={() => setEditingUser(null)}
-                                className="h-9 w-9 p-0 text-muted-foreground hover:text-foreground"
-                              >
-                                <X className="w-4 h-4" />
-                              </Button>
+                            <div className="flex flex-col gap-2">
+                              <div className="flex items-center gap-2">
+                                <Input
+                                  type="number"
+                                  value={editLimits.video_limit}
+                                  onChange={(e) => setEditLimits({ ...editLimits, video_limit: parseInt(e.target.value) || 0 })}
+                                  className="w-20 h-9 bg-secondary border-border text-sm"
+                                />
+                                <Button
+                                  size="sm"
+                                  onClick={() => handleSaveLimits(user.id)}
+                                  className="h-9 w-9 p-0 bg-success hover:bg-success/90"
+                                >
+                                  <Save className="w-4 h-4" />
+                                </Button>
+                                <Button
+                                  size="sm"
+                                  variant="ghost"
+                                  onClick={() => setEditingUser(null)}
+                                  className="h-9 w-9 p-0 text-muted-foreground hover:text-foreground"
+                                >
+                                  <X className="w-4 h-4" />
+                                </Button>
+                              </div>
+                              <label className="flex items-center gap-2 cursor-pointer">
+                                <input
+                                  type="checkbox"
+                                  checked={resetVideos}
+                                  onChange={(e) => setResetVideos(e.target.checked)}
+                                  className="w-3.5 h-3.5 rounded border-border bg-secondary accent-primary"
+                                />
+                                <span className="text-[10px] text-muted-foreground">Reset dijana ke 0</span>
+                              </label>
                             </div>
                           ) : (
                             <div className="flex items-center gap-2">
