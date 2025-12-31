@@ -49,6 +49,7 @@ const AdminDashboard: React.FC = () => {
   const [editingUser, setEditingUser] = useState<string | null>(null);
   const [editLimits, setEditLimits] = useState({ video_limit: 0, image_limit: 0 });
   const [resetVideos, setResetVideos] = useState(false);
+  const [resetImages, setResetImages] = useState(false);
   const [deleteDialog, setDeleteDialog] = useState<{ open: boolean; user: UserData | null }>({
     open: false,
     user: null,
@@ -164,12 +165,13 @@ const AdminDashboard: React.FC = () => {
   const handleEditLimits = (user: UserData) => {
     setEditingUser(user.id);
     setEditLimits({ video_limit: user.video_limit, image_limit: user.image_limit });
-    setResetVideos(false); // Reset checkbox state
+    setResetVideos(false);
+    setResetImages(false);
   };
 
   const handleSaveLimits = async (userId: string) => {
     try {
-      const updateData: { video_limit: number; image_limit: number; videos_used?: number } = {
+      const updateData: { video_limit: number; image_limit: number; videos_used?: number; images_used?: number } = {
         video_limit: editLimits.video_limit,
         image_limit: editLimits.image_limit
       };
@@ -179,6 +181,11 @@ const AdminDashboard: React.FC = () => {
         updateData.videos_used = 0;
       }
 
+      // If reset images checkbox is checked, reset images_used to 0
+      if (resetImages) {
+        updateData.images_used = 0;
+      }
+
       const { error } = await supabase
         .from('profiles')
         .update(updateData)
@@ -186,9 +193,16 @@ const AdminDashboard: React.FC = () => {
 
       if (error) throw error;
 
-      toast.success(resetVideos ? 'Had video dikemaskini dan video dijana direset' : 'Had pengguna telah dikemaskini');
+      const resetMsg = [];
+      if (resetVideos) resetMsg.push('video');
+      if (resetImages) resetMsg.push('imej');
+
+      toast.success(resetMsg.length > 0
+        ? `Had dikemaskini dan ${resetMsg.join(' & ')} dijana direset`
+        : 'Had pengguna telah dikemaskini');
       setEditingUser(null);
       setResetVideos(false);
+      setResetImages(false);
       fetchUsers();
     } catch (error: any) {
       toast.error('Gagal mengemaskini had');
@@ -362,12 +376,13 @@ const AdminDashboard: React.FC = () => {
 
             {/* Users List */}
             <div className="glass-card overflow-hidden animate-fade-in" style={{ animationDelay: '300ms' }}>
-              <div className="hidden lg:grid lg:grid-cols-[2fr_1fr_1fr_1fr_1fr_1fr] gap-4 p-4 border-b border-border/30 bg-muted/30">
+              <div className="hidden lg:grid lg:grid-cols-[2fr_1fr_1fr_1fr_1fr_1fr_1fr] gap-3 p-4 border-b border-border/30 bg-muted/30">
                 <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Pengguna</span>
                 <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Status</span>
-                <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Dijana / Baki</span>
+                <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Video</span>
                 <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Had Video</span>
-                <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Total</span>
+                <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Imej</span>
+                <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Had Imej</span>
                 <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Tindakan</span>
               </div>
 
@@ -510,7 +525,7 @@ const AdminDashboard: React.FC = () => {
                       </div>
 
                       {/* Desktop Layout */}
-                      <div className="hidden lg:grid lg:grid-cols-[2fr_1fr_1fr_1fr_1fr_1fr] gap-4 items-center">
+                      <div className="hidden lg:grid lg:grid-cols-[2fr_1fr_1fr_1fr_1fr_1fr_1fr] gap-3 items-center">
                         <div className="min-w-0">
                           <p className="text-sm font-semibold text-foreground truncate">{user.username || 'N/A'}</p>
                           <p className="text-xs text-muted-foreground truncate">{user.email}</p>
@@ -599,10 +614,41 @@ const AdminDashboard: React.FC = () => {
                           )}
                         </div>
 
-                        {/* Total Videos Column */}
+                        {/* Image Stats Column */}
                         <div>
-                          <p className="text-lg font-bold text-cyan-400">{user.total_videos_generated || 0}</p>
-                          <p className="text-[10px] text-muted-foreground">sejak daftar</p>
+                          <div className="flex items-center gap-1">
+                            <span className="text-sm font-bold text-purple-400">{user.images_used}</span>
+                            <span className="text-muted-foreground text-xs">/</span>
+                            <span className={`text-sm font-bold ${user.image_limit - user.images_used <= 0 ? 'text-destructive' : 'text-green-400'}`}>
+                              {Math.max(0, user.image_limit - user.images_used)}
+                            </span>
+                          </div>
+                          <p className="text-[9px] text-muted-foreground">guna / baki</p>
+                        </div>
+
+                        {/* Had Imej Column */}
+                        <div>
+                          {editingUser === user.id ? (
+                            <div className="flex flex-col gap-1">
+                              <Input
+                                type="number"
+                                value={editLimits.image_limit}
+                                onChange={(e) => setEditLimits({ ...editLimits, image_limit: parseInt(e.target.value) || 0 })}
+                                className="w-16 h-8 bg-secondary border-border text-sm"
+                              />
+                              <label className="flex items-center gap-1 cursor-pointer">
+                                <input
+                                  type="checkbox"
+                                  checked={resetImages}
+                                  onChange={(e) => setResetImages(e.target.checked)}
+                                  className="w-3 h-3 rounded border-border"
+                                />
+                                <span className="text-[9px] text-purple-400">Reset imej</span>
+                              </label>
+                            </div>
+                          ) : (
+                            <span className="text-sm font-bold text-foreground">{user.image_limit}</span>
+                          )}
                         </div>
 
                         <div className="flex items-center gap-2">

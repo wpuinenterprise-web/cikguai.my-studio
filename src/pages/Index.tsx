@@ -253,6 +253,20 @@ const Index = () => {
             >
               {t.vault}
             </button>
+            <button
+              onClick={() => setActiveView(AppView.IMAGE_STUDIO)}
+              className={`flex-1 min-w-[80px] py-3 rounded-xl transition-all border font-black text-[10px] uppercase tracking-widest ${activeView === AppView.IMAGE_STUDIO ? 'bg-purple-500/10 border-purple-500/40 text-purple-400 shadow-[0_0_15px_rgba(168,85,247,0.1)]' : 'bg-slate-900/50 border-slate-800 text-slate-500'
+                }`}
+            >
+              Imej
+            </button>
+            <button
+              onClick={() => setActiveView(AppView.IMAGE_HISTORY)}
+              className={`flex-1 min-w-[80px] py-3 rounded-xl transition-all border font-black text-[10px] uppercase tracking-widest ${activeView === AppView.IMAGE_HISTORY ? 'bg-purple-500/10 border-purple-500/40 text-purple-400 shadow-[0_0_15px_rgba(168,85,247,0.1)]' : 'bg-slate-900/50 border-slate-800 text-slate-500'
+                }`}
+            >
+              Galeri
+            </button>
             {profile.is_admin && (
               <button
                 onClick={() => setActiveView(AppView.ADMIN_DASHBOARD)}
