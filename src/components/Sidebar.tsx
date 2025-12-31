@@ -17,6 +17,8 @@ const Sidebar: React.FC<SidebarProps> = ({ activeView, onViewChange, userProfile
   const navItems = [
     { view: AppView.SORA_STUDIO, label: 'SORA 2.0', icon: 'M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z' },
     { view: AppView.HISTORY, label: t.vault.toUpperCase(), icon: 'M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z' },
+    { view: AppView.IMAGE_STUDIO, label: 'IMAGE STUDIO', icon: 'M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z' },
+    { view: AppView.IMAGE_HISTORY, label: 'GALERI IMEJ', icon: 'M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10' },
   ];
 
   // Tambah Admin Control jika user adalah admin

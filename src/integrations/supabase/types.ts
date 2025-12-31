@@ -31,6 +31,7 @@ export type Database = {
           video_limit: number
           videos_used: number
           total_videos_generated: number
+          total_images_generated: number
         }
         Insert: {
           avatar_url?: string | null
@@ -48,6 +49,7 @@ export type Database = {
           video_limit?: number
           videos_used?: number
           total_videos_generated?: number
+          total_images_generated?: number
         }
         Update: {
           avatar_url?: string | null
@@ -65,6 +67,49 @@ export type Database = {
           video_limit?: number
           videos_used?: number
           total_videos_generated?: number
+          total_images_generated?: number
+        }
+        Relationships: []
+      }
+      image_generations: {
+        Row: {
+          id: string
+          user_id: string
+          prompt: string
+          mode: 't2i' | 'i2i' | 'merge'
+          aspect_ratio: '1:1' | '16:9' | '9:16'
+          reference_image_url: string | null
+          second_image_url: string | null
+          image_url: string | null
+          status: 'processing' | 'completed' | 'failed'
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          prompt: string
+          mode: 't2i' | 'i2i' | 'merge'
+          aspect_ratio?: '1:1' | '16:9' | '9:16'
+          reference_image_url?: string | null
+          second_image_url?: string | null
+          image_url?: string | null
+          status?: 'processing' | 'completed' | 'failed'
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          user_id?: string
+          prompt?: string
+          mode?: 't2i' | 'i2i' | 'merge'
+          aspect_ratio?: '1:1' | '16:9' | '9:16'
+          reference_image_url?: string | null
+          second_image_url?: string | null
+          image_url?: string | null
+          status?: 'processing' | 'completed' | 'failed'
+          created_at?: string
+          updated_at?: string
         }
         Relationships: []
       }

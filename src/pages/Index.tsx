@@ -5,6 +5,8 @@ import { supabase } from '@/integrations/supabase/client';
 import Sidebar from '@/components/Sidebar';
 import SoraStudio from '@/components/SoraStudio';
 import HistoryVault from '@/components/HistoryVault';
+import ImageStudio from '@/components/ImageStudio';
+import ImageHistory from '@/components/ImageHistory';
 import AdminDashboard from '@/components/AdminDashboard';
 import AuthView from '@/components/AuthView';
 import AnimatedBackground from '@/components/AnimatedBackground';
@@ -130,6 +132,10 @@ const Index = () => {
         return <SoraStudio userProfile={profile!} onProfileRefresh={handleProfileRefresh} />;
       case AppView.HISTORY:
         return <HistoryVault userProfile={profile!} />;
+      case AppView.IMAGE_STUDIO:
+        return <ImageStudio profile={profile} onImageGenerated={handleProfileRefresh} />;
+      case AppView.IMAGE_HISTORY:
+        return profile ? <ImageHistory userId={profile.id} /> : null;
       case AppView.ADMIN_DASHBOARD:
         return profile?.is_admin ? <AdminDashboard /> : <SoraStudio userProfile={profile!} onProfileRefresh={handleProfileRefresh} />;
       default:
