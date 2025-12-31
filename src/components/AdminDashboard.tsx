@@ -470,6 +470,51 @@ const AdminDashboard: React.FC = () => {
                           </div>
                         )}
 
+                        {/* Image Stats - Mobile */}
+                        <div className="flex items-center justify-between pt-2 border-t border-border/30">
+                          <div className="flex items-center gap-3 text-xs flex-wrap">
+                            <div className="flex flex-col">
+                              <span className="text-purple-400 text-[9px] uppercase">Imej Dijana</span>
+                              <span className="text-purple-400 font-bold">{user.images_used}</span>
+                            </div>
+                            <div className="flex flex-col">
+                              <span className="text-purple-400 text-[9px] uppercase">Imej Baki</span>
+                              <span className={`font-bold ${user.image_limit - user.images_used <= 0 ? 'text-destructive' : 'text-green-500'}`}>
+                                {Math.max(0, user.image_limit - user.images_used)}
+                              </span>
+                            </div>
+                            <div className="flex flex-col">
+                              <span className="text-purple-400 text-[9px] uppercase">Had Imej</span>
+                              {editingUser === user.id ? (
+                                <Input
+                                  type="number"
+                                  value={editLimits.image_limit}
+                                  onChange={(e) => setEditLimits({ ...editLimits, image_limit: parseInt(e.target.value) || 0 })}
+                                  className="w-14 h-6 text-xs bg-secondary border-purple-500/30 p-1"
+                                />
+                              ) : (
+                                <span className="text-foreground font-bold">{user.image_limit}</span>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Reset images checkbox when editing */}
+                        {editingUser === user.id && (
+                          <div className="flex items-center gap-2 pt-1">
+                            <input
+                              type="checkbox"
+                              id={`reset-img-${user.id}`}
+                              checked={resetImages}
+                              onChange={(e) => setResetImages(e.target.checked)}
+                              className="w-4 h-4 rounded border-purple-500/30 bg-secondary accent-purple-500"
+                            />
+                            <label htmlFor={`reset-img-${user.id}`} className="text-xs text-purple-400">
+                              Reset imej dijana ke 0
+                            </label>
+                          </div>
+                        )}
+
                         <div className="flex items-center gap-2 pt-1">
                           {editingUser === user.id ? (
                             <>
