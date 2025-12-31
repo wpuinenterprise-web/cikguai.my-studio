@@ -494,12 +494,12 @@ const AdminDashboard: React.FC = () => {
                             <>
                               <Button
                                 size="sm"
-                                variant="outline"
+                                variant="default"
                                 onClick={() => handleEditLimits(user)}
-                                className="h-9"
+                                className="h-9 bg-primary hover:bg-primary/90"
                               >
                                 <Edit2 className="w-4 h-4 mr-1" />
-                                Edit
+                                Edit Had
                               </Button>
                               {!user.is_approved && (
                                 <Button
