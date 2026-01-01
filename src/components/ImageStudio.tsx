@@ -143,7 +143,10 @@ const ImageStudio: React.FC<ImageStudioProps> = ({ profile, onImageGenerated }) 
         if (!generatedImage) return;
 
         try {
-            const response = await fetch(generatedImage);
+            // Try fetch-based download first
+            const response = await fetch(generatedImage, { mode: 'cors' });
+            if (!response.ok) throw new Error('Fetch failed');
+
             const blob = await response.blob();
             const url = URL.createObjectURL(blob);
             const a = document.createElement('a');
@@ -153,7 +156,10 @@ const ImageStudio: React.FC<ImageStudioProps> = ({ profile, onImageGenerated }) 
             URL.revokeObjectURL(url);
             toast.success('Imej dimuat turun!');
         } catch (error) {
-            toast.error('Gagal memuat turun imej');
+            // CORS issue - open in new tab instead
+            console.log('Direct download failed, opening in new tab');
+            window.open(generatedImage, '_blank');
+            toast.success('Imej dibuka dalam tab baru - tekan lama untuk save');
         }
     };
 
