@@ -39,13 +39,23 @@ const ImageStudio: React.FC<ImageStudioProps> = ({ profile, onImageGenerated }) 
         if (!profile) return;
 
         try {
+            // Show local preview immediately
+            const localPreviewUrl = URL.createObjectURL(file);
+            if (isSecond) {
+                setSecondImage(localPreviewUrl);
+            } else {
+                setReferenceImage(localPreviewUrl);
+            }
+
+            // Upload to Supabase Storage
             const fileName = `${profile.id}/${Date.now()}-${file.name}`;
             const { data, error } = await supabase.storage
                 .from('reference-images')
-                .upload(fileName, file, { upsert: true });
+                .upload(fileName, file);
 
             if (error) throw error;
 
+            // Get public URL and update state
             const { data: publicUrl } = supabase.storage
                 .from('reference-images')
                 .getPublicUrl(fileName);
@@ -58,8 +68,14 @@ const ImageStudio: React.FC<ImageStudioProps> = ({ profile, onImageGenerated }) 
 
             toast.success('Imej berjaya dimuat naik!');
         } catch (error: any) {
-            toast.error('Gagal memuat naik imej');
+            toast.error('Gagal memuat naik imej: ' + error.message);
             console.error(error);
+            // Clear the broken preview
+            if (isSecond) {
+                setSecondImage(null);
+            } else {
+                setReferenceImage(null);
+            }
         }
     };
 

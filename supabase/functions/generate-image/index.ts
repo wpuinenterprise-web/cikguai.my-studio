@@ -168,6 +168,7 @@ serve(async (req) => {
                 image_url: generatedImageUrl,
                 reference_image_url: reference_image_url || null,
                 second_image_url: second_image_url || null,
+                status: 'completed',
             });
 
         if (saveError) {
