@@ -4,7 +4,7 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { toast } from 'sonner';
-import { Search, Check, X, Trash2, Edit2, Save, Users, Video, Shield, RefreshCw, UserCheck, Clock, Link, Award, Eye, DollarSign, Key, EyeOff } from 'lucide-react';
+import { Search, Check, X, Trash2, Edit2, Save, Users, Video, Shield, RefreshCw, UserCheck, Clock, Link, Award, Eye, DollarSign } from 'lucide-react';
 import {
   Dialog,
   DialogContent,
@@ -58,12 +58,6 @@ const AdminDashboard: React.FC = () => {
   const [selectedAffiliate, setSelectedAffiliate] = useState<AffiliateData | null>(null);
   const [commissionPerReferral, setCommissionPerReferral] = useState(10); // RM per referral
 
-  // API Key Management - 10 keys with rotation
-  const [kieApiKeys, setKieApiKeys] = useState<string[]>(Array(10).fill(''));
-  const [showApiKeys, setShowApiKeys] = useState(false);
-  const [apiKeyLoading, setApiKeyLoading] = useState(false);
-  const [apiKeySaved, setApiKeySaved] = useState(true);
-
   const fetchUsers = async () => {
     try {
       setLoading(true);
@@ -84,80 +78,7 @@ const AdminDashboard: React.FC = () => {
 
   useEffect(() => {
     fetchUsers();
-    fetchApiKey();
   }, []);
-
-  // Fetch API keys from app_settings
-  const fetchApiKey = async () => {
-    try {
-      const { data, error } = await supabase
-        .from('app_settings' as any)
-        .select('value')
-        .eq('key', 'kie_api_keys')
-        .single();
-
-      if (error && error.code !== 'PGRST116') {
-        console.error('Error fetching API keys:', error);
-        return;
-      }
-
-      if (data?.value) {
-        try {
-          const keys = JSON.parse(data.value);
-          if (Array.isArray(keys)) {
-            // Pad array to 10 elements if shorter
-            const paddedKeys = [...keys, ...Array(10).fill('')].slice(0, 10);
-            setKieApiKeys(paddedKeys);
-            setApiKeySaved(true);
-          }
-        } catch {
-          // If not JSON, treat as single key for backwards compatibility
-          const paddedKeys = [data.value, ...Array(9).fill('')];
-          setKieApiKeys(paddedKeys);
-        }
-      }
-    } catch (error) {
-      console.error('Error fetching API keys:', error);
-    }
-  };
-
-  // Save API keys to app_settings
-  const handleSaveApiKey = async () => {
-    try {
-      setApiKeyLoading(true);
-
-      // Filter out empty keys for storage, but save the full array
-      const keysJson = JSON.stringify(kieApiKeys);
-
-      // Upsert the API keys
-      const { error } = await supabase
-        .from('app_settings' as any)
-        .upsert({
-          key: 'kie_api_keys',
-          value: keysJson,
-          updated_at: new Date().toISOString()
-        }, { onConflict: 'key' });
-
-      if (error) throw error;
-
-      setApiKeySaved(true);
-      const validKeysCount = kieApiKeys.filter(k => k.trim()).length;
-      toast.success(`${validKeysCount} API key berjaya disimpan!`);
-    } catch (error: any) {
-      console.error('Error saving API keys:', error);
-      toast.error('Gagal menyimpan API keys');
-    } finally {
-      setApiKeyLoading(false);
-    }
-  };
-
-  // Update single key in array
-  const updateApiKey = (index: number, value: string) => {
-    const newKeys = [...kieApiKeys];
-    newKeys[index] = value;
-    setKieApiKeys(newKeys);
-    setApiKeySaved(false);
-  };
 
   // Calculate affiliate data from users
   const affiliateData = useMemo<AffiliateData[]>(() => {
@@ -374,80 +295,6 @@ const AdminDashboard: React.FC = () => {
               </Badge>
             )}
           </Button>
-        </div>
-
-        {/* API Key Management Section - 10 Keys with Rotation */}
-        <div className="glass-card p-4 mb-6 animate-fade-in" style={{ animationDelay: '75ms' }}>
-          <div className="flex items-center justify-between gap-3 mb-4">
-            <div className="flex items-center gap-3">
-              <div className="p-2 bg-orange-500/10 rounded-xl">
-                <Key className="w-5 h-5 text-orange-500" />
-              </div>
-              <div>
-                <h3 className="text-sm font-semibold text-foreground">kie.ai API Keys (10 Slot)</h3>
-                <p className="text-[10px] text-muted-foreground">Rotate automatik untuk Image Generator</p>
-              </div>
-            </div>
-            <div className="flex items-center gap-2">
-              <Button
-                type="button"
-                variant="ghost"
-                size="sm"
-                onClick={() => setShowApiKeys(!showApiKeys)}
-                className="gap-1 text-xs"
-              >
-                {showApiKeys ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                {showApiKeys ? 'Sembunyikan' : 'Tunjuk'}
-              </Button>
-              <Button
-                onClick={handleSaveApiKey}
-                disabled={apiKeyLoading || apiKeySaved}
-                className={`gap-2 ${apiKeySaved ? 'bg-success/20 text-success' : 'bg-orange-500 hover:bg-orange-600'}`}
-              >
-                {apiKeyLoading ? (
-                  <RefreshCw className="w-4 h-4 animate-spin" />
-                ) : apiKeySaved ? (
-                  <Check className="w-4 h-4" />
-                ) : (
-                  <Save className="w-4 h-4" />
-                )}
-                {apiKeySaved ? 'Disimpan' : 'Simpan Semua'}
-              </Button>
-            </div>
-          </div>
-
-          {/* Key count indicator */}
-          <div className="flex items-center gap-2 mb-3">
-            <Badge variant="outline" className="bg-orange-500/10 text-orange-400 border-orange-500/20">
-              {kieApiKeys.filter(k => k.trim()).length}/10 keys aktif
-            </Badge>
-            <span className="text-[10px] text-muted-foreground">• Key rotate setiap request</span>
-          </div>
-
-          {/* 10 API Key inputs in grid */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-            {kieApiKeys.map((key, index) => (
-              <div key={index} className="relative flex items-center gap-2">
-                <span className="text-xs text-muted-foreground w-5 shrink-0">#{index + 1}</span>
-                <Input
-                  type={showApiKeys ? 'text' : 'password'}
-                  value={key}
-                  onChange={(e) => updateApiKey(index, e.target.value)}
-                  placeholder={`API Key ${index + 1}...`}
-                  className="bg-secondary/50 border-border/50 text-sm h-9"
-                />
-                {key.trim() && (
-                  <div className="absolute right-2 top-1/2 -translate-y-1/2">
-                    <Check className="w-3 h-3 text-green-500" />
-                  </div>
-                )}
-              </div>
-            ))}
-          </div>
-
-          {!apiKeySaved && (
-            <p className="text-xs text-orange-400 mt-3">⚠️ Ada perubahan belum disimpan</p>
-          )}
         </div>
 
         {/* Users Tab */}
