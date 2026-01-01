@@ -56,7 +56,7 @@ const AdminDashboard: React.FC = () => {
   });
   const [activeTab, setActiveTab] = useState<TabType>('users');
   const [selectedAffiliate, setSelectedAffiliate] = useState<AffiliateData | null>(null);
-  const [commissionPerReferral, setCommissionPerReferral] = useState(10); // RM per referral
+  const [commissionPerReferral, setCommissionPerReferral] = useState(30); // RM per referral
 
   const fetchUsers = async () => {
     try {
