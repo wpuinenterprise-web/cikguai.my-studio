@@ -6,34 +6,52 @@ const corsHeaders = {
     'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-// Gemini API Keys - rotate to avoid rate limits
-const API_KEYS = [
-    Deno.env.get('GEMINI_API_KEY_1'),
-    Deno.env.get('GEMINI_API_KEY_2'),
-    Deno.env.get('GEMINI_API_KEY_3'),
-].filter(Boolean) as string[];
+// kie.ai API configuration
+const KIE_API_BASE = 'https://api.kie.ai/api/v1/jobs';
+const KIE_MODEL = 'google/nano-banana';
 
-// Round-robin key rotation based on minute
-function getApiKey(): string {
-    if (API_KEYS.length === 0) {
-        throw new Error('No Gemini API keys configured');
-    }
-    const index = Math.floor(Date.now() / 60000) % API_KEYS.length;
-    console.log(`Using API key index: ${index}`);
-    return API_KEYS[index];
-}
-
-// Convert aspect ratio to Gemini format
-function getAspectRatioDimensions(ratio: string): { width: number; height: number } {
+// Convert aspect ratio to kie.ai format
+function getKieImageSize(ratio: string): string {
     switch (ratio) {
         case '16:9':
-            return { width: 1344, height: 768 };
+            return '16:9';
         case '9:16':
-            return { width: 768, height: 1344 };
+            return '9:16';
         case '1:1':
         default:
-            return { width: 1024, height: 1024 };
+            return '1:1';
     }
+}
+
+// Poll for task completion with timeout
+async function pollTaskCompletion(taskId: string, apiKey: string, maxAttempts = 60): Promise<string> {
+    for (let attempt = 0; attempt < maxAttempts; attempt++) {
+        await new Promise(resolve => setTimeout(resolve, 2000)); // Wait 2 seconds between polls
+
+        const response = await fetch(`${KIE_API_BASE}/recordInfo?taskId=${taskId}`, {
+            method: 'GET',
+            headers: {
+                'Authorization': `Bearer ${apiKey}`,
+                'Content-Type': 'application/json',
+            },
+        });
+
+        const data = await response.json();
+        console.log(`Poll attempt ${attempt + 1}:`, data.data?.state);
+
+        if (data.data?.state === 'success') {
+            // Parse resultJson to get the image URL
+            const resultJson = JSON.parse(data.data.resultJson);
+            if (resultJson.resultUrls && resultJson.resultUrls.length > 0) {
+                return resultJson.resultUrls[0];
+            }
+            throw new Error('No image URL in result');
+        } else if (data.data?.state === 'failed') {
+            throw new Error(data.data?.failedMessage || 'Image generation failed');
+        }
+        // State is 'pending' or 'processing', continue polling
+    }
+    throw new Error('Image generation timed out');
 }
 
 serve(async (req) => {
@@ -43,29 +61,74 @@ serve(async (req) => {
 
     try {
         const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
+        const supabaseAnonKey = Deno.env.get('SUPABASE_ANON_KEY')!;
         const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-        const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-        // Verify user
+        // Verify user using anon key client with user's JWT
         const authHeader = req.headers.get('authorization');
+        console.log('Auth header present:', !!authHeader);
+
         if (!authHeader) {
             throw new Error('No authorization header');
         }
 
-        const { data: { user }, error: authError } = await supabase.auth.getUser(
-            authHeader.replace('Bearer ', '')
-        );
+        // Create client with user's JWT for auth verification
+        const supabaseAuth = createClient(supabaseUrl, supabaseAnonKey, {
+            global: {
+                headers: { Authorization: authHeader },
+            },
+        });
+
+        const { data: { user }, error: authError } = await supabaseAuth.auth.getUser();
+
+        console.log('Auth result:', { hasUser: !!user, error: authError?.message });
 
         if (authError || !user) {
-            throw new Error('Unauthorized');
+            console.error('Auth error:', authError);
+            throw new Error('Unauthorized: ' + (authError?.message || 'No user'));
         }
 
-        const { prompt, mode, aspect_ratio, reference_image_url, second_image_url } = await req.json();
+        // Use service role client for database operations
+        const supabase = createClient(supabaseUrl, supabaseServiceKey);
+
+        const { prompt, mode, aspect_ratio } = await req.json();
 
         console.log('Generating image for user:', user.id);
         console.log('Mode:', mode);
         console.log('Prompt:', prompt);
         console.log('Aspect ratio:', aspect_ratio);
+
+        // Get kie.ai API keys array from app_settings
+        const { data: apiKeySetting, error: apiKeyError } = await supabase
+            .from('app_settings')
+            .select('value')
+            .eq('key', 'kie_api_keys')
+            .single();
+
+        if (apiKeyError || !apiKeySetting?.value) {
+            console.error('API keys error:', apiKeyError);
+            throw new Error('kie.ai API keys not configured. Please set them in Admin Dashboard.');
+        }
+
+        // Parse JSON array of keys and filter out empty ones
+        let kieApiKeys: string[] = [];
+        try {
+            kieApiKeys = JSON.parse(apiKeySetting.value).filter((k: string) => k && k.trim());
+        } catch {
+            // Fallback for single key
+            if (apiKeySetting.value.trim()) {
+                kieApiKeys = [apiKeySetting.value];
+            }
+        }
+
+        if (kieApiKeys.length === 0) {
+            throw new Error('No valid kie.ai API keys configured. Please add at least one key in Admin Dashboard.');
+        }
+
+        // Rotate through keys - use milliseconds for better distribution
+        const keyIndex = Math.floor(Date.now() / 1000) % kieApiKeys.length;
+        const kieApiKey = kieApiKeys[keyIndex];
+        console.log(`Using kie.ai API key ${keyIndex + 1} of ${kieApiKeys.length} keys`);
 
         // Check user's image limit
         const { data: profile, error: profileError } = await supabase
@@ -83,212 +146,90 @@ serve(async (req) => {
             throw new Error('Image generation limit reached');
         }
 
-        // Create image generation record
-        const { data: imageRecord, error: insertError } = await supabase
+        let generatedImageUrl: string | null = null;
+
+        // Text to Image using kie.ai nano banana
+        console.log('Creating kie.ai task with nano banana model...');
+
+        const createTaskResponse = await fetch(`${KIE_API_BASE}/createTask`, {
+            method: 'POST',
+            headers: {
+                'Authorization': `Bearer ${kieApiKey}`,
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                model: KIE_MODEL,
+                input: {
+                    prompt: prompt,
+                    output_format: 'png',
+                    image_size: getKieImageSize(aspect_ratio || '1:1'),
+                },
+            }),
+        });
+
+        const taskData = await createTaskResponse.json();
+        console.log('kie.ai createTask response:', JSON.stringify(taskData).substring(0, 500));
+
+        if (!createTaskResponse.ok || !taskData.data?.taskId) {
+            throw new Error(taskData.msg || taskData.message || 'Failed to create image generation task');
+        }
+
+        const taskId = taskData.data.taskId;
+        console.log('Task created with ID:', taskId);
+
+        // Poll for completion
+        generatedImageUrl = await pollTaskCompletion(taskId, kieApiKey);
+        console.log('Generated image URL:', generatedImageUrl);
+
+        // Save to image_generations table
+        const { data: imageGen, error: insertError } = await supabase
             .from('image_generations')
             .insert({
                 user_id: user.id,
-                prompt,
-                mode,
+                prompt: prompt,
+                mode: mode || 't2i',
                 aspect_ratio: aspect_ratio || '1:1',
-                reference_image_url,
-                second_image_url,
-                status: 'processing',
+                image_url: generatedImageUrl,
+                status: 'completed',
             })
             .select()
             .single();
 
         if (insertError) {
             console.error('Insert error:', insertError);
-            throw new Error('Failed to create image record');
         }
 
-        console.log('Image record created:', imageRecord.id);
+        // Update user's image count
+        await supabase
+            .from('profiles')
+            .update({
+                images_used: profile.images_used + 1,
+                total_images_generated: (profile.total_images_generated || 0) + 1,
+            })
+            .eq('id', user.id);
 
-        // Get rotating API key
-        const apiKey = getApiKey();
-        const dimensions = getAspectRatioDimensions(aspect_ratio || '1:1');
-
-        let generatedImageUrl: string | null = null;
-
-        try {
-            if (mode === 't2i') {
-                // Text to Image using Gemini Imagen 3.0
-                const response = await fetch(
-                    `https://generativelanguage.googleapis.com/v1beta/models/imagen-3.0-generate-002:predict?key=${apiKey}`,
-                    {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({
-                            instances: [{ prompt }],
-                            parameters: {
-                                sampleCount: 1,
-                                aspectRatio: aspect_ratio === '16:9' ? '16:9' : aspect_ratio === '9:16' ? '9:16' : '1:1',
-                            },
-                        }),
-                    }
-                );
-
-                const data = await response.json();
-                console.log('Gemini response:', JSON.stringify(data).substring(0, 500));
-
-                if (!response.ok) {
-                    throw new Error(data.error?.message || 'Failed to generate image');
-                }
-
-                if (data.predictions?.[0]?.bytesBase64Encoded) {
-                    // Upload base64 image to Supabase Storage
-                    const base64Image = data.predictions[0].bytesBase64Encoded;
-                    const imageBuffer = Uint8Array.from(atob(base64Image), c => c.charCodeAt(0));
-
-                    const fileName = `${user.id}/${Date.now()}.png`;
-                    const { data: uploadData, error: uploadError } = await supabase.storage
-                        .from('generated-images')
-                        .upload(fileName, imageBuffer, {
-                            contentType: 'image/png',
-                            upsert: true,
-                        });
-
-                    if (uploadError) {
-                        console.error('Upload error:', uploadError);
-                    } else {
-                        const { data: publicUrlData } = supabase.storage
-                            .from('generated-images')
-                            .getPublicUrl(fileName);
-                        generatedImageUrl = publicUrlData.publicUrl;
-                    }
-                }
-            } else if (mode === 'i2i' || mode === 'merge') {
-                // Image to Image or Merge using Gemini with vision
-                const contents: any[] = [];
-
-                if (mode === 'i2i' && reference_image_url) {
-                    // Fetch reference image and convert to base64
-                    const imgResponse = await fetch(reference_image_url);
-                    const imgBuffer = await imgResponse.arrayBuffer();
-                    const base64Img = btoa(String.fromCharCode(...new Uint8Array(imgBuffer)));
-
-                    contents.push({
-                        parts: [
-                            { inline_data: { mime_type: 'image/png', data: base64Img } },
-                            { text: `Edit this image based on the following instruction: ${prompt}` }
-                        ]
-                    });
-                } else if (mode === 'merge' && reference_image_url && second_image_url) {
-                    // Fetch both images
-                    const [img1Resp, img2Resp] = await Promise.all([
-                        fetch(reference_image_url),
-                        fetch(second_image_url)
-                    ]);
-                    const [img1Buffer, img2Buffer] = await Promise.all([
-                        img1Resp.arrayBuffer(),
-                        img2Resp.arrayBuffer()
-                    ]);
-                    const base64Img1 = btoa(String.fromCharCode(...new Uint8Array(img1Buffer)));
-                    const base64Img2 = btoa(String.fromCharCode(...new Uint8Array(img2Buffer)));
-
-                    contents.push({
-                        parts: [
-                            { inline_data: { mime_type: 'image/png', data: base64Img1 } },
-                            { inline_data: { mime_type: 'image/png', data: base64Img2 } },
-                            { text: `Merge these two images creatively based on this instruction: ${prompt}. Create a new composite image.` }
-                        ]
-                    });
-                }
-
-                // Use Gemini Pro Vision for I2I/Merge
-                const response = await fetch(
-                    `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp:generateContent?key=${apiKey}`,
-                    {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({
-                            contents,
-                            generationConfig: {
-                                responseModalities: ["image", "text"],
-                            },
-                        }),
-                    }
-                );
-
-                const data = await response.json();
-                console.log('Gemini I2I response:', JSON.stringify(data).substring(0, 500));
-
-                if (!response.ok) {
-                    throw new Error(data.error?.message || 'Failed to edit/merge image');
-                }
-
-                // Extract generated image from response
-                const candidate = data.candidates?.[0]?.content?.parts?.find((p: any) => p.inline_data);
-                if (candidate?.inline_data?.data) {
-                    const base64Image = candidate.inline_data.data;
-                    const imageBuffer = Uint8Array.from(atob(base64Image), c => c.charCodeAt(0));
-
-                    const fileName = `${user.id}/${Date.now()}.png`;
-                    const { error: uploadError } = await supabase.storage
-                        .from('generated-images')
-                        .upload(fileName, imageBuffer, {
-                            contentType: 'image/png',
-                            upsert: true,
-                        });
-
-                    if (!uploadError) {
-                        const { data: publicUrlData } = supabase.storage
-                            .from('generated-images')
-                            .getPublicUrl(fileName);
-                        generatedImageUrl = publicUrlData.publicUrl;
-                    }
-                }
-            }
-
-            // Update record with result
-            if (generatedImageUrl) {
-                await supabase
-                    .from('image_generations')
-                    .update({ image_url: generatedImageUrl, status: 'completed' })
-                    .eq('id', imageRecord.id);
-
-                // Increment user's image count
-                await supabase
-                    .from('profiles')
-                    .update({
-                        images_used: profile.images_used + 1,
-                        total_images_generated: (profile.total_images_generated || 0) + 1
-                    })
-                    .eq('id', user.id);
-
-                console.log('Image generation successful:', generatedImageUrl);
-
-                return new Response(
-                    JSON.stringify({
-                        success: true,
-                        image_id: imageRecord.id,
-                        image_url: generatedImageUrl,
-                    }),
-                    { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-                );
-            } else {
-                throw new Error('No image generated');
-            }
-
-        } catch (genError: any) {
-            console.error('Generation error:', genError);
-
-            // Update record with failure
-            await supabase
-                .from('image_generations')
-                .update({ status: 'failed' })
-                .eq('id', imageRecord.id);
-
-            throw genError;
-        }
-
-    } catch (error: unknown) {
-        console.error('Error in generate-image function:', error);
-        const errorMessage = error instanceof Error ? error.message : 'Unknown error';
         return new Response(
-            JSON.stringify({ success: false, error: errorMessage }),
-            { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+            JSON.stringify({
+                success: true,
+                image_url: generatedImageUrl,
+                image_id: imageGen?.id,
+            }),
+            {
+                headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+            }
+        );
+
+    } catch (error) {
+        console.error('Error in generate-image function:', error);
+        return new Response(
+            JSON.stringify({
+                success: false,
+                error: error.message,
+            }),
+            {
+                status: 400,
+                headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+            }
         );
     }
 });
