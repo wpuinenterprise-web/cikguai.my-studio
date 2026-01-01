@@ -18,7 +18,7 @@ interface ImageStudioProps {
 }
 
 type AspectRatio = '1:1' | '16:9' | '9:16';
-type GenerationMode = 't2i' | 'i2i' | 'merge';
+type GenerationMode = 't2i' | 'i2i' | 'edit';
 
 const ImageStudio: React.FC<ImageStudioProps> = ({ profile, onImageGenerated }) => {
     const [mode, setMode] = useState<GenerationMode>('t2i');
@@ -100,8 +100,8 @@ const ImageStudio: React.FC<ImageStudioProps> = ({ profile, onImageGenerated }) 
             return;
         }
 
-        if (mode === 'merge' && (!referenceImage || !secondImage)) {
-            toast.error('Sila muat naik kedua-dua imej');
+        if (mode === 'edit' && (!referenceImage || !secondImage)) {
+            toast.error('Sila muat naik kedua-dua imej rujukan');
             return;
         }
 
@@ -199,9 +199,9 @@ const ImageStudio: React.FC<ImageStudioProps> = ({ profile, onImageGenerated }) 
                                     <ImagePlus className="w-4 h-4" />
                                     <span className="hidden sm:inline">I2I</span>
                                 </TabsTrigger>
-                                <TabsTrigger value="merge" className="flex items-center gap-1">
+                                <TabsTrigger value="edit" className="flex items-center gap-1">
                                     <Layers className="w-4 h-4" />
-                                    <span className="hidden sm:inline">Gabung</span>
+                                    <span className="hidden sm:inline">Edit</span>
                                 </TabsTrigger>
                             </TabsList>
 
@@ -237,9 +237,9 @@ const ImageStudio: React.FC<ImageStudioProps> = ({ profile, onImageGenerated }) 
                                 />
                             </TabsContent>
 
-                            <TabsContent value="merge" className="mt-4 space-y-3">
+                            <TabsContent value="edit" className="mt-4 space-y-3">
                                 <p className="text-sm text-muted-foreground mb-2">
-                                    Gabungkan dua imej menjadi satu
+                                    Edit imej dengan AI menggunakan 2 gambar rujukan
                                 </p>
                                 <div className="grid grid-cols-2 gap-3">
                                     <div
@@ -247,11 +247,11 @@ const ImageStudio: React.FC<ImageStudioProps> = ({ profile, onImageGenerated }) 
                                         className="border-2 border-dashed border-border rounded-lg p-4 text-center cursor-pointer hover:border-purple-500 transition-colors"
                                     >
                                         {referenceImage ? (
-                                            <img src={referenceImage} alt="Image 1" className="max-h-24 mx-auto rounded" />
+                                            <img src={referenceImage} alt="Reference 1" className="max-h-24 mx-auto rounded" />
                                         ) : (
                                             <>
                                                 <Upload className="w-6 h-6 mx-auto text-muted-foreground mb-1" />
-                                                <p className="text-xs text-muted-foreground">Imej 1</p>
+                                                <p className="text-xs text-muted-foreground">Imej Rujukan 1</p>
                                             </>
                                         )}
                                     </div>
@@ -260,11 +260,11 @@ const ImageStudio: React.FC<ImageStudioProps> = ({ profile, onImageGenerated }) 
                                         className="border-2 border-dashed border-border rounded-lg p-4 text-center cursor-pointer hover:border-purple-500 transition-colors"
                                     >
                                         {secondImage ? (
-                                            <img src={secondImage} alt="Image 2" className="max-h-24 mx-auto rounded" />
+                                            <img src={secondImage} alt="Reference 2" className="max-h-24 mx-auto rounded" />
                                         ) : (
                                             <>
                                                 <Upload className="w-6 h-6 mx-auto text-muted-foreground mb-1" />
-                                                <p className="text-xs text-muted-foreground">Imej 2</p>
+                                                <p className="text-xs text-muted-foreground">Imej Rujukan 2</p>
                                             </>
                                         )}
                                     </div>

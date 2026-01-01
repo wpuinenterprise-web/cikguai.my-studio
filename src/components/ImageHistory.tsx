@@ -59,7 +59,10 @@ const ImageHistory: React.FC<ImageHistoryProps> = ({ userId }) => {
 
     const handleDownload = async (imageUrl: string, prompt: string) => {
         try {
-            const response = await fetch(imageUrl);
+            // Try fetch-based download first
+            const response = await fetch(imageUrl, { mode: 'cors' });
+            if (!response.ok) throw new Error('Fetch failed');
+
             const blob = await response.blob();
             const url = URL.createObjectURL(blob);
             const a = document.createElement('a');
@@ -69,7 +72,10 @@ const ImageHistory: React.FC<ImageHistoryProps> = ({ userId }) => {
             URL.revokeObjectURL(url);
             toast.success('Imej dimuat turun!');
         } catch (error) {
-            toast.error('Gagal memuat turun imej');
+            // CORS issue - open in new tab instead
+            console.log('Direct download failed, opening in new tab');
+            window.open(imageUrl, '_blank');
+            toast.success('Imej dibuka dalam tab baru - tekan lama untuk save');
         }
     };
 

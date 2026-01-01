@@ -9,7 +9,8 @@ const corsHeaders = {
 // poyo.ai API configuration
 const POYO_API_BASE = 'https://api.poyo.ai/api/generate';
 const POYO_API_KEY = 'sk-kz-2sgabHO6G2l5jkUvArZhfSvYrOcoufFRTMDvGPX6HlmIjDJ34fWS6kuNA3r';
-const POYO_MODEL = 'nano-banana-2';
+const POYO_MODEL = 'nano-banana-2';         // For t2i and i2i
+const POYO_EDIT_MODEL = 'nano-banana-2-edit'; // For advanced edit mode
 
 // Convert aspect ratio to poyo.ai format
 function getPoyoImageSize(ratio: string): string {
@@ -121,14 +122,25 @@ serve(async (req) => {
             resolution: '2K',
         };
 
-        // Note: nano-banana-2 supports both t2i and i2i
-        // For i2i, add reference image if provided
-        if (reference_image_url && (mode === 'i2i' || mode === 'merge')) {
-            apiInput.image_url = reference_image_url;
-            console.log('Including reference image for i2i mode');
+        // Choose model and add images based on mode
+        let selectedModel = POYO_MODEL; // Default: nano-banana-2 for t2i
+
+        if (mode === 'i2i' && reference_image_url) {
+            // i2i mode: use nano-banana-2 with single reference image
+            apiInput.image_urls = [reference_image_url];
+            console.log('i2i mode with reference image:', reference_image_url.substring(0, 50) + '...');
+        } else if (mode === 'edit' && reference_image_url) {
+            // Edit mode: use nano-banana-2-edit with 2 images
+            selectedModel = POYO_EDIT_MODEL;
+            const imageUrls = [reference_image_url];
+            if (second_image_url) {
+                imageUrls.push(second_image_url);
+            }
+            apiInput.image_urls = imageUrls;
+            console.log('Edit mode with', imageUrls.length, 'reference images');
         }
 
-        console.log('Creating poyo.ai task with nano-banana-2 model...');
+        console.log('Creating poyo.ai task with model:', selectedModel);
 
         // Submit task to poyo.ai
         const submitResponse = await fetch(`${POYO_API_BASE}/submit`, {
@@ -138,7 +150,7 @@ serve(async (req) => {
                 'Content-Type': 'application/json',
             },
             body: JSON.stringify({
-                model: POYO_MODEL,
+                model: selectedModel,
                 input: apiInput,
             }),
         });
