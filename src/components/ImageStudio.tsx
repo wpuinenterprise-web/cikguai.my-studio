@@ -117,6 +117,14 @@ const ImageStudio: React.FC<ImageStudioProps> = ({ profile, onImageGenerated }) 
         setIsGenerating(true);
         setGeneratedImage(null);
 
+        // Show persistent loading toast
+        const loadingToastId = toast.loading('Menjana imej... Sila tunggu', {
+            duration: 120000, // 2 minutes max
+        });
+
+        // Track in sessionStorage so user knows generation is happening
+        sessionStorage.setItem('image_generating', 'true');
+
         try {
             const { data: { session } } = await supabase.auth.getSession();
             if (!session) throw new Error('Tidak dilog masuk');
@@ -135,16 +143,19 @@ const ImageStudio: React.FC<ImageStudioProps> = ({ profile, onImageGenerated }) 
 
             if (response.data?.image_url) {
                 setGeneratedImage(response.data.image_url);
-                toast.success('Imej berjaya dijana!');
+                toast.dismiss(loadingToastId);
+                toast.success('Imej berjaya dijana! ✨', { duration: 5000 });
                 onImageGenerated?.();
             } else {
                 throw new Error(response.data?.error || 'Gagal menjana imej');
             }
         } catch (error: any) {
             console.error('Generation error:', error);
+            toast.dismiss(loadingToastId);
             toast.error(error.message || 'Gagal menjana imej');
         } finally {
             setIsGenerating(false);
+            sessionStorage.removeItem('image_generating');
         }
     };
 

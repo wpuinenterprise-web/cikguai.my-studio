@@ -54,6 +54,13 @@ const ImageHistory: React.FC<ImageHistoryProps> = ({ userId }) => {
     useEffect(() => {
         if (userId) {
             fetchImages();
+
+            // Auto-refresh every 10 seconds to catch newly generated images
+            const refreshInterval = setInterval(() => {
+                fetchImages();
+            }, 10000);
+
+            return () => clearInterval(refreshInterval);
         }
     }, [userId, filter]);
 
