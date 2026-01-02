@@ -35,18 +35,18 @@ interface HistoryVaultProps {
 const HistoryVault: React.FC<HistoryVaultProps> = ({ userProfile }) => {
   // Check if feature should be locked
   const isLocked = userProfile && !userProfile.is_admin && (!userProfile.is_approved || userProfile.video_limit <= 0);
-  
+
   const [videos, setVideos] = useState<VideoGeneration[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [previewVideo, setPreviewVideo] = useState<string | null>(null);
   const [loadingUrl, setLoadingUrl] = useState<string | null>(null);
   const [isSyncing, setIsSyncing] = useState(false);
-  
+
   // Search and filter states
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
-  
+
   // Selection states for bulk actions
   const [isSelectMode, setIsSelectMode] = useState(false);
   const [selectedVideos, setSelectedVideos] = useState<Set<string>>(new Set());
@@ -79,17 +79,17 @@ const HistoryVault: React.FC<HistoryVaultProps> = ({ userProfile }) => {
         if (seen.has(video.geminigen_uuid)) return false;
         seen.add(video.geminigen_uuid);
       }
-      
+
       // Search filter
-      const matchesSearch = searchQuery === '' || 
+      const matchesSearch = searchQuery === '' ||
         video.prompt.toLowerCase().includes(searchQuery.toLowerCase());
-      
+
       // Status filter
       const matchesStatus = statusFilter === 'all' || video.status === statusFilter;
-      
+
       // Aspect ratio filter
       const matchesAspect = aspectFilter === 'all' || video.aspect_ratio === aspectFilter;
-      
+
       return matchesSearch && matchesStatus && matchesAspect;
     });
   }, [videos, searchQuery, statusFilter, aspectFilter]);
@@ -135,7 +135,7 @@ const HistoryVault: React.FC<HistoryVaultProps> = ({ userProfile }) => {
   // Background sync with GeminiGen
   const syncWithGeminiGen = async (showToast = false) => {
     if (isSyncing) return;
-    
+
     try {
       setIsSyncing(true);
       const { data: { session } } = await supabase.auth.getSession();
@@ -150,7 +150,7 @@ const HistoryVault: React.FC<HistoryVaultProps> = ({ userProfile }) => {
 
       const newVideos = response.data.videos || [];
       setVideos(newVideos);
-      
+
       if (showToast && response.data.synced_from_geminigen > 0) {
         toast.success(`Sync selesai - ${response.data.synced_from_geminigen} video`);
       }
@@ -192,7 +192,7 @@ const HistoryVault: React.FC<HistoryVaultProps> = ({ userProfile }) => {
               return [payload.new as VideoGeneration, ...prev];
             });
           } else if (payload.eventType === 'UPDATE') {
-            setVideos(prev => prev.map(v => 
+            setVideos(prev => prev.map(v =>
               v.id === payload.new.id ? { ...v, ...payload.new } as VideoGeneration : v
             ));
           } else if (payload.eventType === 'DELETE') {
@@ -210,7 +210,7 @@ const HistoryVault: React.FC<HistoryVaultProps> = ({ userProfile }) => {
   // Poll for status updates every 6 seconds for processing videos only
   useEffect(() => {
     const processingVideos = videos.filter(v => v.status === 'processing' && v.geminigen_uuid);
-    
+
     if (processingVideos.length === 0) return;
 
     const checkAll = () => {
@@ -221,7 +221,7 @@ const HistoryVault: React.FC<HistoryVaultProps> = ({ userProfile }) => {
 
     // Check immediately when processing videos detected
     checkAll();
-    
+
     const interval = setInterval(checkAll, 6000);
     return () => clearInterval(interval);
   }, [videos]);
@@ -243,15 +243,15 @@ const HistoryVault: React.FC<HistoryVaultProps> = ({ userProfile }) => {
 
       if (response.data?.success) {
         // Update local state with latest data from GeminiGen
-        setVideos(prev => prev.map(v => 
-          v.id === video.id 
-            ? { 
-                ...v, 
-                status: response.data.status,
-                status_percentage: response.data.status_percentage || v.status_percentage,
-                video_url: response.data.video_url || v.video_url, 
-                thumbnail_url: response.data.thumbnail_url || v.thumbnail_url 
-              }
+        setVideos(prev => prev.map(v =>
+          v.id === video.id
+            ? {
+              ...v,
+              status: response.data.status,
+              status_percentage: response.data.status_percentage || v.status_percentage,
+              video_url: response.data.video_url || v.video_url,
+              thumbnail_url: response.data.thumbnail_url || v.thumbnail_url
+            }
             : v
         ));
 
@@ -324,7 +324,7 @@ const HistoryVault: React.FC<HistoryVaultProps> = ({ userProfile }) => {
       a.click();
       document.body.removeChild(a);
       window.URL.revokeObjectURL(url);
-      
+
       toast.success('Video berjaya dimuat turun!');
     } catch (error) {
       console.error('Error downloading video:', error);
@@ -340,7 +340,7 @@ const HistoryVault: React.FC<HistoryVaultProps> = ({ userProfile }) => {
     if (!confirm('Adakah anda pasti mahu padam video ini?')) return;
 
     setDeletingId(video.id);
-    
+
     try {
       const { error } = await supabase
         .from('video_generations')
@@ -405,7 +405,7 @@ const HistoryVault: React.FC<HistoryVaultProps> = ({ userProfile }) => {
     if (!confirm(`Adakah anda pasti mahu padam ${selectedVideos.size} video?`)) return;
 
     setIsBulkDeleting(true);
-    
+
     try {
       const idsToDelete = Array.from(selectedVideos);
       const { error } = await supabase
@@ -430,7 +430,7 @@ const HistoryVault: React.FC<HistoryVaultProps> = ({ userProfile }) => {
 
   // Bulk download selected videos
   const handleBulkDownload = async () => {
-    const selectedList = filteredVideos.filter(v => 
+    const selectedList = filteredVideos.filter(v =>
       selectedVideos.has(v.id) && v.status === 'completed' && v.geminigen_uuid
     );
 
@@ -524,7 +524,7 @@ const HistoryVault: React.FC<HistoryVaultProps> = ({ userProfile }) => {
   // Render a single video card
   const renderVideoCard = (video: VideoGeneration, index: number, compact = false) => {
     const isSelected = selectedVideos.has(video.id);
-    
+
     return (
       <div
         key={video.id}
@@ -542,15 +542,15 @@ const HistoryVault: React.FC<HistoryVaultProps> = ({ userProfile }) => {
           <div className="absolute top-2 left-2 z-20">
             <div className={cn(
               "w-5 h-5 rounded border-2 flex items-center justify-center transition-all",
-              isSelected 
-                ? "bg-primary border-primary" 
+              isSelected
+                ? "bg-primary border-primary"
                 : "bg-background/80 border-muted-foreground/50 backdrop-blur-sm"
             )}>
               {isSelected && <Check className="w-3 h-3 text-primary-foreground" />}
             </div>
           </div>
         )}
-        
+
         {/* Thumbnail */}
         <div className={cn(
           "relative overflow-hidden bg-background/50",
@@ -570,9 +570,9 @@ const HistoryVault: React.FC<HistoryVaultProps> = ({ userProfile }) => {
           ) : video.status === 'completed' ? (
             <>
               {video.thumbnail_url ? (
-                <img 
-                  src={video.thumbnail_url} 
-                  alt="Thumbnail" 
+                <img
+                  src={video.thumbnail_url}
+                  alt="Thumbnail"
                   className="w-full h-full object-cover"
                 />
               ) : (
@@ -581,17 +581,17 @@ const HistoryVault: React.FC<HistoryVaultProps> = ({ userProfile }) => {
                 </div>
               )}
               {/* Play Overlay - always visible on mobile */}
-              <div 
+              <div
                 className={cn(
                   "absolute inset-0 flex items-center justify-center bg-black/40 transition-opacity cursor-pointer",
                   "opacity-100 sm:opacity-0 sm:group-hover:opacity-100",
                   loadingUrl === video.id && "opacity-100",
                   isSelectMode && "opacity-50"
                 )}
-                onClick={(e) => { 
+                onClick={(e) => {
                   if (!isSelectMode) {
                     e.stopPropagation();
-                    handlePreview(video); 
+                    handlePreview(video);
                   }
                 }}
               >
@@ -609,7 +609,7 @@ const HistoryVault: React.FC<HistoryVaultProps> = ({ userProfile }) => {
               <span className="text-destructive text-xs">Gagal</span>
             </div>
           )}
-          
+
           {/* Status Badge */}
           <div className={cn(
             "absolute top-2 right-2 px-1.5 py-0.5 rounded text-[9px] font-bold uppercase tracking-wider",
@@ -633,7 +633,7 @@ const HistoryVault: React.FC<HistoryVaultProps> = ({ userProfile }) => {
             <span className="text-[10px] text-muted-foreground truncate">{formatDate(video.created_at)}</span>
             <div className="flex items-center gap-2">
               {!isSelectMode && video.status === 'completed' && video.geminigen_uuid && (
-                <button 
+                <button
                   onClick={(e) => { e.stopPropagation(); handleDownload(video); }}
                   disabled={loadingUrl === video.id}
                   className="flex items-center gap-1 text-[10px] text-primary hover:text-primary/80 font-semibold transition-colors disabled:opacity-50"
@@ -646,7 +646,7 @@ const HistoryVault: React.FC<HistoryVaultProps> = ({ userProfile }) => {
                 </button>
               )}
               {!isSelectMode && (
-                <button 
+                <button
                   onClick={(e) => { e.stopPropagation(); handleDelete(video); }}
                   disabled={deletingId === video.id}
                   className="flex items-center gap-1 text-[10px] text-destructive hover:text-destructive/80 font-semibold transition-colors disabled:opacity-50"
@@ -688,12 +688,12 @@ const HistoryVault: React.FC<HistoryVaultProps> = ({ userProfile }) => {
               {!userProfile?.is_approved ? 'Akaun Belum Diluluskan' : 'Had Video: 0'}
             </h2>
             <p className="text-muted-foreground text-sm mb-6 max-w-md mx-auto">
-              {!userProfile?.is_approved 
+              {!userProfile?.is_approved
                 ? 'Akaun anda sedang menunggu kelulusan dari admin. Sila hubungi admin untuk mempercepatkan proses kelulusan.'
                 : 'Anda belum mempunyai had video. Sila hubungi admin untuk mendapatkan had video.'
               }
             </p>
-            
+
             <div className="flex flex-col gap-3 items-center">
               <div className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-amber-500/10 border border-amber-500/30">
                 <div className="w-2 h-2 bg-amber-500 rounded-full animate-pulse" />
@@ -701,15 +701,15 @@ const HistoryVault: React.FC<HistoryVaultProps> = ({ userProfile }) => {
                   {!userProfile?.is_approved ? 'Menunggu Kelulusan' : 'Limit: 0 Video'}
                 </span>
               </div>
-              
-              <a 
+
+              <a
                 href={whatsappLink}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="inline-flex items-center gap-2 px-6 py-3 rounded-xl bg-green-500 hover:bg-green-600 text-white font-bold text-sm transition-all shadow-lg hover:shadow-green-500/25 active:scale-95"
               >
                 <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
-                  <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/>
+                  <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z" />
                 </svg>
                 Hubungi Admin via WhatsApp
               </a>
@@ -729,7 +729,7 @@ const HistoryVault: React.FC<HistoryVaultProps> = ({ userProfile }) => {
         <div className="mb-4 sm:mb-6 animate-fade-in flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
           <div>
             <h2 className="text-3xl sm:text-4xl font-black tracking-tight text-foreground mb-2">
-              ARCHIVE <span className="text-primary neon-text">VAULT</span>
+              GALERI <span className="text-primary neon-text">VIDEO</span>
             </h2>
             <p className="text-muted-foreground text-sm max-w-xl flex items-center gap-2">
               Your generated masterpieces, preserved and ready for download.
@@ -828,7 +828,7 @@ const HistoryVault: React.FC<HistoryVaultProps> = ({ userProfile }) => {
                 className="pl-9 bg-background/50"
               />
             </div>
-            
+
             {/* Status Filter */}
             <Select value={statusFilter} onValueChange={setStatusFilter}>
               <SelectTrigger className="w-full sm:w-[140px] bg-background/50">
@@ -841,7 +841,7 @@ const HistoryVault: React.FC<HistoryVaultProps> = ({ userProfile }) => {
                 <SelectItem value="failed">Failed</SelectItem>
               </SelectContent>
             </Select>
-            
+
             {/* Aspect Ratio Filter */}
             <Select value={aspectFilter} onValueChange={setAspectFilter}>
               <SelectTrigger className="w-full sm:w-[140px] bg-background/50">
@@ -887,7 +887,7 @@ const HistoryVault: React.FC<HistoryVaultProps> = ({ userProfile }) => {
             <svg className="w-12 h-12 sm:w-16 sm:h-16 mx-auto mb-4 text-muted-foreground/30" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
             </svg>
-            <h3 className="text-lg font-bold text-foreground mb-2">Vault Kosong</h3>
+            <h3 className="text-lg font-bold text-foreground mb-2">Galeri Kosong</h3>
             <p className="text-muted-foreground text-sm">Video yang dijana akan muncul di sini</p>
           </div>
         ) : (
@@ -899,7 +899,7 @@ const HistoryVault: React.FC<HistoryVaultProps> = ({ userProfile }) => {
                   <span className="w-2 h-2 bg-primary rounded-full animate-pulse" />
                   BARU DIJANA
                 </h3>
-                <div 
+                <div
                   className="flex gap-3 overflow-x-auto pb-3 -mx-3 px-3 scrollbar-hide"
                   style={{ WebkitOverflowScrolling: 'touch' }}
                 >
@@ -933,7 +933,7 @@ const HistoryVault: React.FC<HistoryVaultProps> = ({ userProfile }) => {
 
       {/* Video Preview Modal */}
       {previewVideo && (
-        <div 
+        <div
           className="fixed inset-0 z-50 bg-black/90 flex items-center justify-center p-4"
           onClick={() => setPreviewVideo(null)}
         >
@@ -946,9 +946,9 @@ const HistoryVault: React.FC<HistoryVaultProps> = ({ userProfile }) => {
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
               </svg>
             </button>
-            <video 
-              src={previewVideo} 
-              controls 
+            <video
+              src={previewVideo}
+              controls
               autoPlay
               playsInline
               className="w-full rounded-xl max-h-[80vh]"

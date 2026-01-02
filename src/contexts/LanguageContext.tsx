@@ -16,7 +16,7 @@ interface Translations {
   clearFilters: string;
   download: string;
   downloading: string;
-  
+
   // Navigation
   studio: string;
   vault: string;
@@ -25,7 +25,7 @@ interface Translations {
   balance: string;
   video: string;
   videos: string;
-  
+
   // Auth
   welcomeBack: string;
   letsRegister: string;
@@ -45,7 +45,7 @@ interface Translations {
   checkSpam: string;
   backToLogin: string;
   termsAgreement: string;
-  
+
   // SoraStudio
   visionPrompt: string;
   promptPlaceholder: string;
@@ -86,7 +86,7 @@ interface Translations {
   generationFailed: string;
   videoOutputHere: string;
   poweredBy: string;
-  
+
   // Status
   processing: string;
   completed: string;
@@ -95,7 +95,7 @@ interface Translations {
   active: string;
   pending: string;
   approved: string;
-  
+
   // HistoryVault
   historyTitle: string;
   historySubtitle: string;
@@ -109,7 +109,7 @@ interface Translations {
   noVideos: string;
   checkStatus: string;
   gettingUrl: string;
-  
+
   // Locked state
   accountNotApproved: string;
   accountNotApprovedTitle: string;
@@ -118,11 +118,11 @@ interface Translations {
   videoLimitZeroDesc: string;
   waitingApproval: string;
   contactAdminWhatsApp: string;
-  
+
   // Limit reached
   limitReachedTitle: string;
   limitReachedDesc: string;
-  
+
   // AdminDashboard
   adminDashboard: string;
   manageUsers: string;
@@ -143,13 +143,13 @@ interface Translations {
   userDeleted: string;
   limitUpdated: string;
   generated: string;
-  
+
   // Sidebar
   accessId: string;
   remaining: string;
   used: string;
   total: string;
-  
+
   // Toasts
   loginSuccess: string;
   welcomeBackToast: string;
@@ -186,16 +186,16 @@ const msTranslations: Translations = {
   clearFilters: 'Buang Semua',
   download: 'Muat Turun',
   downloading: 'Memuat turun...',
-  
+
   // Navigation
   studio: 'Studio',
-  vault: 'Vault',
+  vault: 'Galeri Video',
   admin: 'Admin',
   aiStudio: 'AI Studio',
   balance: 'Baki',
   video: 'Video',
   videos: 'Video',
-  
+
   // Auth
   welcomeBack: 'Selamat Kembali!',
   letsRegister: 'Jom Daftar!',
@@ -215,7 +215,7 @@ const msTranslations: Translations = {
   checkSpam: 'Check folder spam kalau tak jumpa.',
   backToLogin: 'Balik ke Log Masuk',
   termsAgreement: 'Dengan mendaftar, korang setuju dengan terma penggunaan kami',
-  
+
   // SoraStudio
   visionPrompt: 'Prompt Video',
   promptPlaceholder: 'Terangkan scene video korang... Lagi detail lagi bagus hasilnya.',
@@ -256,7 +256,7 @@ const msTranslations: Translations = {
   generationFailed: 'Penjanaan gagal',
   videoOutputHere: 'Output video akan keluar kat sini',
   poweredBy: 'Dikuasakan oleh Sora 2.0',
-  
+
   // Status
   processing: 'Memproses',
   completed: 'Siap',
@@ -265,9 +265,9 @@ const msTranslations: Translations = {
   active: 'Aktif',
   pending: 'Menunggu',
   approved: 'Diluluskan',
-  
+
   // HistoryVault
-  historyTitle: 'Vault Video',
+  historyTitle: 'Galeri Video',
   historySubtitle: 'Semua video yang korang dah jana',
   syncComplete: 'Sync selesai',
   recentVideos: 'Video Terkini',
@@ -279,7 +279,7 @@ const msTranslations: Translations = {
   noVideos: 'Takde video lagi',
   checkStatus: 'Check Status',
   gettingUrl: 'Mendapatkan URL video...',
-  
+
   // Locked state
   accountNotApproved: 'Akaun Belum Diluluskan',
   accountNotApprovedTitle: 'Akaun Belum Diluluskan',
@@ -288,11 +288,11 @@ const msTranslations: Translations = {
   videoLimitZeroDesc: 'Korang belum ada had video. Hubungi admin untuk dapatkan had video.',
   waitingApproval: 'Menunggu Kelulusan',
   contactAdminWhatsApp: 'Hubungi Admin via WhatsApp',
-  
+
   // Limit reached
   limitReachedTitle: 'Had Video Dah Habis',
   limitReachedDesc: 'Korang dah guna semua video. Korang masih boleh tengok dan download video yang dah dijana.',
-  
+
   // AdminDashboard
   adminDashboard: 'Dashboard Admin',
   manageUsers: 'Urus pengguna & monitor penggunaan sistem',
@@ -313,13 +313,13 @@ const msTranslations: Translations = {
   userDeleted: 'Pengguna dah dipadam',
   limitUpdated: 'Had pengguna dah dikemaskini',
   generated: 'dijana',
-  
+
   // Sidebar
   accessId: 'Akses ID',
   remaining: 'Baki Video',
   used: 'Guna',
   total: 'Total',
-  
+
   // Toasts
   loginSuccess: 'Log masuk berjaya!',
   welcomeBackToast: 'Selamat kembali.',
@@ -356,16 +356,16 @@ const enTranslations: Translations = {
   clearFilters: 'Clear All',
   download: 'Download',
   downloading: 'Downloading...',
-  
+
   // Navigation
   studio: 'Studio',
-  vault: 'Vault',
+  vault: 'Video Gallery',
   admin: 'Admin',
   aiStudio: 'AI Studio',
   balance: 'Balance',
   video: 'Video',
   videos: 'Videos',
-  
+
   // Auth
   welcomeBack: 'Welcome Back!',
   letsRegister: 'Join Us!',
@@ -385,7 +385,7 @@ const enTranslations: Translations = {
   checkSpam: 'Check your spam folder if not found.',
   backToLogin: 'Back to Login',
   termsAgreement: 'By registering, you agree to our terms of use',
-  
+
   // SoraStudio
   visionPrompt: 'Vision Prompt',
   promptPlaceholder: 'Describe your video scene in detail... The more specific, the better the result.',
@@ -426,7 +426,7 @@ const enTranslations: Translations = {
   generationFailed: 'Generation failed',
   videoOutputHere: 'Video output will appear here',
   poweredBy: 'Powered by Sora 2.0',
-  
+
   // Status
   processing: 'Processing',
   completed: 'Completed',
@@ -435,9 +435,9 @@ const enTranslations: Translations = {
   active: 'Active',
   pending: 'Pending',
   approved: 'Approved',
-  
+
   // HistoryVault
-  historyTitle: 'Video Vault',
+  historyTitle: 'Video Gallery',
   historySubtitle: 'All videos you have generated',
   syncComplete: 'Sync complete',
   recentVideos: 'Recent Videos',
@@ -449,7 +449,7 @@ const enTranslations: Translations = {
   noVideos: 'No videos yet',
   checkStatus: 'Check Status',
   gettingUrl: 'Getting video URL...',
-  
+
   // Locked state
   accountNotApproved: 'Account Not Approved',
   accountNotApprovedTitle: 'Account Not Approved',
@@ -458,11 +458,11 @@ const enTranslations: Translations = {
   videoLimitZeroDesc: 'You have no video quota. Contact admin to get video quota.',
   waitingApproval: 'Waiting for Approval',
   contactAdminWhatsApp: 'Contact Admin via WhatsApp',
-  
+
   // Limit reached
   limitReachedTitle: 'Video Limit Reached',
   limitReachedDesc: 'You have used all your videos. You can still view and download previously generated videos.',
-  
+
   // AdminDashboard
   adminDashboard: 'Admin Dashboard',
   manageUsers: 'Manage users & monitor system usage',
@@ -483,13 +483,13 @@ const enTranslations: Translations = {
   userDeleted: 'User deleted',
   limitUpdated: 'User limit updated',
   generated: 'generated',
-  
+
   // Sidebar
   accessId: 'Access ID',
   remaining: 'Videos Left',
   used: 'Used',
   total: 'Total',
-  
+
   // Toasts
   loginSuccess: 'Login successful!',
   welcomeBackToast: 'Welcome back.',

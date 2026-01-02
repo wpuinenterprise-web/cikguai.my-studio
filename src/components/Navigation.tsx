@@ -36,7 +36,7 @@ const LogoutIcon = () => (
 const Navigation: React.FC<NavigationProps> = ({ activeView, onViewChange, userProfile, onSignOut }) => {
   const navItems: NavItem[] = [
     { view: AppView.SORA_STUDIO, label: 'Studio', icon: <VideoIcon /> },
-    { view: AppView.HISTORY, label: 'Vault', icon: <HistoryIcon /> },
+    { view: AppView.HISTORY, label: 'Galeri Video', icon: <HistoryIcon /> },
   ];
 
   return (
