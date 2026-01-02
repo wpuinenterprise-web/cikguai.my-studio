@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { User, Session } from '@supabase/supabase-js';
 import { AppView, UserProfile } from '@/types';
 import { supabase } from '@/integrations/supabase/client';
@@ -19,6 +19,7 @@ const Index = () => {
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
   const [activeView, setActiveView] = useState<AppView>(AppView.SORA_STUDIO);
+  const hasSetInitialView = useRef(false); // Prevent resetting view on profile refresh
 
   const logoUrl = "https://i.ibb.co/xqgH2MQ4/Untitled-design-18.png";
 
@@ -96,9 +97,12 @@ const Index = () => {
           referred_by: profileData.referred_by,
         });
 
-        // Set default view based on role - admin goes to dashboard
-        if (isAdmin && !skipLoading) {
+        // Set default view based on role - admin goes to dashboard ONLY on first load
+        if (isAdmin && !skipLoading && !hasSetInitialView.current) {
           setActiveView(AppView.ADMIN_DASHBOARD);
+          hasSetInitialView.current = true;
+        } else if (!hasSetInitialView.current) {
+          hasSetInitialView.current = true;
         }
       }
     } catch (err) {

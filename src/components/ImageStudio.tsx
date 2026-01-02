@@ -31,6 +31,7 @@ const ImageStudio: React.FC<ImageStudioProps> = ({ profile, onImageGenerated }) 
 
     const fileInputRef = useRef<HTMLInputElement>(null);
     const secondFileInputRef = useRef<HTMLInputElement>(null);
+    const lastGenerateTimeRef = useRef<number>(0); // Debounce to prevent double-clicks
 
     const hasReachedLimit = profile && profile.images_used >= profile.image_limit;
     const remainingImages = profile ? Math.max(0, profile.image_limit - profile.images_used) : 0;
@@ -104,6 +105,14 @@ const ImageStudio: React.FC<ImageStudioProps> = ({ profile, onImageGenerated }) 
             toast.error('Sila muat naik kedua-dua imej rujukan');
             return;
         }
+
+        // Debounce: prevent double-clicks within 2 seconds
+        const now = Date.now();
+        if (now - lastGenerateTimeRef.current < 2000) {
+            console.log('Debounce: ignoring rapid click');
+            return;
+        }
+        lastGenerateTimeRef.current = now;
 
         setIsGenerating(true);
         setGeneratedImage(null);

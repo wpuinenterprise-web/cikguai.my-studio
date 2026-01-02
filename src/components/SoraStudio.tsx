@@ -16,9 +16,9 @@ interface ActiveGeneration {
 }
 
 interface SoraStudioProps {
-  userProfile: { 
-    username: string; 
-    videos_used: number; 
+  userProfile: {
+    username: string;
+    videos_used: number;
     video_limit: number;
     is_approved: boolean;
     is_admin?: boolean;
@@ -47,7 +47,9 @@ const SoraStudio: React.FC<SoraStudioProps> = ({ userProfile, onProfileRefresh }
   const [isUploadingImage, setIsUploadingImage] = useState(false);
   const [uploadedImageUrl, setUploadedImageUrl] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
-  
+  const secondFileInputRef = useRef<HTMLInputElement>(null);
+  const lastGenerateTimeRef = useRef<number>(0); // Debounce to prevent double-clicks
+
   // Active generations - allow up to 4 concurrent
   const [activeGenerations, setActiveGenerations] = useState<ActiveGeneration[]>([]);
   const [selectedGenerationId, setSelectedGenerationId] = useState<string | null>(null);
@@ -65,16 +67,16 @@ const SoraStudio: React.FC<SoraStudioProps> = ({ userProfile, onProfileRefresh }
   const [isGeneratingPrompt, setIsGeneratingPrompt] = useState(false);
   const [generatedDialog, setGeneratedDialog] = useState('');
   const [generatedSegments, setGeneratedSegments] = useState<Array<{
-    time: string; 
+    time: string;
     hook?: string;
-    scene: string; 
+    scene: string;
     character?: string;
-    cameraAngle: string; 
+    cameraAngle: string;
     cameraMovement?: string;
     lighting?: string;
     dialog?: string;
     visualStyle: string;
-  }>>([]); 
+  }>>([]);
 
   // Save prompt, duration, aspectRatio to sessionStorage when changed
   useEffect(() => {
@@ -130,7 +132,7 @@ const SoraStudio: React.FC<SoraStudioProps> = ({ userProfile, onProfileRefresh }
       if (videos && videos.length > 0) {
         const activeVids = videos.filter(v => v.geminigen_uuid) as ActiveGeneration[];
         setActiveGenerations(activeVids);
-        
+
         if (activeVids.length > 0) {
           setSelectedGenerationId(activeVids[0].id);
         }
@@ -163,7 +165,7 @@ const SoraStudio: React.FC<SoraStudioProps> = ({ userProfile, onProfileRefresh }
 
           if (response.data?.success) {
             const { status, status_percentage, video_url } = response.data;
-            
+
             // Update generation in list
             if (status !== gen.status || status_percentage !== gen.status_percentage || video_url !== gen.video_url) {
               hasChanges = true;
@@ -190,7 +192,7 @@ const SoraStudio: React.FC<SoraStudioProps> = ({ userProfile, onProfileRefresh }
       if (hasChanges) {
         // Keep only processing ones in active list
         setActiveGenerations(updatedGenerations.filter(g => g.status === 'processing'));
-        
+
         // Add newly completed to completedGenerations for preview/download
         if (newlyCompleted.length > 0) {
           setCompletedGenerations(prev => {
@@ -198,7 +200,7 @@ const SoraStudio: React.FC<SoraStudioProps> = ({ userProfile, onProfileRefresh }
             // Keep only latest 10 completed videos
             return newCompleted.slice(0, 10);
           });
-          
+
           // Auto-select the first completed video for preview
           if (newlyCompleted[0]) {
             setSelectedGenerationId(newlyCompleted[0].id);
@@ -223,7 +225,7 @@ const SoraStudio: React.FC<SoraStudioProps> = ({ userProfile, onProfileRefresh }
       // Convert base64 to blob
       const base64Response = await fetch(base64Data);
       const blob = await base64Response.blob();
-      
+
       // Generate unique filename
       const fileExt = blob.type.split('/')[1] || 'png';
       const fileName = `${session.user.id}/${Date.now()}.${fileExt}`;
@@ -265,12 +267,12 @@ const SoraStudio: React.FC<SoraStudioProps> = ({ userProfile, onProfileRefresh }
       if (fileInputRef.current) {
         fileInputRef.current.value = '';
       }
-      
+
       const reader = new FileReader();
       reader.onloadend = async () => {
         const base64Data = reader.result as string;
         setFilePreview(base64Data);
-        
+
         // Upload immediately and store URL
         const publicUrl = await uploadImageToStorage(base64Data);
         if (publicUrl) {
@@ -284,7 +286,7 @@ const SoraStudio: React.FC<SoraStudioProps> = ({ userProfile, onProfileRefresh }
 
   const handleGenerate = async () => {
     if (!prompt.trim()) return;
-    
+
     // Check limit using hasReachedLimit which is synced with profile
     if (hasReachedLimit) {
       toast.error('Had penjanaan video telah dicapai. Sila hubungi admin.');
@@ -297,6 +299,14 @@ const SoraStudio: React.FC<SoraStudioProps> = ({ userProfile, onProfileRefresh }
       toast.error(`Maksimum ${MAX_CONCURRENT_VIDEOS} video boleh dijana serentak. Sila tunggu sebentar.`);
       return;
     }
+
+    // Debounce: prevent double-clicks within 2 seconds
+    const now = Date.now();
+    if (now - lastGenerateTimeRef.current < 2000) {
+      console.log('Debounce: ignoring rapid click');
+      return;
+    }
+    lastGenerateTimeRef.current = now;
 
     setIsGenerating(true);
 
@@ -451,7 +461,7 @@ const SoraStudio: React.FC<SoraStudioProps> = ({ userProfile, onProfileRefresh }
       a.click();
       document.body.removeChild(a);
       window.URL.revokeObjectURL(url);
-      
+
       toast.success('Video berjaya dimuat turun!');
     } catch (error) {
       console.error('Error downloading video:', error);
@@ -511,7 +521,7 @@ const SoraStudio: React.FC<SoraStudioProps> = ({ userProfile, onProfileRefresh }
   };
 
   // Get selected generation for preview - check both active and completed
-  const selectedGeneration = activeGenerations.find(g => g.id === selectedGenerationId) 
+  const selectedGeneration = activeGenerations.find(g => g.id === selectedGenerationId)
     || completedGenerations.find(g => g.id === selectedGenerationId);
   const processingCount = activeGenerations.filter(g => g.status === 'processing').length;
 
@@ -541,12 +551,12 @@ const SoraStudio: React.FC<SoraStudioProps> = ({ userProfile, onProfileRefresh }
               {!userProfile?.is_approved ? 'Akaun Belum Diluluskan' : 'Had Video: 0'}
             </h2>
             <p className="text-muted-foreground text-sm mb-6 max-w-md mx-auto">
-              {!userProfile?.is_approved 
+              {!userProfile?.is_approved
                 ? 'Akaun anda sedang menunggu kelulusan dari admin. Sila hubungi admin untuk mempercepatkan proses kelulusan.'
                 : 'Anda belum mempunyai had video. Sila hubungi admin untuk mendapatkan had video.'
               }
             </p>
-            
+
             <div className="flex flex-col gap-3 items-center">
               <div className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-amber-500/10 border border-amber-500/30">
                 <div className="w-2 h-2 bg-amber-500 rounded-full animate-pulse" />
@@ -554,15 +564,15 @@ const SoraStudio: React.FC<SoraStudioProps> = ({ userProfile, onProfileRefresh }
                   {!userProfile?.is_approved ? 'Menunggu Kelulusan' : 'Limit: 0 Video'}
                 </span>
               </div>
-              
-              <a 
+
+              <a
                 href={whatsappLink}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="inline-flex items-center gap-2 px-6 py-3 rounded-xl bg-green-500 hover:bg-green-600 text-white font-bold text-sm transition-all shadow-lg hover:shadow-green-500/25 active:scale-95"
               >
                 <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
-                  <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/>
+                  <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z" />
                 </svg>
                 Hubungi Admin via WhatsApp
               </a>
@@ -603,7 +613,7 @@ const SoraStudio: React.FC<SoraStudioProps> = ({ userProfile, onProfileRefresh }
                   Anda telah menggunakan {userProfile?.videos_used}/{userProfile?.video_limit} video. Anda masih boleh melihat dan memuat turun video yang telah dijana.
                 </p>
               </div>
-              <a 
+              <a
                 href={`https://wa.me/601158833804?text=${encodeURIComponent(`Hai Admin, saya ${userProfile?.username || 'user'} ingin mohon tambahan had video. Video saya: ${userProfile?.videos_used}/${userProfile?.video_limit}`)}`}
                 target="_blank"
                 rel="noopener noreferrer"
@@ -802,247 +812,247 @@ const SoraStudio: React.FC<SoraStudioProps> = ({ userProfile, onProfileRefresh }
 
             {/* UGC Prompt Generator - hide if limit reached */}
             {!hasReachedLimit && (
-            <div className="mb-6">
-              <button
-                onClick={() => setShowPromptGenerator(!showPromptGenerator)}
-                className="w-full flex items-center justify-between p-3 rounded-xl bg-gradient-to-r from-primary/10 to-accent/10 border border-primary/20 hover:border-primary/40 transition-all duration-300"
-              >
-                <div className="flex items-center gap-2">
-                  <svg className="w-5 h-5 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
+              <div className="mb-6">
+                <button
+                  onClick={() => setShowPromptGenerator(!showPromptGenerator)}
+                  className="w-full flex items-center justify-between p-3 rounded-xl bg-gradient-to-r from-primary/10 to-accent/10 border border-primary/20 hover:border-primary/40 transition-all duration-300"
+                >
+                  <div className="flex items-center gap-2">
+                    <svg className="w-5 h-5 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
+                    </svg>
+                    <span className="text-sm font-bold text-foreground">UGC Prompt Generator</span>
+                  </div>
+                  <svg className={cn("w-4 h-4 text-muted-foreground transition-transform", showPromptGenerator && "rotate-180")} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
                   </svg>
-                  <span className="text-sm font-bold text-foreground">UGC Prompt Generator</span>
-                </div>
-                <svg className={cn("w-4 h-4 text-muted-foreground transition-transform", showPromptGenerator && "rotate-180")} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                </svg>
-              </button>
+                </button>
 
-              {showPromptGenerator && (
-                <div className="mt-4 p-4 rounded-xl bg-secondary/30 border border-border/50 space-y-4">
-                  {/* OpenAI API Key with Save Button */}
-                  <div>
-                    <label className="block text-[10px] font-black text-muted-foreground uppercase tracking-widest mb-2">
-                      OpenAI API Key
-                    </label>
-                    <div className="flex gap-2">
-                      <Input
-                        type="password"
-                        value={openaiApiKey}
-                        onChange={(e) => {
-                          setOpenaiApiKey(e.target.value);
-                          setIsApiKeySaved(false);
-                        }}
-                        placeholder="sk-proj-..."
-                        className="text-sm flex-1"
-                      />
-                      {isApiKeySaved ? (
-                        <Button
-                          onClick={clearApiKey}
-                          variant="outline"
-                          size="sm"
-                          className="text-destructive border-destructive/50 hover:bg-destructive/10"
-                        >
-                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                          </svg>
-                        </Button>
-                      ) : (
-                        <Button
-                          onClick={saveApiKey}
-                          variant="outline"
-                          size="sm"
-                          disabled={!openaiApiKey.trim()}
-                          className="text-primary border-primary/50 hover:bg-primary/10"
-                        >
-                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                          </svg>
-                        </Button>
+                {showPromptGenerator && (
+                  <div className="mt-4 p-4 rounded-xl bg-secondary/30 border border-border/50 space-y-4">
+                    {/* OpenAI API Key with Save Button */}
+                    <div>
+                      <label className="block text-[10px] font-black text-muted-foreground uppercase tracking-widest mb-2">
+                        OpenAI API Key
+                      </label>
+                      <div className="flex gap-2">
+                        <Input
+                          type="password"
+                          value={openaiApiKey}
+                          onChange={(e) => {
+                            setOpenaiApiKey(e.target.value);
+                            setIsApiKeySaved(false);
+                          }}
+                          placeholder="sk-proj-..."
+                          className="text-sm flex-1"
+                        />
+                        {isApiKeySaved ? (
+                          <Button
+                            onClick={clearApiKey}
+                            variant="outline"
+                            size="sm"
+                            className="text-destructive border-destructive/50 hover:bg-destructive/10"
+                          >
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                            </svg>
+                          </Button>
+                        ) : (
+                          <Button
+                            onClick={saveApiKey}
+                            variant="outline"
+                            size="sm"
+                            disabled={!openaiApiKey.trim()}
+                            className="text-primary border-primary/50 hover:bg-primary/10"
+                          >
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                            </svg>
+                          </Button>
+                        )}
+                      </div>
+                      {isApiKeySaved && (
+                        <p className="text-[10px] text-green-500 mt-1">✓ API Key disimpan dalam browser</p>
                       )}
                     </div>
-                    {isApiKeySaved && (
-                      <p className="text-[10px] text-green-500 mt-1">✓ API Key disimpan dalam browser</p>
-                    )}
-                  </div>
 
-                  {/* Product Name */}
-                  <div>
-                    <label className="block text-[10px] font-black text-muted-foreground uppercase tracking-widest mb-2">
-                      Nama Produk
-                    </label>
-                    <Input
-                      value={productName}
-                      onChange={(e) => setProductName(e.target.value)}
-                      placeholder="Contoh: Serum Vitamin C"
-                      className="text-sm"
-                    />
-                  </div>
-
-                  {/* Product Description */}
-                  <div>
-                    <label className="block text-[10px] font-black text-muted-foreground uppercase tracking-widest mb-2">
-                      Keterangan Produk
-                    </label>
-                    <Textarea
-                      value={productDescription}
-                      onChange={(e) => setProductDescription(e.target.value)}
-                      placeholder="Terangkan produk anda, kelebihan, bahan utama..."
-                      className="min-h-[80px] text-sm"
-                    />
-                  </div>
-
-                  {/* Platform & Gender */}
-                  <div className="grid grid-cols-2 gap-3">
+                    {/* Product Name */}
                     <div>
                       <label className="block text-[10px] font-black text-muted-foreground uppercase tracking-widest mb-2">
-                        Platform
+                        Nama Produk
                       </label>
-                      <div className="flex gap-2">
-                        {(['tiktok', 'facebook'] as const).map((p) => (
-                          <button
-                            key={p}
-                            onClick={() => setPlatform(p)}
-                            className={cn(
-                              "flex-1 py-2 px-3 rounded-lg text-xs font-bold transition-all border",
-                              platform === p
-                                ? "bg-primary/20 border-primary/50 text-primary"
-                                : "bg-secondary/50 border-border text-muted-foreground hover:border-primary/30"
-                            )}
-                          >
-                            {p === 'tiktok' ? 'TikTok' : 'Facebook'}
-                          </button>
-                        ))}
-                      </div>
+                      <Input
+                        value={productName}
+                        onChange={(e) => setProductName(e.target.value)}
+                        placeholder="Contoh: Serum Vitamin C"
+                        className="text-sm"
+                      />
                     </div>
+
+                    {/* Product Description */}
                     <div>
                       <label className="block text-[10px] font-black text-muted-foreground uppercase tracking-widest mb-2">
-                        Watak
+                        Keterangan Produk
                       </label>
-                      <div className="flex gap-2">
-                        {(['female', 'male'] as const).map((g) => (
-                          <button
-                            key={g}
-                            onClick={() => setGender(g)}
-                            className={cn(
-                              "flex-1 py-2 px-3 rounded-lg text-xs font-bold transition-all border",
-                              gender === g
-                                ? "bg-primary/20 border-primary/50 text-primary"
-                                : "bg-secondary/50 border-border text-muted-foreground hover:border-primary/30"
-                            )}
-                          >
-                            {g === 'female' ? 'Perempuan' : 'Lelaki'}
-                          </button>
-                        ))}
-                      </div>
+                      <Textarea
+                        value={productDescription}
+                        onChange={(e) => setProductDescription(e.target.value)}
+                        placeholder="Terangkan produk anda, kelebihan, bahan utama..."
+                        className="min-h-[80px] text-sm"
+                      />
                     </div>
-                  </div>
 
-                  {/* Save Product Data Button */}
-                  <Button
-                    onClick={saveProductData}
-                    variant="outline"
-                    size="sm"
-                    className="w-full"
-                    disabled={!productName.trim() || !productDescription.trim()}
-                  >
-                    <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4" />
-                    </svg>
-                    Simpan Data Produk
-                  </Button>
-
-                  {/* Generate Prompt Button */}
-                  <Button
-                    onClick={handleGenerateUgcPrompt}
-                    disabled={isGeneratingPrompt || !productName.trim() || !productDescription.trim() || !openaiApiKey.trim()}
-                    variant="outline"
-                    className="w-full"
-                  >
-                    {isGeneratingPrompt ? (
-                      <>
-                        <div className="w-4 h-4 border-2 border-primary/30 border-t-primary rounded-full animate-spin mr-2" />
-                        Menjana Prompt...
-                      </>
-                    ) : (
-                      <>
-                        <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
-                        </svg>
-                        Jana Prompt UGC
-                      </>
-                    )}
-                  </Button>
-
-                  {/* Generated Dialog & Segments */}
-                  {generatedDialog && (
-                    <div className="mt-4 p-3 rounded-lg bg-background/50 border border-border/30">
-                      <label className="block text-[10px] font-black text-primary uppercase tracking-widest mb-2">
-                        Dialog Script (BM)
-                      </label>
-                      <p className="text-xs text-muted-foreground whitespace-pre-wrap">{generatedDialog}</p>
-                    </div>
-                  )}
-
-                  {generatedSegments.length > 0 && (
-                    <div className="mt-3 space-y-2">
-                      <label className="block text-[10px] font-black text-primary uppercase tracking-widest mb-2">
-                        Segment Details (Per 3 Saat)
-                      </label>
-                      {generatedSegments.map((seg, idx) => (
-                        <div key={idx} className="p-3 rounded-xl bg-background/40 border border-border/30 space-y-2">
-                          <div className="flex items-center justify-between">
-                            <span className="text-xs font-bold text-primary bg-primary/10 px-2 py-1 rounded-lg">{seg.time}</span>
-                            {seg.hook && <span className="text-[10px] text-accent font-semibold">{seg.hook}</span>}
-                          </div>
-                          
-                          {seg.scene && (
-                            <div className="text-[10px]">
-                              <span className="text-muted-foreground font-semibold">Scene: </span>
-                              <span className="text-foreground/80">{seg.scene}</span>
-                            </div>
-                          )}
-                          
-                          <div className="grid grid-cols-2 gap-2 text-[10px]">
-                            {seg.cameraAngle && (
-                              <div>
-                                <span className="text-muted-foreground font-semibold">📷 </span>
-                                <span className="text-foreground/70">{seg.cameraAngle}</span>
-                              </div>
-                            )}
-                            {seg.cameraMovement && (
-                              <div>
-                                <span className="text-muted-foreground font-semibold">🎬 </span>
-                                <span className="text-foreground/70">{seg.cameraMovement}</span>
-                              </div>
-                            )}
-                            {seg.lighting && (
-                              <div>
-                                <span className="text-muted-foreground font-semibold">💡 </span>
-                                <span className="text-foreground/70">{seg.lighting}</span>
-                              </div>
-                            )}
-                            {seg.visualStyle && (
-                              <div>
-                                <span className="text-muted-foreground font-semibold">🎨 </span>
-                                <span className="text-foreground/70">{seg.visualStyle}</span>
-                              </div>
-                            )}
-                          </div>
-                          
-                          {seg.dialog && (
-                            <div className="text-[10px] bg-secondary/30 p-2 rounded-lg border-l-2 border-primary/50">
-                              <span className="text-muted-foreground font-semibold">Dialog: </span>
-                              <span className="text-foreground/90 italic">"{seg.dialog}"</span>
-                            </div>
-                          )}
+                    {/* Platform & Gender */}
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <label className="block text-[10px] font-black text-muted-foreground uppercase tracking-widest mb-2">
+                          Platform
+                        </label>
+                        <div className="flex gap-2">
+                          {(['tiktok', 'facebook'] as const).map((p) => (
+                            <button
+                              key={p}
+                              onClick={() => setPlatform(p)}
+                              className={cn(
+                                "flex-1 py-2 px-3 rounded-lg text-xs font-bold transition-all border",
+                                platform === p
+                                  ? "bg-primary/20 border-primary/50 text-primary"
+                                  : "bg-secondary/50 border-border text-muted-foreground hover:border-primary/30"
+                              )}
+                            >
+                              {p === 'tiktok' ? 'TikTok' : 'Facebook'}
+                            </button>
+                          ))}
                         </div>
-                      ))}
+                      </div>
+                      <div>
+                        <label className="block text-[10px] font-black text-muted-foreground uppercase tracking-widest mb-2">
+                          Watak
+                        </label>
+                        <div className="flex gap-2">
+                          {(['female', 'male'] as const).map((g) => (
+                            <button
+                              key={g}
+                              onClick={() => setGender(g)}
+                              className={cn(
+                                "flex-1 py-2 px-3 rounded-lg text-xs font-bold transition-all border",
+                                gender === g
+                                  ? "bg-primary/20 border-primary/50 text-primary"
+                                  : "bg-secondary/50 border-border text-muted-foreground hover:border-primary/30"
+                              )}
+                            >
+                              {g === 'female' ? 'Perempuan' : 'Lelaki'}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
                     </div>
-                  )}
-                </div>
-              )}
-            </div>
+
+                    {/* Save Product Data Button */}
+                    <Button
+                      onClick={saveProductData}
+                      variant="outline"
+                      size="sm"
+                      className="w-full"
+                      disabled={!productName.trim() || !productDescription.trim()}
+                    >
+                      <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4" />
+                      </svg>
+                      Simpan Data Produk
+                    </Button>
+
+                    {/* Generate Prompt Button */}
+                    <Button
+                      onClick={handleGenerateUgcPrompt}
+                      disabled={isGeneratingPrompt || !productName.trim() || !productDescription.trim() || !openaiApiKey.trim()}
+                      variant="outline"
+                      className="w-full"
+                    >
+                      {isGeneratingPrompt ? (
+                        <>
+                          <div className="w-4 h-4 border-2 border-primary/30 border-t-primary rounded-full animate-spin mr-2" />
+                          Menjana Prompt...
+                        </>
+                      ) : (
+                        <>
+                          <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+                          </svg>
+                          Jana Prompt UGC
+                        </>
+                      )}
+                    </Button>
+
+                    {/* Generated Dialog & Segments */}
+                    {generatedDialog && (
+                      <div className="mt-4 p-3 rounded-lg bg-background/50 border border-border/30">
+                        <label className="block text-[10px] font-black text-primary uppercase tracking-widest mb-2">
+                          Dialog Script (BM)
+                        </label>
+                        <p className="text-xs text-muted-foreground whitespace-pre-wrap">{generatedDialog}</p>
+                      </div>
+                    )}
+
+                    {generatedSegments.length > 0 && (
+                      <div className="mt-3 space-y-2">
+                        <label className="block text-[10px] font-black text-primary uppercase tracking-widest mb-2">
+                          Segment Details (Per 3 Saat)
+                        </label>
+                        {generatedSegments.map((seg, idx) => (
+                          <div key={idx} className="p-3 rounded-xl bg-background/40 border border-border/30 space-y-2">
+                            <div className="flex items-center justify-between">
+                              <span className="text-xs font-bold text-primary bg-primary/10 px-2 py-1 rounded-lg">{seg.time}</span>
+                              {seg.hook && <span className="text-[10px] text-accent font-semibold">{seg.hook}</span>}
+                            </div>
+
+                            {seg.scene && (
+                              <div className="text-[10px]">
+                                <span className="text-muted-foreground font-semibold">Scene: </span>
+                                <span className="text-foreground/80">{seg.scene}</span>
+                              </div>
+                            )}
+
+                            <div className="grid grid-cols-2 gap-2 text-[10px]">
+                              {seg.cameraAngle && (
+                                <div>
+                                  <span className="text-muted-foreground font-semibold">📷 </span>
+                                  <span className="text-foreground/70">{seg.cameraAngle}</span>
+                                </div>
+                              )}
+                              {seg.cameraMovement && (
+                                <div>
+                                  <span className="text-muted-foreground font-semibold">🎬 </span>
+                                  <span className="text-foreground/70">{seg.cameraMovement}</span>
+                                </div>
+                              )}
+                              {seg.lighting && (
+                                <div>
+                                  <span className="text-muted-foreground font-semibold">💡 </span>
+                                  <span className="text-foreground/70">{seg.lighting}</span>
+                                </div>
+                              )}
+                              {seg.visualStyle && (
+                                <div>
+                                  <span className="text-muted-foreground font-semibold">🎨 </span>
+                                  <span className="text-foreground/70">{seg.visualStyle}</span>
+                                </div>
+                              )}
+                            </div>
+
+                            {seg.dialog && (
+                              <div className="text-[10px] bg-secondary/30 p-2 rounded-lg border-l-2 border-primary/50">
+                                <span className="text-muted-foreground font-semibold">Dialog: </span>
+                                <span className="text-foreground/90 italic">"{seg.dialog}"</span>
+                              </div>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
             )}
 
             {/* Generate Button - show different state if limit reached */}
@@ -1064,7 +1074,10 @@ const SoraStudio: React.FC<SoraStudioProps> = ({ userProfile, onProfileRefresh }
                 disabled={!prompt.trim() || isGenerating || isUploadingImage || processingCount >= MAX_CONCURRENT_VIDEOS}
                 variant="neon"
                 size="lg"
-                className="w-full"
+                className={cn(
+                  "w-full transition-all duration-300",
+                  (isGenerating || !prompt.trim()) && "opacity-50 cursor-not-allowed pointer-events-none"
+                )}
               >
                 {isGenerating ? (
                   <>
@@ -1118,7 +1131,7 @@ const SoraStudio: React.FC<SoraStudioProps> = ({ userProfile, onProfileRefresh }
                     <p className="text-primary font-medium animate-pulse mb-2">Processing your vision...</p>
                     <p className="text-xs text-muted-foreground italic">Progress: {selectedGeneration.status_percentage}%</p>
                     <div className="w-full max-w-[200px] mx-auto mt-3 h-2 bg-secondary/50 rounded-full overflow-hidden">
-                      <div 
+                      <div
                         className="h-full bg-primary transition-all duration-500"
                         style={{ width: `${selectedGeneration.status_percentage}%` }}
                       />
@@ -1135,9 +1148,9 @@ const SoraStudio: React.FC<SoraStudioProps> = ({ userProfile, onProfileRefresh }
                     </div>
                   ) : previewVideoUrl ? (
                     <div className="relative w-full h-full">
-                      <video 
-                        src={previewVideoUrl} 
-                        controls 
+                      <video
+                        src={previewVideoUrl}
+                        controls
                         className="w-full h-full object-contain"
                         autoPlay
                       />
