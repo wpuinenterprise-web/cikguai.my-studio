@@ -10,6 +10,7 @@ import ImageHistory from '@/components/ImageHistory';
 import AdminDashboard from '@/components/AdminDashboard';
 import AuthView from '@/components/AuthView';
 import AnimatedBackground from '@/components/AnimatedBackground';
+import ImageGenerationStatus from '@/components/ImageGenerationStatus';
 import { useLanguage } from '@/contexts/LanguageContext';
 
 const Index = () => {
@@ -20,6 +21,7 @@ const Index = () => {
   const [loading, setLoading] = useState(true);
   const [activeView, setActiveView] = useState<AppView>(AppView.SORA_STUDIO);
   const hasSetInitialView = useRef(false); // Prevent resetting view on profile refresh
+  const [isGeneratingImage, setIsGeneratingImage] = useState(false); // Track image generation globally
 
   const logoUrl = "https://i.ibb.co/xqgH2MQ4/Untitled-design-18.png";
 
@@ -137,7 +139,7 @@ const Index = () => {
       case AppView.HISTORY:
         return <HistoryVault userProfile={profile!} />;
       case AppView.IMAGE_STUDIO:
-        return <ImageStudio profile={profile} onImageGenerated={handleProfileRefresh} />;
+        return <ImageStudio profile={profile} onImageGenerated={handleProfileRefresh} onGeneratingChange={setIsGeneratingImage} />;
       case AppView.IMAGE_HISTORY:
         return profile ? <ImageHistory userId={profile.id} /> : null;
       case AppView.ADMIN_DASHBOARD:
@@ -287,6 +289,9 @@ const Index = () => {
           {renderView()}
         </div>
       </main>
+
+      {/* Global Image Generation Status */}
+      <ImageGenerationStatus isGenerating={isGeneratingImage} />
     </div>
   );
 };

@@ -15,12 +15,13 @@ interface ImageStudioProps {
         image_limit: number;
     } | null;
     onImageGenerated?: () => void;
+    onGeneratingChange?: (isGenerating: boolean) => void;
 }
 
 type AspectRatio = '1:1' | '16:9' | '9:16';
 type GenerationMode = 't2i' | 'i2i' | 'edit';
 
-const ImageStudio: React.FC<ImageStudioProps> = ({ profile, onImageGenerated }) => {
+const ImageStudio: React.FC<ImageStudioProps> = ({ profile, onImageGenerated, onGeneratingChange }) => {
     const [mode, setMode] = useState<GenerationMode>('t2i');
     const [prompt, setPrompt] = useState('');
     const [aspectRatio, setAspectRatio] = useState<AspectRatio>('1:1');
@@ -115,6 +116,7 @@ const ImageStudio: React.FC<ImageStudioProps> = ({ profile, onImageGenerated }) 
         lastGenerateTimeRef.current = now;
 
         setIsGenerating(true);
+        onGeneratingChange?.(true); // Notify parent of generation start
         setGeneratedImage(null);
 
         // Show persistent loading toast
@@ -155,6 +157,7 @@ const ImageStudio: React.FC<ImageStudioProps> = ({ profile, onImageGenerated }) 
             toast.error(error.message || 'Gagal menjana imej');
         } finally {
             setIsGenerating(false);
+            onGeneratingChange?.(false); // Notify parent of generation end
             sessionStorage.removeItem('image_generating');
         }
     };
