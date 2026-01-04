@@ -40,6 +40,7 @@ const HistoryVault: React.FC<HistoryVaultProps> = ({ userProfile }) => {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [previewVideo, setPreviewVideo] = useState<string | null>(null);
+  const [previewVideoData, setPreviewVideoData] = useState<VideoGeneration | null>(null); // Store full video data for prompt
   const [loadingUrl, setLoadingUrl] = useState<string | null>(null);
   const [isSyncing, setIsSyncing] = useState(false);
 
@@ -490,6 +491,7 @@ const HistoryVault: React.FC<HistoryVaultProps> = ({ userProfile }) => {
     if (!video.geminigen_uuid) {
       if (video.video_url) {
         setPreviewVideo(video.video_url);
+        setPreviewVideoData(video); // Store video data for prompt display
       } else {
         toast.error('Video tidak mempunyai UUID untuk mendapatkan URL');
       }
@@ -504,8 +506,10 @@ const HistoryVault: React.FC<HistoryVaultProps> = ({ userProfile }) => {
 
     if (videoUrl) {
       setPreviewVideo(videoUrl);
+      setPreviewVideoData(video); // Store video data for prompt display
     } else if (video.video_url) {
       setPreviewVideo(video.video_url);
+      setPreviewVideoData(video);
     } else {
       toast.error('Gagal mendapatkan URL video');
     }
@@ -935,11 +939,11 @@ const HistoryVault: React.FC<HistoryVaultProps> = ({ userProfile }) => {
       {previewVideo && (
         <div
           className="fixed inset-0 z-50 bg-black/90 flex items-center justify-center p-4"
-          onClick={() => setPreviewVideo(null)}
+          onClick={() => { setPreviewVideo(null); setPreviewVideoData(null); }}
         >
           <div className="relative max-w-4xl w-full" onClick={e => e.stopPropagation()}>
             <button
-              onClick={() => setPreviewVideo(null)}
+              onClick={() => { setPreviewVideo(null); setPreviewVideoData(null); }}
               className="absolute -top-10 sm:-top-12 right-0 text-white hover:text-primary transition-colors"
             >
               <svg className="w-6 h-6 sm:w-8 sm:h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -951,8 +955,37 @@ const HistoryVault: React.FC<HistoryVaultProps> = ({ userProfile }) => {
               controls
               autoPlay
               playsInline
-              className="w-full rounded-xl max-h-[80vh]"
+              className="w-full rounded-xl max-h-[70vh]"
             />
+
+            {/* Prompt Display Section */}
+            {previewVideoData && (
+              <div className="mt-4 p-4 rounded-xl bg-slate-900/90 border border-slate-700/50">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="flex-1">
+                    <p className="text-xs text-slate-400 uppercase font-bold tracking-wider mb-1">Prompt</p>
+                    <p className="text-sm text-white leading-relaxed">{previewVideoData.prompt}</p>
+                  </div>
+                  <button
+                    onClick={() => {
+                      navigator.clipboard.writeText(previewVideoData.prompt);
+                      toast.success('Prompt berjaya disalin!');
+                    }}
+                    className="flex-shrink-0 flex items-center gap-1.5 px-3 py-2 rounded-lg bg-primary/20 hover:bg-primary/30 text-primary text-xs font-bold transition-all active:scale-95"
+                  >
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                    </svg>
+                    Copy
+                  </button>
+                </div>
+                <div className="mt-2 flex items-center gap-3 text-xs text-slate-500">
+                  <span>{previewVideoData.duration}s</span>
+                  <span>•</span>
+                  <span className="capitalize">{previewVideoData.aspect_ratio}</span>
+                </div>
+              </div>
+            )}
           </div>
         </div>
       )}
