@@ -938,54 +938,69 @@ const HistoryVault: React.FC<HistoryVaultProps> = ({ userProfile }) => {
       {/* Video Preview Modal */}
       {previewVideo && (
         <div
-          className="fixed inset-0 z-50 bg-black/90 flex items-center justify-center p-4"
+          className="fixed inset-0 z-50 bg-black/95 overflow-y-auto"
           onClick={() => { setPreviewVideo(null); setPreviewVideoData(null); }}
+          style={{ WebkitOverflowScrolling: 'touch' }}
         >
-          <div className="relative max-w-4xl w-full" onClick={e => e.stopPropagation()}>
-            <button
-              onClick={() => { setPreviewVideo(null); setPreviewVideoData(null); }}
-              className="absolute -top-10 sm:-top-12 right-0 text-white hover:text-primary transition-colors"
-            >
-              <svg className="w-6 h-6 sm:w-8 sm:h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-              </svg>
-            </button>
-            <video
-              src={previewVideo}
-              controls
-              autoPlay
-              playsInline
-              className="w-full rounded-xl max-h-[70vh]"
-            />
+          <div className="min-h-full flex flex-col items-center justify-start sm:justify-center p-3 sm:p-4 pt-12 sm:pt-4">
+            <div className="relative max-w-4xl w-full" onClick={e => e.stopPropagation()}>
+              {/* Close Button - Fixed position */}
+              <button
+                onClick={() => { setPreviewVideo(null); setPreviewVideoData(null); }}
+                className="fixed top-3 right-3 sm:absolute sm:top-auto sm:-top-10 sm:right-0 z-10 bg-black/50 sm:bg-transparent p-2 rounded-full text-white hover:text-primary transition-colors"
+              >
+                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
 
-            {/* Prompt Display Section */}
-            {previewVideoData && (
-              <div className="mt-4 p-4 rounded-xl bg-slate-900/90 border border-slate-700/50">
-                <div className="flex items-start justify-between gap-3">
-                  <div className="flex-1">
-                    <p className="text-xs text-slate-400 uppercase font-bold tracking-wider mb-1">Prompt</p>
-                    <p className="text-sm text-white leading-relaxed">{previewVideoData.prompt}</p>
+              {/* Video */}
+              <video
+                src={previewVideo}
+                controls
+                autoPlay
+                playsInline
+                className="w-full rounded-xl"
+                style={{ maxHeight: 'calc(100vh - 200px)' }}
+              />
+
+              {/* Collapsible Prompt Display Section */}
+              {previewVideoData && (
+                <details className="mt-3 group" open={false}>
+                  <summary className="cursor-pointer list-none p-3 rounded-xl bg-slate-800/90 border border-slate-700/50 flex items-center justify-between gap-3 select-none">
+                    <div className="flex items-center gap-2">
+                      <svg className="w-4 h-4 text-slate-400 group-open:rotate-180 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                      </svg>
+                      <span className="text-xs text-slate-400 font-bold uppercase tracking-wider">Lihat Prompt</span>
+                      <span className="text-[10px] text-slate-500 hidden sm:inline">({previewVideoData.duration}s • {previewVideoData.aspect_ratio})</span>
+                    </div>
+                    <button
+                      onClick={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        navigator.clipboard.writeText(previewVideoData.prompt);
+                        toast.success('Prompt berjaya disalin!');
+                      }}
+                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-primary/20 hover:bg-primary/30 text-primary text-xs font-bold transition-all active:scale-95"
+                    >
+                      <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                      </svg>
+                      Copy
+                    </button>
+                  </summary>
+                  <div className="mt-2 p-4 rounded-xl bg-slate-900/90 border border-slate-700/50 max-h-[40vh] overflow-y-auto" style={{ WebkitOverflowScrolling: 'touch' }}>
+                    <p className="text-sm text-white leading-relaxed whitespace-pre-wrap">{previewVideoData.prompt}</p>
+                    <div className="mt-3 pt-3 border-t border-slate-700/30 flex items-center gap-3 text-xs text-slate-500">
+                      <span>{previewVideoData.duration}s</span>
+                      <span>•</span>
+                      <span className="capitalize">{previewVideoData.aspect_ratio}</span>
+                    </div>
                   </div>
-                  <button
-                    onClick={() => {
-                      navigator.clipboard.writeText(previewVideoData.prompt);
-                      toast.success('Prompt berjaya disalin!');
-                    }}
-                    className="flex-shrink-0 flex items-center gap-1.5 px-3 py-2 rounded-lg bg-primary/20 hover:bg-primary/30 text-primary text-xs font-bold transition-all active:scale-95"
-                  >
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
-                    </svg>
-                    Copy
-                  </button>
-                </div>
-                <div className="mt-2 flex items-center gap-3 text-xs text-slate-500">
-                  <span>{previewVideoData.duration}s</span>
-                  <span>•</span>
-                  <span className="capitalize">{previewVideoData.aspect_ratio}</span>
-                </div>
-              </div>
-            )}
+                </details>
+              )}
+            </div>
           </div>
         </div>
       )}
