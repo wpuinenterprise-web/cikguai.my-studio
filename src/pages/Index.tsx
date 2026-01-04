@@ -8,6 +8,7 @@ import HistoryVault from '@/components/HistoryVault';
 import ImageStudio from '@/components/ImageStudio';
 import ImageHistory from '@/components/ImageHistory';
 import AdminDashboard from '@/components/AdminDashboard';
+import AutomationDashboard from '@/components/AutomationDashboard';
 import AuthView from '@/components/AuthView';
 import AnimatedBackground from '@/components/AnimatedBackground';
 import ImageGenerationStatus from '@/components/ImageGenerationStatus';
@@ -144,6 +145,8 @@ const Index = () => {
         return profile ? <ImageHistory userId={profile.id} /> : null;
       case AppView.ADMIN_DASHBOARD:
         return profile?.is_admin ? <AdminDashboard /> : <SoraStudio userProfile={profile!} onProfileRefresh={handleProfileRefresh} />;
+      case AppView.AUTOMATION:
+        return profile?.is_admin ? <AutomationDashboard userProfile={profile} /> : <SoraStudio userProfile={profile!} onProfileRefresh={handleProfileRefresh} />;
       default:
         return <SoraStudio userProfile={profile!} onProfileRefresh={handleProfileRefresh} />;
     }
