@@ -29,7 +29,7 @@ serve(async (req) => {
     const { data: { user }, error: authError } = await supabase.auth.getUser(
       authHeader.replace('Bearer ', '')
     );
-    
+
     if (authError || !user) {
       throw new Error('Unauthorized');
     }
@@ -89,16 +89,23 @@ serve(async (req) => {
 
     // Always sync to database if video_id is provided
     if (video_id) {
+      // First, get the current status to check if this is first completion
+      const { data: currentVideo } = await supabase
+        .from('video_generations')
+        .select('status, user_id')
+        .eq('id', video_id)
+        .single();
+
       const updateData: Record<string, unknown> = {
         status_percentage: statusPercentage,
         updated_at: new Date().toISOString(),
       };
-      
+
       // Only update status if completed or failed
       if (status === 'completed' || status === 'failed') {
         updateData.status = status;
       }
-      
+
       if (videoUrl) updateData.video_url = videoUrl;
       if (thumbnailUrl) updateData.thumbnail_url = thumbnailUrl;
 
@@ -111,6 +118,33 @@ serve(async (req) => {
         console.error('Failed to update video in database:', updateError);
       } else {
         console.log('Video synced to database:', video_id, status, statusPercentage + '%');
+      }
+
+      // Increment user's limit ONLY when status changes from processing to completed
+      // This prevents limit being deducted on failed generations
+      if (status === 'completed' && currentVideo && currentVideo.status === 'processing') {
+        // Fetch current profile to get accurate count
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('videos_used, total_videos_generated')
+          .eq('id', currentVideo.user_id)
+          .single();
+
+        if (profile) {
+          const { error: incrementError } = await supabase
+            .from('profiles')
+            .update({
+              videos_used: profile.videos_used + 1,
+              total_videos_generated: (profile.total_videos_generated || 0) + 1
+            })
+            .eq('id', currentVideo.user_id);
+
+          if (incrementError) {
+            console.error('Failed to increment video limit:', incrementError);
+          } else {
+            console.log('Video limit incremented for user:', currentVideo.user_id);
+          }
+        }
       }
     }
 
@@ -133,9 +167,9 @@ serve(async (req) => {
     console.error('Error in check-video-status function:', error);
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
     return new Response(
-      JSON.stringify({ 
-        success: false, 
-        error: errorMessage 
+      JSON.stringify({
+        success: false,
+        error: errorMessage
       }),
       {
         status: 400,

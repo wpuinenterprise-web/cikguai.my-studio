@@ -151,16 +151,10 @@ serve(async (req) => {
       console.log('Updated video with geminigen_uuid:', geminigenData.uuid);
     }
 
-    // Increment user's video count (both used and total)
-    await supabase
-      .from('profiles')
-      .update({
-        videos_used: profile.videos_used + 1,
-        total_videos_generated: (profile.total_videos_generated || 0) + 1
-      })
-      .eq('id', user.id);
-
-    console.log('Video generation initiated successfully');
+    // NOTE: videos_used is NOT incremented here anymore
+    // It will be incremented in check-video-status when video actually completes
+    // This prevents users losing quota when generation fails
+    console.log('Video generation initiated successfully (limit will be counted on completion)');
 
     return new Response(
       JSON.stringify({
