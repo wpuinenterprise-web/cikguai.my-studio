@@ -146,7 +146,7 @@ const Index = () => {
       case AppView.ADMIN_DASHBOARD:
         return profile?.is_admin ? <AdminDashboard /> : <SoraStudio userProfile={profile!} onProfileRefresh={handleProfileRefresh} />;
       case AppView.AUTOMATION:
-        return profile?.is_admin ? <AutomationDashboard userProfile={profile} /> : <SoraStudio userProfile={profile!} onProfileRefresh={handleProfileRefresh} />;
+        return profile ? <AutomationDashboard userProfile={profile} /> : <SoraStudio userProfile={profile!} onProfileRefresh={handleProfileRefresh} />;
       default:
         return <SoraStudio userProfile={profile!} onProfileRefresh={handleProfileRefresh} />;
     }
