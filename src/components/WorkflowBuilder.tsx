@@ -22,7 +22,10 @@ import {
     Youtube,
     Sparkles,
     ChevronRight,
-    ChevronLeft
+    ChevronLeft,
+    Upload,
+    Key,
+    Wand2
 } from 'lucide-react';
 
 interface WorkflowBuilderProps {
@@ -46,6 +49,10 @@ interface WorkflowFormData {
     hourOfDay: number;
     minuteOfHour: number;
     platforms: SocialPlatform[];
+    productImageUrl: string;
+    useI2V: boolean;
+    openaiApiKey: string;
+    autoGeneratePrompt: boolean;
 }
 
 const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({
@@ -71,7 +78,13 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({
         hourOfDay: 9,
         minuteOfHour: 0,
         platforms: ['telegram'],
+        productImageUrl: '',
+        useI2V: false,
+        openaiApiKey: '',
+        autoGeneratePrompt: false,
     });
+
+    const [uploading, setUploading] = useState(false);
 
     const updateField = (field: keyof WorkflowFormData, value: any) => {
         setFormData(prev => ({ ...prev, [field]: value }));
@@ -84,6 +97,51 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({
                 ? prev.platforms.filter(p => p !== platform)
                 : [...prev.platforms, platform]
         }));
+    };
+
+    // Handle product image upload
+    const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+
+        setUploading(true);
+        try {
+            const fileExt = file.name.split('.').pop();
+            const fileName = `${userProfile.id}/${Date.now()}.${fileExt}`;
+
+            const { data, error } = await supabase.storage
+                .from('product-images')
+                .upload(fileName, file);
+
+            if (error) throw error;
+
+            const { data: { publicUrl } } = supabase.storage
+                .from('product-images')
+                .getPublicUrl(fileName);
+
+            updateField('productImageUrl', publicUrl);
+            toast.success('Gambar produk berjaya dimuat naik!');
+        } catch (error) {
+            console.error('Error uploading image:', error);
+            toast.error('Gagal memuat naik gambar');
+        } finally {
+            setUploading(false);
+        }
+    };
+
+    // Save OpenAI API key to user profile
+    const saveApiKey = async () => {
+        if (!formData.openaiApiKey) return;
+
+        try {
+            await supabase
+                .from('profiles')
+                .update({ openai_api_key: formData.openaiApiKey })
+                .eq('id', userProfile.id);
+            toast.success('API Key disimpan!');
+        } catch (error) {
+            console.error('Error saving API key:', error);
+        }
     };
 
     // Generate prompt template from product details
@@ -275,6 +333,113 @@ ${formData.productDescription}
                                             className="mt-1 bg-slate-800/50"
                                         />
                                     </div>
+
+                                    {/* Product Image Upload */}
+                                    <div className="p-4 rounded-xl bg-gradient-to-r from-purple-500/10 to-pink-500/10 border border-purple-500/30">
+                                        <div className="flex items-center gap-2 mb-3">
+                                            <Upload className="w-5 h-5 text-purple-400" />
+                                            <Label className="text-sm font-bold text-purple-400">
+                                                Gambar Produk (untuk I2V)
+                                            </Label>
+                                        </div>
+
+                                        {formData.productImageUrl ? (
+                                            <div className="relative">
+                                                <img
+                                                    src={formData.productImageUrl}
+                                                    alt="Product"
+                                                    className="w-full h-40 object-cover rounded-lg"
+                                                />
+                                                <button
+                                                    onClick={() => updateField('productImageUrl', '')}
+                                                    className="absolute top-2 right-2 p-1 bg-red-500 rounded-full"
+                                                >
+                                                    <X className="w-4 h-4 text-white" />
+                                                </button>
+                                            </div>
+                                        ) : (
+                                            <label className="flex flex-col items-center justify-center w-full h-32 border-2 border-dashed border-purple-500/30 rounded-xl cursor-pointer hover:border-purple-500/50 transition-all">
+                                                <input
+                                                    type="file"
+                                                    accept="image/*"
+                                                    onChange={handleImageUpload}
+                                                    className="hidden"
+                                                    disabled={uploading}
+                                                />
+                                                {uploading ? (
+                                                    <Loader2 className="w-8 h-8 animate-spin text-purple-400" />
+                                                ) : (
+                                                    <>
+                                                        <Upload className="w-8 h-8 text-purple-400 mb-2" />
+                                                        <p className="text-xs text-muted-foreground">Klik untuk upload gambar produk</p>
+                                                    </>
+                                                )}
+                                            </label>
+                                        )}
+
+                                        {/* I2V Toggle */}
+                                        <div className="mt-3 flex items-center justify-between">
+                                            <div>
+                                                <p className="text-sm font-medium">Guna Image-to-Video (I2V)</p>
+                                                <p className="text-xs text-muted-foreground">Generate video dari gambar produk</p>
+                                            </div>
+                                            <button
+                                                onClick={() => updateField('useI2V', !formData.useI2V)}
+                                                className={`w-12 h-6 rounded-full transition-all ${formData.useI2V ? 'bg-purple-500' : 'bg-slate-700'}`}
+                                            >
+                                                <div className={`w-5 h-5 rounded-full bg-white transition-transform ${formData.useI2V ? 'translate-x-6' : 'translate-x-0.5'}`} />
+                                            </button>
+                                        </div>
+                                    </div>
+
+                                    {/* OpenAI API Key Section */}
+                                    <div className="p-4 rounded-xl bg-gradient-to-r from-green-500/10 to-emerald-500/10 border border-green-500/30">
+                                        <div className="flex items-center gap-2 mb-3">
+                                            <Key className="w-5 h-5 text-green-400" />
+                                            <Label className="text-sm font-bold text-green-400">
+                                                OpenAI API Key (Optional)
+                                            </Label>
+                                        </div>
+                                        <p className="text-xs text-muted-foreground mb-3">
+                                            Masukkan API key anda untuk auto-generate prompt yang lebih baik dengan AI
+                                        </p>
+                                        <div className="flex gap-2">
+                                            <Input
+                                                type="password"
+                                                placeholder="sk-..."
+                                                value={formData.openaiApiKey}
+                                                onChange={(e) => updateField('openaiApiKey', e.target.value)}
+                                                className="flex-1 bg-slate-800/50"
+                                            />
+                                            <Button
+                                                variant="outline"
+                                                size="sm"
+                                                onClick={saveApiKey}
+                                                disabled={!formData.openaiApiKey}
+                                                className="border-green-500/30 text-green-400"
+                                            >
+                                                Simpan
+                                            </Button>
+                                        </div>
+
+                                        {/* Auto Generate Toggle */}
+                                        <div className="mt-3 flex items-center justify-between">
+                                            <div>
+                                                <p className="text-sm font-medium flex items-center gap-1">
+                                                    <Wand2 className="w-4 h-4" />
+                                                    Auto-Generate Prompt
+                                                </p>
+                                                <p className="text-xs text-muted-foreground">AI akan buat prompt automatik</p>
+                                            </div>
+                                            <button
+                                                onClick={() => updateField('autoGeneratePrompt', !formData.autoGeneratePrompt)}
+                                                className={`w-12 h-6 rounded-full transition-all ${formData.autoGeneratePrompt ? 'bg-green-500' : 'bg-slate-700'}`}
+                                                disabled={!formData.openaiApiKey}
+                                            >
+                                                <div className={`w-5 h-5 rounded-full bg-white transition-transform ${formData.autoGeneratePrompt ? 'translate-x-6' : 'translate-x-0.5'}`} />
+                                            </button>
+                                        </div>
+                                    </div>
                                 </div>
                             </div>
                         )}
@@ -296,8 +461,8 @@ ${formData.productDescription}
                                         <button
                                             onClick={() => updateField('contentType', 'video')}
                                             className={`p-4 rounded-xl border-2 transition-all ${formData.contentType === 'video'
-                                                    ? 'border-primary bg-primary/10'
-                                                    : 'border-slate-700 hover:border-slate-600'
+                                                ? 'border-primary bg-primary/10'
+                                                : 'border-slate-700 hover:border-slate-600'
                                                 }`}
                                         >
                                             <Video className={`w-8 h-8 mx-auto mb-2 ${formData.contentType === 'video' ? 'text-primary' : 'text-muted-foreground'}`} />
@@ -307,8 +472,8 @@ ${formData.productDescription}
                                         <button
                                             onClick={() => updateField('contentType', 'image')}
                                             className={`p-4 rounded-xl border-2 transition-all ${formData.contentType === 'image'
-                                                    ? 'border-primary bg-primary/10'
-                                                    : 'border-slate-700 hover:border-slate-600'
+                                                ? 'border-primary bg-primary/10'
+                                                : 'border-slate-700 hover:border-slate-600'
                                                 }`}
                                         >
                                             <Image className={`w-8 h-8 mx-auto mb-2 ${formData.contentType === 'image' ? 'text-primary' : 'text-muted-foreground'}`} />
@@ -331,8 +496,8 @@ ${formData.productDescription}
                                                 key={ratio.id}
                                                 onClick={() => updateField('aspectRatio', ratio.id)}
                                                 className={`p-3 rounded-xl border-2 transition-all text-center ${formData.aspectRatio === ratio.id
-                                                        ? 'border-primary bg-primary/10'
-                                                        : 'border-slate-700 hover:border-slate-600'
+                                                    ? 'border-primary bg-primary/10'
+                                                    : 'border-slate-700 hover:border-slate-600'
                                                     }`}
                                             >
                                                 <p className="font-bold text-sm">{ratio.label}</p>
@@ -352,8 +517,8 @@ ${formData.productDescription}
                                                     key={dur}
                                                     onClick={() => updateField('duration', dur)}
                                                     className={`p-3 rounded-xl border-2 transition-all ${formData.duration === dur
-                                                            ? 'border-primary bg-primary/10'
-                                                            : 'border-slate-700 hover:border-slate-600'
+                                                        ? 'border-primary bg-primary/10'
+                                                        : 'border-slate-700 hover:border-slate-600'
                                                         }`}
                                                 >
                                                     <p className="font-bold text-lg">{dur}s</p>
@@ -372,8 +537,8 @@ ${formData.productDescription}
                                                 key={style.id}
                                                 onClick={() => updateField('contentStyle', style.id)}
                                                 className={`p-3 rounded-xl border-2 transition-all text-left ${formData.contentStyle === style.id
-                                                        ? 'border-primary bg-primary/10'
-                                                        : 'border-slate-700 hover:border-slate-600'
+                                                    ? 'border-primary bg-primary/10'
+                                                    : 'border-slate-700 hover:border-slate-600'
                                                     }`}
                                             >
                                                 <p className="font-bold text-sm">{style.label}</p>
@@ -402,8 +567,8 @@ ${formData.productDescription}
                                         <button
                                             onClick={() => updateField('scheduleType', 'daily')}
                                             className={`p-4 rounded-xl border-2 transition-all ${formData.scheduleType === 'daily'
-                                                    ? 'border-primary bg-primary/10'
-                                                    : 'border-slate-700 hover:border-slate-600'
+                                                ? 'border-primary bg-primary/10'
+                                                : 'border-slate-700 hover:border-slate-600'
                                                 }`}
                                         >
                                             <Calendar className={`w-6 h-6 mx-auto mb-2 ${formData.scheduleType === 'daily' ? 'text-primary' : 'text-muted-foreground'}`} />
@@ -413,8 +578,8 @@ ${formData.productDescription}
                                         <button
                                             onClick={() => updateField('scheduleType', 'hourly')}
                                             className={`p-4 rounded-xl border-2 transition-all ${formData.scheduleType === 'hourly'
-                                                    ? 'border-primary bg-primary/10'
-                                                    : 'border-slate-700 hover:border-slate-600'
+                                                ? 'border-primary bg-primary/10'
+                                                : 'border-slate-700 hover:border-slate-600'
                                                 }`}
                                         >
                                             <Clock className={`w-6 h-6 mx-auto mb-2 ${formData.scheduleType === 'hourly' ? 'text-primary' : 'text-muted-foreground'}`} />
@@ -483,8 +648,8 @@ ${formData.productDescription}
                                     <button
                                         onClick={() => togglePlatform('telegram')}
                                         className={`w-full p-4 rounded-xl border-2 transition-all flex items-center gap-4 ${formData.platforms.includes('telegram')
-                                                ? 'border-blue-500 bg-blue-500/10'
-                                                : 'border-slate-700 hover:border-slate-600'
+                                            ? 'border-blue-500 bg-blue-500/10'
+                                            : 'border-slate-700 hover:border-slate-600'
                                             }`}
                                     >
                                         <div className="w-12 h-12 rounded-xl bg-blue-500/20 flex items-center justify-center">
@@ -503,8 +668,8 @@ ${formData.productDescription}
                                     <button
                                         onClick={() => togglePlatform('facebook')}
                                         className={`w-full p-4 rounded-xl border-2 transition-all flex items-center gap-4 ${formData.platforms.includes('facebook')
-                                                ? 'border-blue-600 bg-blue-600/10'
-                                                : 'border-slate-700 hover:border-slate-600'
+                                            ? 'border-blue-600 bg-blue-600/10'
+                                            : 'border-slate-700 hover:border-slate-600'
                                             }`}
                                     >
                                         <div className="w-12 h-12 rounded-xl bg-blue-600/20 flex items-center justify-center">
@@ -523,8 +688,8 @@ ${formData.productDescription}
                                     <button
                                         onClick={() => togglePlatform('instagram')}
                                         className={`w-full p-4 rounded-xl border-2 transition-all flex items-center gap-4 ${formData.platforms.includes('instagram')
-                                                ? 'border-pink-500 bg-pink-500/10'
-                                                : 'border-slate-700 hover:border-slate-600'
+                                            ? 'border-pink-500 bg-pink-500/10'
+                                            : 'border-slate-700 hover:border-slate-600'
                                             }`}
                                     >
                                         <div className="w-12 h-12 rounded-xl bg-pink-500/20 flex items-center justify-center">
@@ -543,8 +708,8 @@ ${formData.productDescription}
                                     <button
                                         onClick={() => togglePlatform('youtube')}
                                         className={`w-full p-4 rounded-xl border-2 transition-all flex items-center gap-4 ${formData.platforms.includes('youtube')
-                                                ? 'border-red-500 bg-red-500/10'
-                                                : 'border-slate-700 hover:border-slate-600'
+                                            ? 'border-red-500 bg-red-500/10'
+                                            : 'border-slate-700 hover:border-slate-600'
                                             }`}
                                     >
                                         <div className="w-12 h-12 rounded-xl bg-red-500/20 flex items-center justify-center">
