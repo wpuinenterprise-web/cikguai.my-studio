@@ -11,6 +11,7 @@ import {
     SocialMediaAccount,
     UserProfile
 } from '@/types';
+import WorkflowBuilder from '@/components/WorkflowBuilder';
 import {
     Loader2,
     Plus,
@@ -39,6 +40,7 @@ const AutomationDashboard: React.FC<AutomationDashboardProps> = ({ userProfile }
     const [socialAccounts, setSocialAccounts] = useState<SocialMediaAccount[]>([]);
     const [loading, setLoading] = useState(true);
     const [activeTab, setActiveTab] = useState<'overview' | 'workflows' | 'queue' | 'accounts'>('overview');
+    const [showBuilder, setShowBuilder] = useState(false);
 
     // Stats
     const [stats, setStats] = useState({
@@ -247,7 +249,7 @@ const AutomationDashboard: React.FC<AutomationDashboardProps> = ({ userProfile }
                             </CardHeader>
                             <CardContent>
                                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                                    <Button className="justify-start gap-2" variant="outline">
+                                    <Button className="justify-start gap-2" variant="outline" onClick={() => setShowBuilder(true)}>
                                         <Plus className="w-4 h-4" />
                                         Buat Workflow Baru
                                     </Button>
@@ -333,7 +335,7 @@ const AutomationDashboard: React.FC<AutomationDashboardProps> = ({ userProfile }
                         <Card className="bg-slate-900/50 border-slate-700/50">
                             <CardHeader className="flex flex-row items-center justify-between">
                                 <CardTitle className="text-lg">Workflows</CardTitle>
-                                <Button size="sm" className="gap-2">
+                                <Button size="sm" className="gap-2" onClick={() => setShowBuilder(true)}>
                                     <Plus className="w-4 h-4" />
                                     Baru
                                 </Button>
@@ -346,7 +348,7 @@ const AutomationDashboard: React.FC<AutomationDashboardProps> = ({ userProfile }
                                         <p className="text-muted-foreground text-sm mb-4">
                                             Buat workflow pertama anda untuk mula automasikan posting
                                         </p>
-                                        <Button className="gap-2">
+                                        <Button className="gap-2" onClick={() => setShowBuilder(true)}>
                                             <Plus className="w-4 h-4" />
                                             Buat Workflow Pertama
                                         </Button>
@@ -544,6 +546,18 @@ const AutomationDashboard: React.FC<AutomationDashboardProps> = ({ userProfile }
                     </div>
                 )}
             </div>
+
+            {/* Workflow Builder Modal */}
+            {showBuilder && (
+                <WorkflowBuilder
+                    userProfile={userProfile}
+                    onClose={() => setShowBuilder(false)}
+                    onSuccess={() => {
+                        setShowBuilder(false);
+                        loadData();
+                    }}
+                />
+            )}
         </div>
     );
 };
