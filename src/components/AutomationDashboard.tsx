@@ -162,6 +162,37 @@ const AutomationDashboard: React.FC<AutomationDashboardProps> = ({ userProfile }
                     </p>
                 </div>
 
+                {/* Coming Soon Banner for Non-Admin Users */}
+                {!userProfile?.is_admin && (
+                    <div className="mb-6 p-5 rounded-2xl bg-gradient-to-r from-amber-500/20 via-orange-500/20 to-amber-500/20 border border-amber-500/30 animate-fade-in">
+                        <div className="flex items-start gap-4">
+                            <div className="w-12 h-12 rounded-xl bg-amber-500/30 flex items-center justify-center flex-shrink-0">
+                                <AlertCircle className="w-6 h-6 text-amber-400" />
+                            </div>
+                            <div className="flex-1">
+                                <h3 className="text-lg font-bold text-amber-400 mb-1">
+                                    🚧 Sistem Dalam Pembinaan
+                                </h3>
+                                <p className="text-sm text-amber-200/80 mb-3">
+                                    Ciri-ciri automation ini sedang dibangunkan dan akan tersedia tidak lama lagi!
+                                </p>
+                                <div className="p-3 rounded-xl bg-amber-500/10 border border-amber-500/20">
+                                    <p className="text-xs text-amber-300 font-medium">
+                                        💡 Untuk mengaktifkan automation penuh, anda perlu subscribe pakej bulanan.
+                                        Nantikan pengumuman rasmi kami!
+                                    </p>
+                                </div>
+                                <div className="mt-3 flex items-center gap-2">
+                                    <span className="text-xs text-muted-foreground">Status:</span>
+                                    <Badge className="bg-amber-500/20 text-amber-400 border-amber-500/30">
+                                        Preview Mode
+                                    </Badge>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                )}
+
                 {/* Stats Cards */}
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">
                     <Card className="bg-slate-900/50 border-slate-700/50">
