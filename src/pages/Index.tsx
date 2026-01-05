@@ -276,6 +276,13 @@ const Index = () => {
             >
               Galeri
             </button>
+            <button
+              onClick={() => setActiveView(AppView.AUTOMATION)}
+              className={`flex-1 min-w-[80px] py-3 rounded-xl transition-all border font-black text-[10px] uppercase tracking-widest ${activeView === AppView.AUTOMATION ? 'bg-amber-500/10 border-amber-500/40 text-amber-400 shadow-[0_0_15px_rgba(245,158,11,0.1)]' : 'bg-slate-900/50 border-slate-800 text-slate-500'
+                }`}
+            >
+              Auto
+            </button>
             {profile.is_admin && (
               <button
                 onClick={() => setActiveView(AppView.ADMIN_DASHBOARD)}
