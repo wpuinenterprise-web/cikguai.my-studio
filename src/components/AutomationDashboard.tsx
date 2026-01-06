@@ -204,7 +204,7 @@ const AutomationDashboard: React.FC<AutomationDashboardProps> = ({ userProfile }
                 .select('id')
                 .eq('user_id', userProfile.id)
                 .eq('platform', 'telegram')
-                .single();
+                .maybeSingle();
 
             const extraData = {
                 chat_id: telegramChatId.trim(),
@@ -364,7 +364,7 @@ const AutomationDashboard: React.FC<AutomationDashboardProps> = ({ userProfile }
                         .eq('queue_id', item.id)
                         .order('posted_at', { ascending: false })
                         .limit(1)
-                        .single();
+                        .maybeSingle();
 
                     if (historyItem) {
                         // Update queue status based on history
