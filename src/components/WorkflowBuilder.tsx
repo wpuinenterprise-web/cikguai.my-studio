@@ -71,10 +71,10 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({
     const [formData, setFormData] = useState<WorkflowFormData>({
         name: editWorkflow?.name || '',
         description: editWorkflow?.description || '',
-        productName: editWorkflow?.name || '', // Use workflow name as product name fallback
-        productDescription: editWorkflow?.description || '',
-        targetAudience: '',
-        contentStyle: 'professional',
+        productName: editWorkflow?.product_name || editWorkflow?.name || '',
+        productDescription: editWorkflow?.product_description || editWorkflow?.description || '',
+        targetAudience: editWorkflow?.target_audience || '',
+        contentStyle: editWorkflow?.content_style || 'professional',
         contentType: editWorkflow?.content_type || 'video',
         aspectRatio: editWorkflow?.aspect_ratio || 'landscape',
         duration: editWorkflow?.duration || 10,
@@ -271,6 +271,10 @@ ${formData.productDescription}
                 duration: formData.duration,
                 product_image_url: formData.productImageUrl || null,
                 cta_type: formData.ctaType,
+                product_name: formData.productName,
+                product_description: formData.productDescription,
+                target_audience: formData.targetAudience,
+                content_style: formData.contentStyle,
             };
 
             let workflowId: string;
