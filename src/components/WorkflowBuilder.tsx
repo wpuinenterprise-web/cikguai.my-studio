@@ -71,8 +71,8 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({
     const [formData, setFormData] = useState<WorkflowFormData>({
         name: editWorkflow?.name || '',
         description: editWorkflow?.description || '',
-        productName: '',
-        productDescription: '',
+        productName: editWorkflow?.name || '', // Use workflow name as product name fallback
+        productDescription: editWorkflow?.description || '',
         targetAudience: '',
         contentStyle: 'professional',
         contentType: editWorkflow?.content_type || 'video',
@@ -82,21 +82,22 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({
         hourOfDay: 9,
         minuteOfHour: 0,
         platforms: ['telegram'],
-        productImageUrl: '',
-        useI2V: false,
+        productImageUrl: editWorkflow?.product_image_url || '',
+        useI2V: !!editWorkflow?.product_image_url,
         openaiApiKey: '',
         autoGeneratePrompt: false,
-        ctaType: 'general',
+        ctaType: editWorkflow?.cta_type || 'general',
     });
 
     const [uploading, setUploading] = useState(false);
 
-    // Auto-Prompt states
-    const [enhancedPrompt, setEnhancedPrompt] = useState('');
-    const [enhancedCaption, setEnhancedCaption] = useState('');
+    // Auto-Prompt states - initialize with existing templates when editing
+    const [enhancedPrompt, setEnhancedPrompt] = useState(editWorkflow?.prompt_template || '');
+    const [enhancedCaption, setEnhancedCaption] = useState(editWorkflow?.caption_template || '');
     const [isEnhancing, setIsEnhancing] = useState(false);
-    const [showPromptPreview, setShowPromptPreview] = useState(false);
+    const [showPromptPreview, setShowPromptPreview] = useState(!!editWorkflow?.prompt_template);
     const [isEditingPrompt, setIsEditingPrompt] = useState(false);
+
 
     const updateField = (field: keyof WorkflowFormData, value: any) => {
         setFormData(prev => ({ ...prev, [field]: value }));
@@ -260,60 +261,91 @@ ${formData.productDescription}
         setSaving(true);
 
         try {
-            // Create workflow
-            const { data: workflow, error: workflowError } = await supabase
-                .from('automation_workflows')
-                .insert({
-                    user_id: userProfile.id,
-                    name: formData.name,
-                    description: formData.description,
-                    content_type: formData.contentType,
-                    prompt_template: generatePromptTemplate(),
-                    caption_template: generateCaptionTemplate(),
-                    aspect_ratio: formData.aspectRatio,
-                    duration: formData.duration,
-                    is_active: true,
-                    product_image_url: formData.productImageUrl || null,
-                    cta_type: formData.ctaType,
-                })
-                .select()
-                .single();
-
-            if (workflowError) throw workflowError;
-
-            // Create schedule
-            // Calculate next run time based on scheduled hour/minute
-            const calculateNextRunAt = () => {
-                const now = new Date();
-                const scheduled = new Date();
-                scheduled.setHours(formData.hourOfDay, formData.minuteOfHour, 0, 0);
-
-                // Subtract 10 minutes for generation buffer
-                scheduled.setMinutes(scheduled.getMinutes() - 10);
-
-                // If scheduled time already passed today, set for tomorrow
-                if (scheduled <= now) {
-                    scheduled.setDate(scheduled.getDate() + 1);
-                }
-
-                return scheduled.toISOString();
+            const workflowData = {
+                name: formData.name,
+                description: formData.description,
+                content_type: formData.contentType,
+                prompt_template: generatePromptTemplate(),
+                caption_template: generateCaptionTemplate(),
+                aspect_ratio: formData.aspectRatio,
+                duration: formData.duration,
+                product_image_url: formData.productImageUrl || null,
+                cta_type: formData.ctaType,
             };
 
-            const { error: scheduleError } = await supabase
-                .from('automation_schedules')
-                .insert({
-                    workflow_id: workflow.id,
-                    schedule_type: formData.scheduleType,
-                    hour_of_day: formData.hourOfDay,
-                    minute_of_hour: formData.minuteOfHour,
-                    timezone: 'Asia/Kuala_Lumpur',
-                    is_active: true,
-                    next_run_at: calculateNextRunAt(),
-                });
+            let workflowId: string;
 
-            if (scheduleError) throw scheduleError;
+            if (editWorkflow) {
+                // UPDATE existing workflow
+                const { error: workflowError } = await supabase
+                    .from('automation_workflows')
+                    .update(workflowData)
+                    .eq('id', editWorkflow.id);
 
-            toast.success('Workflow berjaya dicipta!');
+                if (workflowError) throw workflowError;
+                workflowId = editWorkflow.id;
+
+                // Update schedule
+                await supabase
+                    .from('automation_schedules')
+                    .update({
+                        schedule_type: formData.scheduleType,
+                        hour_of_day: formData.hourOfDay,
+                        minute_of_hour: formData.minuteOfHour,
+                    })
+                    .eq('workflow_id', editWorkflow.id);
+
+                toast.success('Workflow berjaya dikemaskini!');
+            } else {
+                // CREATE new workflow
+                const { data: workflow, error: workflowError } = await supabase
+                    .from('automation_workflows')
+                    .insert({
+                        user_id: userProfile.id,
+                        ...workflowData,
+                        is_active: true,
+                    })
+                    .select()
+                    .single();
+
+                if (workflowError) throw workflowError;
+                workflowId = workflow.id;
+
+                // Create schedule
+                // Calculate next run time based on scheduled hour/minute
+                const calculateNextRunAt = () => {
+                    const now = new Date();
+                    const scheduled = new Date();
+                    scheduled.setHours(formData.hourOfDay, formData.minuteOfHour, 0, 0);
+
+                    // Subtract 10 minutes for generation buffer
+                    scheduled.setMinutes(scheduled.getMinutes() - 10);
+
+                    // If scheduled time already passed today, set for tomorrow
+                    if (scheduled <= now) {
+                        scheduled.setDate(scheduled.getDate() + 1);
+                    }
+
+                    return scheduled.toISOString();
+                };
+
+                const { error: scheduleError } = await supabase
+                    .from('automation_schedules')
+                    .insert({
+                        workflow_id: workflowId,
+                        schedule_type: formData.scheduleType,
+                        hour_of_day: formData.hourOfDay,
+                        minute_of_hour: formData.minuteOfHour,
+                        timezone: 'Asia/Kuala_Lumpur',
+                        is_active: true,
+                        next_run_at: calculateNextRunAt(),
+                    });
+
+                if (scheduleError) throw scheduleError;
+
+                toast.success('Workflow berjaya dicipta!');
+            }
+
             onSuccess();
         } catch (error: any) {
             console.error('Error saving workflow:', error);
