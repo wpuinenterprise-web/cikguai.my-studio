@@ -315,9 +315,10 @@ ${formData.productDescription}
 
             toast.success('Workflow berjaya dicipta!');
             onSuccess();
-        } catch (error) {
+        } catch (error: any) {
             console.error('Error saving workflow:', error);
-            toast.error('Gagal menyimpan workflow');
+            const errorMsg = error?.message || error?.details || 'Unknown error';
+            toast.error(`Gagal menyimpan workflow: ${errorMsg}`);
         } finally {
             setSaving(false);
         }
