@@ -20,15 +20,12 @@ serve(async (req) => {
     }
 
     try {
-        // Get Telegram Bot Token from environment
-        const TELEGRAM_BOT_TOKEN = Deno.env.get('TELEGRAM_BOT_TOKEN');
-        if (!TELEGRAM_BOT_TOKEN) {
-            throw new Error('TELEGRAM_BOT_TOKEN is not configured');
-        }
-
         const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
         const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
         const supabase = createClient(supabaseUrl, supabaseServiceKey);
+
+        // Fallback to environment variable if user doesn't provide bot token
+        const ENV_TELEGRAM_BOT_TOKEN = Deno.env.get('TELEGRAM_BOT_TOKEN');
 
         // Verify user (optional - can be called by scheduler without user auth)
         const authHeader = req.headers.get('authorization');
@@ -43,8 +40,60 @@ serve(async (req) => {
             }
         }
 
-        const body: TelegramPostRequest = await req.json();
-        const { chat_id, content_url, content_type, caption, queue_id } = body;
+        const body = await req.json();
+        let { chat_id, content_url, content_type, caption, queue_id, bot_token } = body;
+
+        // Use bot_token from request, or will be fetched from database later
+        let TELEGRAM_BOT_TOKEN = bot_token;
+
+        // If queue_id is provided, fetch the queue item and telegram account
+        if (queue_id && (!chat_id || !content_url)) {
+            console.log(`Fetching queue item: ${queue_id}`);
+
+            // Get queue item
+            const { data: queueItem, error: queueError } = await supabase
+                .from('automation_posts_queue')
+                .select('*')
+                .eq('id', queue_id)
+                .single();
+
+            if (queueError || !queueItem) {
+                throw new Error('Queue item not found');
+            }
+
+            // Get telegram account
+            const { data: telegramAccount } = await supabase
+                .from('social_media_accounts')
+                .select('extra_data')
+                .eq('user_id', queueItem.user_id)
+                .eq('platform', 'telegram')
+                .eq('is_connected', true)
+                .single();
+
+            if (!telegramAccount?.extra_data?.chat_id) {
+                throw new Error('No Telegram account connected');
+            }
+
+            chat_id = telegramAccount.extra_data.chat_id;
+            content_url = queueItem.content_url;
+            content_type = queueItem.content_type;
+            caption = queueItem.caption;
+            userId = queueItem.user_id;
+
+            // Get bot_token from user's saved account
+            if (!TELEGRAM_BOT_TOKEN && telegramAccount.extra_data.bot_token) {
+                TELEGRAM_BOT_TOKEN = telegramAccount.extra_data.bot_token;
+            }
+
+            if (!content_url) {
+                throw new Error('Queue item has no content URL - video not yet generated');
+            }
+        }
+
+        // Fallback to environment variable if no bot token provided
+        if (!TELEGRAM_BOT_TOKEN) {
+            throw new Error('No Telegram Bot Token configured. Please add your bot token in Telegram settings.');
+        }
 
         if (!chat_id || !content_url || !content_type) {
             throw new Error('Missing required fields: chat_id, content_url, content_type');
@@ -103,6 +152,16 @@ serve(async (req) => {
             };
 
             await supabase.from('automation_post_history').insert(historyEntry);
+
+            // Update queue status
+            await supabase
+                .from('automation_posts_queue')
+                .update({
+                    status: postResult.ok ? 'completed' : 'failed',
+                    completed_at: postResult.ok ? new Date().toISOString() : null,
+                    error_message: postResult.ok ? null : postResult.description
+                })
+                .eq('id', queue_id);
         }
 
         if (!postResult.ok) {

@@ -25,7 +25,10 @@ import {
     ChevronLeft,
     Upload,
     Key,
-    Wand2
+    Wand2,
+    RefreshCw,
+    Edit3,
+    Check
 } from 'lucide-react';
 
 interface WorkflowBuilderProps {
@@ -53,6 +56,7 @@ interface WorkflowFormData {
     useI2V: boolean;
     openaiApiKey: string;
     autoGeneratePrompt: boolean;
+    ctaType: 'fb' | 'tiktok' | 'general';
 }
 
 const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({
@@ -82,9 +86,17 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({
         useI2V: false,
         openaiApiKey: '',
         autoGeneratePrompt: false,
+        ctaType: 'general',
     });
 
     const [uploading, setUploading] = useState(false);
+
+    // Auto-Prompt states
+    const [enhancedPrompt, setEnhancedPrompt] = useState('');
+    const [enhancedCaption, setEnhancedCaption] = useState('');
+    const [isEnhancing, setIsEnhancing] = useState(false);
+    const [showPromptPreview, setShowPromptPreview] = useState(false);
+    const [isEditingPrompt, setIsEditingPrompt] = useState(false);
 
     const updateField = (field: keyof WorkflowFormData, value: any) => {
         setFormData(prev => ({ ...prev, [field]: value }));
@@ -144,8 +156,61 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({
         }
     };
 
+    // Handle Auto-Prompt Enhancement
+    const handleEnhancePrompt = async () => {
+        if (!formData.productName || !formData.productDescription) {
+            toast.error('Sila isi nama dan deskripsi produk terlebih dahulu');
+            return;
+        }
+
+        if (!formData.openaiApiKey) {
+            toast.error('Sila masukkan OpenAI API Key untuk menggunakan Auto-Prompt');
+            return;
+        }
+
+        setIsEnhancing(true);
+        setShowPromptPreview(false);
+
+        try {
+            const { data, error } = await supabase.functions.invoke('enhance-video-prompt', {
+                body: {
+                    productName: formData.productName,
+                    productDescription: formData.productDescription,
+                    targetAudience: formData.targetAudience,
+                    contentStyle: formData.contentStyle,
+                    aspectRatio: formData.aspectRatio,
+                    duration: formData.duration,
+                    openaiApiKey: formData.openaiApiKey,
+                    ctaType: formData.ctaType,
+                    productImageUrl: formData.productImageUrl,
+                }
+            });
+
+            if (error) throw error;
+
+            if (data.success) {
+                setEnhancedPrompt(data.enhancedPrompt);
+                setEnhancedCaption(data.caption);
+                setShowPromptPreview(true);
+                toast.success('✨ Prompt berjaya di-enhance!');
+            } else {
+                throw new Error(data.error || 'Failed to enhance prompt');
+            }
+        } catch (error) {
+            console.error('Error enhancing prompt:', error);
+            toast.error(error instanceof Error ? error.message : 'Gagal enhance prompt');
+        } finally {
+            setIsEnhancing(false);
+        }
+    };
+
     // Generate prompt template from product details
     const generatePromptTemplate = () => {
+        // Use enhanced prompt if available
+        if (enhancedPrompt) {
+            return enhancedPrompt;
+        }
+
         const style = formData.contentStyle === 'professional'
             ? 'professional, clean, corporate style'
             : formData.contentStyle === 'creative'
@@ -166,6 +231,11 @@ Make it visually appealing and suitable for social media marketing. The content 
 
     // Generate caption template
     const generateCaptionTemplate = () => {
+        // Use enhanced caption if available
+        if (enhancedCaption) {
+            return enhancedCaption;
+        }
+
         return `🔥 ${formData.productName}
 
 ${formData.productDescription}
@@ -203,6 +273,8 @@ ${formData.productDescription}
                     aspect_ratio: formData.aspectRatio,
                     duration: formData.duration,
                     is_active: true,
+                    product_image_url: formData.productImageUrl || null,
+                    cta_type: formData.ctaType,
                 })
                 .select()
                 .single();
@@ -210,6 +282,23 @@ ${formData.productDescription}
             if (workflowError) throw workflowError;
 
             // Create schedule
+            // Calculate next run time based on scheduled hour/minute
+            const calculateNextRunAt = () => {
+                const now = new Date();
+                const scheduled = new Date();
+                scheduled.setHours(formData.hourOfDay, formData.minuteOfHour, 0, 0);
+
+                // Subtract 10 minutes for generation buffer
+                scheduled.setMinutes(scheduled.getMinutes() - 10);
+
+                // If scheduled time already passed today, set for tomorrow
+                if (scheduled <= now) {
+                    scheduled.setDate(scheduled.getDate() + 1);
+                }
+
+                return scheduled.toISOString();
+            };
+
             const { error: scheduleError } = await supabase
                 .from('automation_schedules')
                 .insert({
@@ -219,6 +308,7 @@ ${formData.productDescription}
                     minute_of_hour: formData.minuteOfHour,
                     timezone: 'Asia/Kuala_Lumpur',
                     is_active: true,
+                    next_run_at: calculateNextRunAt(),
                 });
 
             if (scheduleError) throw scheduleError;
@@ -392,53 +482,174 @@ ${formData.productDescription}
                                         </div>
                                     </div>
 
-                                    {/* OpenAI API Key Section */}
-                                    <div className="p-4 rounded-xl bg-gradient-to-r from-green-500/10 to-emerald-500/10 border border-green-500/30">
+                                    {/* Auto-Prompt Section */}
+                                    <div className="p-4 rounded-xl bg-gradient-to-r from-violet-500/10 via-purple-500/10 to-pink-500/10 border border-violet-500/30">
                                         <div className="flex items-center gap-2 mb-3">
-                                            <Key className="w-5 h-5 text-green-400" />
-                                            <Label className="text-sm font-bold text-green-400">
-                                                OpenAI API Key (Optional)
+                                            <Sparkles className="w-5 h-5 text-violet-400" />
+                                            <Label className="text-sm font-bold text-violet-400">
+                                                ✨ Auto-Prompt (Sora 2 Style)
                                             </Label>
                                         </div>
-                                        <p className="text-xs text-muted-foreground mb-3">
-                                            Masukkan API key anda untuk auto-generate prompt yang lebih baik dengan AI
+                                        <p className="text-xs text-muted-foreground mb-4">
+                                            AI akan mengembangkan deskripsi produk anda menjadi prompt video yang detail dan menarik
                                         </p>
-                                        <div className="flex gap-2">
-                                            <Input
-                                                type="password"
-                                                placeholder="sk-..."
-                                                value={formData.openaiApiKey}
-                                                onChange={(e) => updateField('openaiApiKey', e.target.value)}
-                                                className="flex-1 bg-slate-800/50"
-                                            />
-                                            <Button
-                                                variant="outline"
-                                                size="sm"
-                                                onClick={saveApiKey}
-                                                disabled={!formData.openaiApiKey}
-                                                className="border-green-500/30 text-green-400"
-                                            >
-                                                Simpan
-                                            </Button>
+
+                                        {/* CTA Type Selection */}
+                                        <div className="mb-4">
+                                            <Label className="text-sm font-medium mb-2 block">Jenis CTA (Call-to-Action)</Label>
+                                            <div className="grid grid-cols-3 gap-2">
+                                                <button
+                                                    type="button"
+                                                    onClick={() => updateField('ctaType', 'fb')}
+                                                    className={`p-3 rounded-lg border text-center text-xs transition-all ${formData.ctaType === 'fb'
+                                                        ? 'bg-blue-500/20 border-blue-500 text-blue-400'
+                                                        : 'bg-slate-800/50 border-slate-700 hover:border-blue-500/50'
+                                                        }`}
+                                                >
+                                                    <Facebook className="w-4 h-4 mx-auto mb-1" />
+                                                    Facebook
+                                                </button>
+                                                <button
+                                                    type="button"
+                                                    onClick={() => updateField('ctaType', 'tiktok')}
+                                                    className={`p-3 rounded-lg border text-center text-xs transition-all ${formData.ctaType === 'tiktok'
+                                                        ? 'bg-pink-500/20 border-pink-500 text-pink-400'
+                                                        : 'bg-slate-800/50 border-slate-700 hover:border-pink-500/50'
+                                                        }`}
+                                                >
+                                                    <Video className="w-4 h-4 mx-auto mb-1" />
+                                                    TikTok
+                                                </button>
+                                                <button
+                                                    type="button"
+                                                    onClick={() => updateField('ctaType', 'general')}
+                                                    className={`p-3 rounded-lg border text-center text-xs transition-all ${formData.ctaType === 'general'
+                                                        ? 'bg-green-500/20 border-green-500 text-green-400'
+                                                        : 'bg-slate-800/50 border-slate-700 hover:border-green-500/50'
+                                                        }`}
+                                                >
+                                                    <Send className="w-4 h-4 mx-auto mb-1" />
+                                                    Umum
+                                                </button>
+                                            </div>
+                                            <p className="text-xs text-muted-foreground mt-2">
+                                                {formData.ctaType === 'fb' && '📘 Klik Learn More, Facebook Shop, PM kami'}
+                                                {formData.ctaType === 'tiktok' && '🛒 Tekan beg kuning, DM untuk tempah, Link di bio'}
+                                                {formData.ctaType === 'general' && '📢 Tempah sekarang, Hubungi kami'}
+                                            </p>
                                         </div>
 
-                                        {/* Auto Generate Toggle */}
-                                        <div className="mt-3 flex items-center justify-between">
-                                            <div>
-                                                <p className="text-sm font-medium flex items-center gap-1">
-                                                    <Wand2 className="w-4 h-4" />
-                                                    Auto-Generate Prompt
-                                                </p>
-                                                <p className="text-xs text-muted-foreground">AI akan buat prompt automatik</p>
+                                        {/* API Key Input */}
+                                        <div className="mb-4">
+                                            <div className="flex items-center gap-2 mb-2">
+                                                <Key className="w-4 h-4 text-green-400" />
+                                                <Label className="text-xs font-medium text-green-400">OpenAI API Key</Label>
                                             </div>
-                                            <button
-                                                onClick={() => updateField('autoGeneratePrompt', !formData.autoGeneratePrompt)}
-                                                className={`w-12 h-6 rounded-full transition-all ${formData.autoGeneratePrompt ? 'bg-green-500' : 'bg-slate-700'}`}
-                                                disabled={!formData.openaiApiKey}
-                                            >
-                                                <div className={`w-5 h-5 rounded-full bg-white transition-transform ${formData.autoGeneratePrompt ? 'translate-x-6' : 'translate-x-0.5'}`} />
-                                            </button>
+                                            <div className="flex gap-2">
+                                                <Input
+                                                    type="password"
+                                                    placeholder="sk-..."
+                                                    value={formData.openaiApiKey}
+                                                    onChange={(e) => updateField('openaiApiKey', e.target.value)}
+                                                    className="flex-1 bg-slate-800/50 text-sm"
+                                                />
+                                                <Button
+                                                    variant="outline"
+                                                    size="sm"
+                                                    onClick={saveApiKey}
+                                                    disabled={!formData.openaiApiKey}
+                                                    className="border-green-500/30 text-green-400"
+                                                >
+                                                    <Check className="w-4 h-4" />
+                                                </Button>
+                                            </div>
                                         </div>
+
+                                        {/* Generate Button */}
+                                        <Button
+                                            onClick={handleEnhancePrompt}
+                                            disabled={isEnhancing || !formData.openaiApiKey || !formData.productName || !formData.productDescription}
+                                            className="w-full gap-2 bg-gradient-to-r from-violet-600 to-purple-600 hover:from-violet-700 hover:to-purple-700"
+                                        >
+                                            {isEnhancing ? (
+                                                <>
+                                                    <Loader2 className="w-4 h-4 animate-spin" />
+                                                    AI sedang menjana prompt...
+                                                </>
+                                            ) : (
+                                                <>
+                                                    <Wand2 className="w-4 h-4" />
+                                                    ✨ Generate Auto-Prompt
+                                                </>
+                                            )}
+                                        </Button>
+
+                                        {/* Enhanced Prompt Preview */}
+                                        {showPromptPreview && enhancedPrompt && (
+                                            <div className="mt-4 space-y-3 animate-fade-in">
+                                                <div className="flex items-center justify-between">
+                                                    <Label className="text-sm font-medium text-violet-300">
+                                                        📝 Video Prompt Preview
+                                                    </Label>
+                                                    <div className="flex gap-2">
+                                                        <Button
+                                                            variant="ghost"
+                                                            size="sm"
+                                                            onClick={() => setIsEditingPrompt(!isEditingPrompt)}
+                                                            className="h-7 px-2 text-xs"
+                                                        >
+                                                            <Edit3 className="w-3 h-3 mr-1" />
+                                                            {isEditingPrompt ? 'Done' : 'Edit'}
+                                                        </Button>
+                                                        <Button
+                                                            variant="ghost"
+                                                            size="sm"
+                                                            onClick={handleEnhancePrompt}
+                                                            disabled={isEnhancing}
+                                                            className="h-7 px-2 text-xs"
+                                                        >
+                                                            <RefreshCw className={`w-3 h-3 mr-1 ${isEnhancing ? 'animate-spin' : ''}`} />
+                                                            Regenerate
+                                                        </Button>
+                                                    </div>
+                                                </div>
+
+                                                {isEditingPrompt ? (
+                                                    <Textarea
+                                                        value={enhancedPrompt}
+                                                        onChange={(e) => setEnhancedPrompt(e.target.value)}
+                                                        className="min-h-[150px] bg-slate-800/50 text-sm"
+                                                    />
+                                                ) : (
+                                                    <div className="p-3 rounded-lg bg-slate-800/50 border border-slate-700/50 max-h-[200px] overflow-y-auto">
+                                                        <p className="text-xs text-foreground/80 whitespace-pre-wrap">
+                                                            {enhancedPrompt}
+                                                        </p>
+                                                    </div>
+                                                )}
+
+                                                {/* Caption Preview */}
+                                                {enhancedCaption && (
+                                                    <div>
+                                                        <Label className="text-sm font-medium text-violet-300 mb-2 block">
+                                                            💬 Caption Preview
+                                                        </Label>
+                                                        <div className="p-3 rounded-lg bg-slate-800/50 border border-slate-700/50">
+                                                            <p className="text-xs text-foreground/80 whitespace-pre-wrap">
+                                                                {enhancedCaption}
+                                                            </p>
+                                                        </div>
+                                                    </div>
+                                                )}
+
+                                                <div className="flex items-center gap-2 p-2 rounded-lg bg-green-500/10 border border-green-500/20">
+                                                    <Check className="w-4 h-4 text-green-400" />
+                                                    <p className="text-xs text-green-400">
+                                                        Prompt ini akan digunakan untuk workflow anda
+                                                    </p>
+                                                </div>
+                                            </div>
+                                        )}
                                     </div>
                                 </div>
                             </div>
@@ -546,6 +757,51 @@ ${formData.productDescription}
                                             </button>
                                         ))}
                                     </div>
+                                </div>
+
+                                {/* CTA Type Selection */}
+                                <div>
+                                    <Label className="text-sm font-medium mb-3 block">Jenis CTA (Call-to-Action)</Label>
+                                    <div className="grid grid-cols-3 gap-2">
+                                        <button
+                                            onClick={() => updateField('ctaType', 'fb')}
+                                            className={`p-3 rounded-xl border-2 transition-all text-center ${formData.ctaType === 'fb'
+                                                ? 'border-blue-500 bg-blue-500/10'
+                                                : 'border-slate-700 hover:border-slate-600'
+                                                }`}
+                                        >
+                                            <Facebook className={`w-5 h-5 mx-auto mb-1 ${formData.ctaType === 'fb' ? 'text-blue-400' : 'text-muted-foreground'}`} />
+                                            <p className="font-bold text-xs">Facebook</p>
+                                            <p className="text-[10px] text-muted-foreground">Learn More</p>
+                                        </button>
+                                        <button
+                                            onClick={() => updateField('ctaType', 'tiktok')}
+                                            className={`p-3 rounded-xl border-2 transition-all text-center ${formData.ctaType === 'tiktok'
+                                                ? 'border-pink-500 bg-pink-500/10'
+                                                : 'border-slate-700 hover:border-slate-600'
+                                                }`}
+                                        >
+                                            <Video className={`w-5 h-5 mx-auto mb-1 ${formData.ctaType === 'tiktok' ? 'text-pink-400' : 'text-muted-foreground'}`} />
+                                            <p className="font-bold text-xs">TikTok</p>
+                                            <p className="text-[10px] text-muted-foreground">Beg Kuning 🛒</p>
+                                        </button>
+                                        <button
+                                            onClick={() => updateField('ctaType', 'general')}
+                                            className={`p-3 rounded-xl border-2 transition-all text-center ${formData.ctaType === 'general'
+                                                ? 'border-primary bg-primary/10'
+                                                : 'border-slate-700 hover:border-slate-600'
+                                                }`}
+                                        >
+                                            <Sparkles className={`w-5 h-5 mx-auto mb-1 ${formData.ctaType === 'general' ? 'text-primary' : 'text-muted-foreground'}`} />
+                                            <p className="font-bold text-xs">Umum</p>
+                                            <p className="text-[10px] text-muted-foreground">Semua Platform</p>
+                                        </button>
+                                    </div>
+                                    <p className="text-xs text-muted-foreground mt-2">
+                                        {formData.ctaType === 'fb' && '💡 CTA: "Klik Learn More sekarang!" - Sesuai untuk Facebook Ads'}
+                                        {formData.ctaType === 'tiktok' && '💡 CTA: "Tekan beg kuning sekarang! 🛒" - Sesuai untuk TikTok Shop'}
+                                        {formData.ctaType === 'general' && '💡 CTA: "Tempah sekarang!" - Sesuai untuk semua platform'}
+                                    </p>
                                 </div>
                             </div>
                         )}

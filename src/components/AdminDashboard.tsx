@@ -4,7 +4,7 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { toast } from 'sonner';
-import { Search, Check, X, Trash2, Edit2, Save, Users, Video, Shield, RefreshCw, UserCheck, Clock, Link, Award, Eye, DollarSign } from 'lucide-react';
+import { Search, Check, X, Trash2, Edit2, Save, Users, Video, Shield, RefreshCw, UserCheck, Clock, Link, Award, Eye, DollarSign, Zap, Calendar, AlertCircle } from 'lucide-react';
 import {
   Dialog,
   DialogContent,
@@ -28,6 +28,10 @@ interface UserData {
   referral_code: string | null;
   referred_by: string | null;
   created_at: string;
+  // Workflow subscription fields
+  workflow_access_approved: boolean;
+  workflow_subscription_ends_at: string | null;
+  workflow_subscription_days: number;
 }
 
 interface AffiliateData {
@@ -40,7 +44,7 @@ interface AffiliateData {
   joinedAt: string;
 }
 
-type TabType = 'users' | 'affiliate';
+type TabType = 'users' | 'affiliate' | 'workflow';
 
 const AdminDashboard: React.FC = () => {
   const [users, setUsers] = useState<UserData[]>([]);
@@ -209,6 +213,120 @@ const AdminDashboard: React.FC = () => {
     }
   };
 
+  // Workflow Subscription Management
+  const [editingWorkflowUser, setEditingWorkflowUser] = useState<string | null>(null);
+  const [editWorkflowDays, setEditWorkflowDays] = useState(30);
+
+  const handleApproveWorkflow = async (userId: string, days: number = 30) => {
+    try {
+      const expiryDate = new Date();
+      expiryDate.setDate(expiryDate.getDate() + days);
+
+      const { error } = await supabase
+        .from('profiles')
+        .update({
+          workflow_access_approved: true,
+          workflow_subscription_ends_at: expiryDate.toISOString(),
+          workflow_subscription_days: days,
+        })
+        .eq('id', userId);
+
+      if (error) throw error;
+
+      toast.success(`Akses workflow diluluskan untuk ${days} hari`);
+      setEditingWorkflowUser(null);
+      fetchUsers();
+    } catch (error: any) {
+      toast.error('Gagal meluluskan akses workflow');
+      console.error('Error approving workflow:', error);
+    }
+  };
+
+  const handleRevokeWorkflow = async (userId: string) => {
+    try {
+      const { error } = await supabase
+        .from('profiles')
+        .update({
+          workflow_access_approved: false,
+          workflow_subscription_ends_at: null,
+        })
+        .eq('id', userId);
+
+      if (error) throw error;
+
+      toast.success('Akses workflow telah ditarik balik');
+      fetchUsers();
+    } catch (error: any) {
+      toast.error('Gagal tarik balik akses');
+      console.error('Error revoking workflow:', error);
+    }
+  };
+
+  const handleExtendWorkflow = async (userId: string, extraDays: number) => {
+    try {
+      const user = users.find(u => u.id === userId);
+      if (!user) return;
+
+      let newExpiry: Date;
+      if (user.workflow_subscription_ends_at && new Date(user.workflow_subscription_ends_at) > new Date()) {
+        // Extend from current expiry
+        newExpiry = new Date(user.workflow_subscription_ends_at);
+      } else {
+        // Start from now
+        newExpiry = new Date();
+      }
+      newExpiry.setDate(newExpiry.getDate() + extraDays);
+
+      const { error } = await supabase
+        .from('profiles')
+        .update({
+          workflow_access_approved: true,
+          workflow_subscription_ends_at: newExpiry.toISOString(),
+        })
+        .eq('id', userId);
+
+      if (error) throw error;
+
+      toast.success(`Subscription dilanjutkan ${extraDays} hari`);
+      setEditingWorkflowUser(null);
+      fetchUsers();
+    } catch (error: any) {
+      toast.error('Gagal melanjutkan subscription');
+      console.error('Error extending workflow:', error);
+    }
+  };
+
+  const getWorkflowStatus = (user: UserData): { status: 'active' | 'expired' | 'pending'; daysLeft: number } => {
+    if (!user.workflow_access_approved) {
+      return { status: 'pending', daysLeft: 0 };
+    }
+    if (!user.workflow_subscription_ends_at) {
+      return { status: 'pending', daysLeft: 0 };
+    }
+    const now = new Date();
+    const expiry = new Date(user.workflow_subscription_ends_at);
+    const daysLeft = Math.ceil((expiry.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+
+    if (daysLeft <= 0) {
+      return { status: 'expired', daysLeft: 0 };
+    }
+    return { status: 'active', daysLeft };
+  };
+
+  // Workflow subscription stats
+  const workflowStats = {
+    approved: users.filter(u => u.workflow_access_approved).length,
+    active: users.filter(u => {
+      const status = getWorkflowStatus(u);
+      return status.status === 'active';
+    }).length,
+    expired: users.filter(u => {
+      const status = getWorkflowStatus(u);
+      return status.status === 'expired';
+    }).length,
+    pending: users.filter(u => !u.workflow_access_approved).length,
+  };
+
   const filteredUsers = users.filter(user =>
     user.email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
     user.username?.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -292,6 +410,19 @@ const AdminDashboard: React.FC = () => {
             {affiliateStats.totalReferrals > 0 && (
               <Badge variant="secondary" className="ml-1 bg-green-500/20 text-green-400">
                 {affiliateStats.totalReferrals}
+              </Badge>
+            )}
+          </Button>
+          <Button
+            variant={activeTab === 'workflow' ? 'default' : 'outline'}
+            onClick={() => setActiveTab('workflow')}
+            className="gap-2"
+          >
+            <Zap className="w-4 h-4" />
+            Workflow Sub
+            {workflowStats.active > 0 && (
+              <Badge variant="secondary" className="ml-1 bg-primary/20 text-primary">
+                {workflowStats.active}
               </Badge>
             )}
           </Button>
@@ -945,6 +1076,330 @@ const AdminDashboard: React.FC = () => {
             {!loading && filteredAffiliates.length > 0 && (
               <p className="text-xs text-muted-foreground mt-4 text-center">
                 Menunjukkan {filteredAffiliates.length} affiliate
+              </p>
+            )}
+          </>
+        )}
+
+        {/* Workflow Subscription Tab */}
+        {activeTab === 'workflow' && (
+          <>
+            {/* Workflow Stats Cards */}
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4 mb-6 md:mb-8">
+              <div className="stat-card animate-fade-in" style={{ animationDelay: '50ms' }}>
+                <div className="flex items-center gap-3">
+                  <div className="p-2.5 bg-green-500/10 rounded-xl">
+                    <UserCheck className="w-5 h-5 text-green-500" />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-xl md:text-2xl font-bold text-foreground">{workflowStats.active}</p>
+                    <p className="text-[10px] md:text-xs text-muted-foreground truncate">Aktif</p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="stat-card animate-fade-in" style={{ animationDelay: '100ms' }}>
+                <div className="flex items-center gap-3">
+                  <div className="p-2.5 bg-red-500/10 rounded-xl">
+                    <AlertCircle className="w-5 h-5 text-red-500" />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-xl md:text-2xl font-bold text-foreground">{workflowStats.expired}</p>
+                    <p className="text-[10px] md:text-xs text-muted-foreground truncate">Expired</p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="stat-card animate-fade-in" style={{ animationDelay: '150ms' }}>
+                <div className="flex items-center gap-3">
+                  <div className="p-2.5 bg-yellow-500/10 rounded-xl">
+                    <Clock className="w-5 h-5 text-yellow-500" />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-xl md:text-2xl font-bold text-foreground">{workflowStats.pending}</p>
+                    <p className="text-[10px] md:text-xs text-muted-foreground truncate">Belum Lulus</p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="stat-card animate-fade-in" style={{ animationDelay: '200ms' }}>
+                <div className="flex items-center gap-3">
+                  <div className="p-2.5 bg-primary/10 rounded-xl">
+                    <Zap className="w-5 h-5 text-primary" />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-xl md:text-2xl font-bold text-foreground">{workflowStats.approved}</p>
+                    <p className="text-[10px] md:text-xs text-muted-foreground truncate">Pernah Lulus</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Search */}
+            <div className="relative mb-4 md:mb-6 animate-fade-in" style={{ animationDelay: '250ms' }}>
+              <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 md:w-5 md:h-5 text-muted-foreground" />
+              <Input
+                placeholder="Cari pengguna..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="pl-11 md:pl-12 bg-secondary/50 border-border/50 text-foreground placeholder:text-muted-foreground h-11 md:h-12 rounded-xl"
+              />
+            </div>
+
+            {/* User List for Workflow */}
+            <div className="glass-card overflow-hidden animate-fade-in" style={{ animationDelay: '300ms' }}>
+              <div className="hidden lg:grid lg:grid-cols-[2fr_1fr_1fr_1fr_1fr] gap-4 p-4 border-b border-border/30 bg-muted/30">
+                <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Pengguna</span>
+                <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Status</span>
+                <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Baki Hari</span>
+                <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Tamat</span>
+                <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Tindakan</span>
+              </div>
+
+              <div className="divide-y divide-border/30">
+                {loading ? (
+                  <div className="flex items-center justify-center gap-3 py-16">
+                    <div className="w-5 h-5 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+                    <span className="text-muted-foreground">Memuatkan...</span>
+                  </div>
+                ) : filteredUsers.length === 0 ? (
+                  <div className="text-center py-16 text-muted-foreground">
+                    Tiada pengguna dijumpai
+                  </div>
+                ) : (
+                  filteredUsers.map((user, index) => {
+                    const workflowStatus = getWorkflowStatus(user);
+                    return (
+                      <div
+                        key={user.id}
+                        className="p-4 data-table-row animate-fade-in"
+                        style={{ animationDelay: `${350 + index * 30}ms` }}
+                      >
+                        {/* Mobile Layout */}
+                        <div className="lg:hidden space-y-3">
+                          <div className="flex items-start justify-between gap-3">
+                            <div className="min-w-0 flex-1">
+                              <p className="text-sm font-semibold text-foreground truncate">{user.username || 'N/A'}</p>
+                              <p className="text-xs text-muted-foreground truncate">{user.email}</p>
+                            </div>
+                            {workflowStatus.status === 'active' && (
+                              <Badge className="bg-green-500/20 text-green-400 border-green-500/30">
+                                <Check className="w-3 h-3 mr-1" />
+                                Aktif ({workflowStatus.daysLeft}d)
+                              </Badge>
+                            )}
+                            {workflowStatus.status === 'expired' && (
+                              <Badge className="bg-red-500/20 text-red-400 border-red-500/30">
+                                <AlertCircle className="w-3 h-3 mr-1" />
+                                Expired
+                              </Badge>
+                            )}
+                            {workflowStatus.status === 'pending' && (
+                              <Badge className="bg-yellow-500/20 text-yellow-400 border-yellow-500/30">
+                                <Clock className="w-3 h-3 mr-1" />
+                                Menunggu
+                              </Badge>
+                            )}
+                          </div>
+
+                          <div className="flex items-center gap-2 flex-wrap">
+                            {editingWorkflowUser === user.id ? (
+                              <>
+                                <Input
+                                  type="number"
+                                  value={editWorkflowDays}
+                                  onChange={(e) => setEditWorkflowDays(parseInt(e.target.value) || 30)}
+                                  className="w-20 h-9 text-sm"
+                                  placeholder="Hari"
+                                />
+                                <span className="text-xs text-muted-foreground">hari</span>
+                                <Button
+                                  size="sm"
+                                  onClick={() => handleApproveWorkflow(user.id, editWorkflowDays)}
+                                  className="h-9 bg-green-600 hover:bg-green-700"
+                                >
+                                  <Check className="w-4 h-4 mr-1" />
+                                  Lulus
+                                </Button>
+                                <Button
+                                  size="sm"
+                                  variant="ghost"
+                                  onClick={() => setEditingWorkflowUser(null)}
+                                  className="h-9"
+                                >
+                                  <X className="w-4 h-4" />
+                                </Button>
+                              </>
+                            ) : (
+                              <>
+                                {workflowStatus.status === 'pending' && (
+                                  <Button
+                                    size="sm"
+                                    onClick={() => {
+                                      setEditWorkflowDays(user.workflow_subscription_days || 30);
+                                      setEditingWorkflowUser(user.id);
+                                    }}
+                                    className="h-9 bg-green-600 hover:bg-green-700"
+                                  >
+                                    <Check className="w-4 h-4 mr-1" />
+                                    Approve
+                                  </Button>
+                                )}
+                                {(workflowStatus.status === 'active' || workflowStatus.status === 'expired') && (
+                                  <>
+                                    <Button
+                                      size="sm"
+                                      variant="outline"
+                                      onClick={() => {
+                                        setEditWorkflowDays(30);
+                                        setEditingWorkflowUser(user.id);
+                                      }}
+                                      className="h-9 border-primary/30 text-primary"
+                                    >
+                                      <Calendar className="w-4 h-4 mr-1" />
+                                      Lanjut
+                                    </Button>
+                                    <Button
+                                      size="sm"
+                                      variant="ghost"
+                                      onClick={() => handleRevokeWorkflow(user.id)}
+                                      className="h-9 text-red-400 hover:text-red-500 hover:bg-red-500/10"
+                                    >
+                                      <X className="w-4 h-4 mr-1" />
+                                      Tarik
+                                    </Button>
+                                  </>
+                                )}
+                              </>
+                            )}
+                          </div>
+                        </div>
+
+                        {/* Desktop Layout */}
+                        <div className="hidden lg:grid lg:grid-cols-[2fr_1fr_1fr_1fr_1fr] gap-4 items-center">
+                          <div className="min-w-0">
+                            <p className="text-sm font-semibold text-foreground truncate">{user.username || 'N/A'}</p>
+                            <p className="text-xs text-muted-foreground truncate">{user.email}</p>
+                          </div>
+
+                          <div>
+                            {workflowStatus.status === 'active' && (
+                              <Badge className="bg-green-500/20 text-green-400 border-green-500/30">
+                                Aktif
+                              </Badge>
+                            )}
+                            {workflowStatus.status === 'expired' && (
+                              <Badge className="bg-red-500/20 text-red-400 border-red-500/30">
+                                Expired
+                              </Badge>
+                            )}
+                            {workflowStatus.status === 'pending' && (
+                              <Badge className="bg-yellow-500/20 text-yellow-400 border-yellow-500/30">
+                                Menunggu
+                              </Badge>
+                            )}
+                          </div>
+
+                          <div>
+                            {workflowStatus.status === 'active' ? (
+                              <span className="text-lg font-bold text-green-400">{workflowStatus.daysLeft}</span>
+                            ) : (
+                              <span className="text-muted-foreground">-</span>
+                            )}
+                          </div>
+
+                          <div>
+                            {user.workflow_subscription_ends_at ? (
+                              <span className="text-xs text-muted-foreground">
+                                {formatDate(user.workflow_subscription_ends_at)}
+                              </span>
+                            ) : (
+                              <span className="text-muted-foreground">-</span>
+                            )}
+                          </div>
+
+                          <div className="flex items-center gap-2">
+                            {editingWorkflowUser === user.id ? (
+                              <div className="flex items-center gap-2">
+                                <Input
+                                  type="number"
+                                  value={editWorkflowDays}
+                                  onChange={(e) => setEditWorkflowDays(parseInt(e.target.value) || 30)}
+                                  className="w-16 h-8 text-xs"
+                                />
+                                <Button
+                                  size="sm"
+                                  onClick={() => workflowStatus.status === 'pending'
+                                    ? handleApproveWorkflow(user.id, editWorkflowDays)
+                                    : handleExtendWorkflow(user.id, editWorkflowDays)
+                                  }
+                                  className="h-8 w-8 p-0 bg-green-600 hover:bg-green-700"
+                                >
+                                  <Check className="w-4 h-4" />
+                                </Button>
+                                <Button
+                                  size="sm"
+                                  variant="ghost"
+                                  onClick={() => setEditingWorkflowUser(null)}
+                                  className="h-8 w-8 p-0"
+                                >
+                                  <X className="w-4 h-4" />
+                                </Button>
+                              </div>
+                            ) : (
+                              <>
+                                {workflowStatus.status === 'pending' && (
+                                  <Button
+                                    size="sm"
+                                    onClick={() => {
+                                      setEditWorkflowDays(user.workflow_subscription_days || 30);
+                                      setEditingWorkflowUser(user.id);
+                                    }}
+                                    className="h-8 bg-green-600 hover:bg-green-700"
+                                  >
+                                    <Check className="w-4 h-4 mr-1" />
+                                    Approve
+                                  </Button>
+                                )}
+                                {(workflowStatus.status === 'active' || workflowStatus.status === 'expired') && (
+                                  <>
+                                    <Button
+                                      size="sm"
+                                      variant="outline"
+                                      onClick={() => {
+                                        setEditWorkflowDays(30);
+                                        setEditingWorkflowUser(user.id);
+                                      }}
+                                      className="h-8 text-xs"
+                                    >
+                                      <Calendar className="w-3 h-3 mr-1" />
+                                      +Hari
+                                    </Button>
+                                    <Button
+                                      size="sm"
+                                      variant="ghost"
+                                      onClick={() => handleRevokeWorkflow(user.id)}
+                                      className="h-8 w-8 p-0 text-red-400 hover:text-red-500 hover:bg-red-500/10"
+                                    >
+                                      <X className="w-4 h-4" />
+                                    </Button>
+                                  </>
+                                )}
+                              </>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })
+                )}
+              </div>
+            </div>
+
+            {/* Results count */}
+            {!loading && filteredUsers.length > 0 && (
+              <p className="text-xs text-muted-foreground mt-4 text-center">
+                Menunjukkan {filteredUsers.length} pengguna
               </p>
             )}
           </>
