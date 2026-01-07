@@ -194,7 +194,12 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({
 
     // Generate prompt template from product details
     const generatePromptTemplate = () => {
-        // Use enhanced prompt if available
+        // For Manual mode, use manually entered prompt
+        if (formData.promptMode === 'manual' && formData.manualPrompt) {
+            return formData.manualPrompt;
+        }
+
+        // Use enhanced prompt if available (from Gemini AI)
         if (enhancedPrompt) {
             return enhancedPrompt;
         }
@@ -235,8 +240,19 @@ ${formData.productDescription}
     };
 
     const handleSave = async () => {
-        if (!formData.name || !formData.productName || !formData.productDescription) {
-            toast.error('Sila isi semua maklumat wajib');
+        // Different validation based on prompt mode
+        if (!formData.name) {
+            toast.error('Sila isi nama workflow');
+            return;
+        }
+
+        if (formData.promptMode === 'manual' && !formData.manualPrompt) {
+            toast.error('Sila tulis prompt manual');
+            return;
+        }
+
+        if (formData.promptMode === 'auto' && (!formData.productName || !formData.productDescription)) {
+            toast.error('Sila isi maklumat produk untuk Auto Prompt');
             return;
         }
 
@@ -258,9 +274,9 @@ ${formData.productDescription}
                 duration: formData.duration,
                 product_image_url: formData.productImageUrl || null,
                 cta_type: formData.ctaType,
-                product_name: formData.productName,
-                product_description: formData.productDescription,
-                target_audience: formData.targetAudience,
+                product_name: formData.productName || null,
+                product_description: formData.productDescription || null,
+                target_audience: formData.targetAudience || null,
                 content_style: formData.contentStyle,
                 prompt_mode: formData.promptMode,
                 video_type: formData.videoType,
