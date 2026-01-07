@@ -46,16 +46,17 @@ interface WorkflowFormData {
     targetAudience: string;
     contentStyle: string;
     contentType: ContentType;
-    aspectRatio: string;
-    duration: number;
+    aspectRatio: 'landscape' | 'portrait';
+    duration: 10 | 15;
     scheduleType: ScheduleType;
     hourOfDay: number;
     minuteOfHour: number;
     platforms: SocialPlatform[];
     productImageUrl: string;
-    useI2V: boolean;
-    openaiApiKey: string;
-    autoGeneratePrompt: boolean;
+    promptMode: 'auto' | 'manual';
+    videoType: 't2v' | 'i2v';
+    videoStyle: 'ugc' | 'storyboard';
+    manualPrompt: string;
     ctaType: 'fb' | 'tiktok' | 'general';
 }
 
@@ -76,16 +77,17 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({
         targetAudience: editWorkflow?.target_audience || '',
         contentStyle: editWorkflow?.content_style || 'professional',
         contentType: editWorkflow?.content_type || 'video',
-        aspectRatio: editWorkflow?.aspect_ratio || 'landscape',
+        aspectRatio: editWorkflow?.aspect_ratio || 'portrait',
         duration: editWorkflow?.duration || 10,
         scheduleType: 'daily',
         hourOfDay: 9,
         minuteOfHour: 0,
         platforms: ['telegram'],
         productImageUrl: editWorkflow?.product_image_url || '',
-        useI2V: !!editWorkflow?.product_image_url,
-        openaiApiKey: '',
-        autoGeneratePrompt: false,
+        promptMode: editWorkflow?.prompt_mode || 'auto',
+        videoType: editWorkflow?.product_image_url ? 'i2v' : (editWorkflow?.video_type || 't2v'),
+        videoStyle: editWorkflow?.video_style || 'ugc',
+        manualPrompt: editWorkflow?.prompt_template || '',
         ctaType: editWorkflow?.cta_type || 'general',
     });
 
@@ -142,30 +144,10 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({
         }
     };
 
-    // Save OpenAI API key to user profile
-    const saveApiKey = async () => {
-        if (!formData.openaiApiKey) return;
-
-        try {
-            await supabase
-                .from('profiles')
-                .update({ openai_api_key: formData.openaiApiKey })
-                .eq('id', userProfile.id);
-            toast.success('API Key disimpan!');
-        } catch (error) {
-            console.error('Error saving API key:', error);
-        }
-    };
-
-    // Handle Auto-Prompt Enhancement
+    // Handle Auto-Prompt Enhancement using Gemini 2.5 Flash-Lite
     const handleEnhancePrompt = async () => {
         if (!formData.productName || !formData.productDescription) {
             toast.error('Sila isi nama dan deskripsi produk terlebih dahulu');
-            return;
-        }
-
-        if (!formData.openaiApiKey) {
-            toast.error('Sila masukkan OpenAI API Key untuk menggunakan Auto-Prompt');
             return;
         }
 
@@ -173,33 +155,35 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({
         setShowPromptPreview(false);
 
         try {
-            const { data, error } = await supabase.functions.invoke('enhance-video-prompt', {
+            const { data, error } = await supabase.functions.invoke('generate-prompt', {
                 body: {
                     productName: formData.productName,
                     productDescription: formData.productDescription,
                     targetAudience: formData.targetAudience,
                     contentStyle: formData.contentStyle,
+                    promptMode: formData.promptMode,
+                    videoType: formData.videoType,
+                    videoStyle: formData.videoStyle,
                     aspectRatio: formData.aspectRatio,
                     duration: formData.duration,
-                    openaiApiKey: formData.openaiApiKey,
+                    manualPrompt: formData.manualPrompt,
                     ctaType: formData.ctaType,
-                    productImageUrl: formData.productImageUrl,
                 }
             });
 
             if (error) throw error;
 
             if (data.success) {
-                setEnhancedPrompt(data.enhancedPrompt);
+                setEnhancedPrompt(data.prompt);
                 setEnhancedCaption(data.caption);
                 setShowPromptPreview(true);
-                toast.success('✨ Prompt berjaya di-enhance!');
+                toast.success('✨ Prompt berjaya dijana dengan Gemini AI!');
             } else {
-                throw new Error(data.error || 'Failed to enhance prompt');
+                throw new Error(data.error || 'Failed to generate prompt');
             }
         } catch (error) {
-            console.error('Error enhancing prompt:', error);
-            toast.error(error instanceof Error ? error.message : 'Gagal enhance prompt');
+            console.error('Error generating prompt:', error);
+            toast.error(error instanceof Error ? error.message : 'Gagal generate prompt');
         } finally {
             setIsEnhancing(false);
         }
@@ -227,7 +211,7 @@ Description: ${formData.productDescription}
 Target Audience: ${formData.targetAudience}
 Style: ${style}
 
-Make it visually appealing and suitable for social media marketing. The content should be ${formData.aspectRatio === 'portrait' ? 'vertical (9:16)' : formData.aspectRatio === 'square' ? 'square (1:1)' : 'horizontal (16:9)'} format.`;
+Make it visually appealing and suitable for social media marketing. The content should be ${formData.aspectRatio === 'portrait' ? 'vertical (9:16)' : 'horizontal (16:9)'} format.`;
     };
 
     // Generate caption template
@@ -275,6 +259,9 @@ ${formData.productDescription}
                 product_description: formData.productDescription,
                 target_audience: formData.targetAudience,
                 content_style: formData.contentStyle,
+                prompt_mode: formData.promptMode,
+                video_type: formData.videoType,
+                video_style: formData.videoStyle,
             };
 
             let workflowId: string;
@@ -322,9 +309,6 @@ ${formData.productDescription}
                     const scheduled = new Date();
                     scheduled.setHours(formData.hourOfDay, formData.minuteOfHour, 0, 0);
 
-                    // Subtract 10 minutes for generation buffer
-                    scheduled.setMinutes(scheduled.getMinutes() - 10);
-
                     // If scheduled time already passed today, set for tomorrow
                     if (scheduled <= now) {
                         scheduled.setDate(scheduled.getDate() + 1);
@@ -332,6 +316,7 @@ ${formData.productDescription}
 
                     return scheduled.toISOString();
                 };
+
 
                 const { error: scheduleError } = await supabase
                     .from('automation_schedules')
@@ -504,32 +489,117 @@ ${formData.productDescription}
                                             </label>
                                         )}
 
-                                        {/* I2V Toggle */}
-                                        <div className="mt-3 flex items-center justify-between">
-                                            <div>
-                                                <p className="text-sm font-medium">Guna Image-to-Video (I2V)</p>
-                                                <p className="text-xs text-muted-foreground">Generate video dari gambar produk</p>
+                                        {/* Video Type Toggle (T2V/I2V) */}
+                                        <div className="mt-3">
+                                            <Label className="text-sm font-medium mb-2 block">Jenis Video</Label>
+                                            <div className="grid grid-cols-2 gap-2">
+                                                <button
+                                                    type="button"
+                                                    onClick={() => updateField('videoType', 't2v')}
+                                                    className={`p-3 rounded-lg border text-center transition-all ${formData.videoType === 't2v'
+                                                        ? 'bg-violet-500/20 border-violet-500 text-violet-400'
+                                                        : 'bg-slate-800/50 border-slate-700 hover:border-violet-500/50'
+                                                        }`}
+                                                >
+                                                    <Video className="w-5 h-5 mx-auto mb-1" />
+                                                    <p className="text-xs font-medium">Text-to-Video</p>
+                                                    <p className="text-xs text-muted-foreground">Jana dari teks</p>
+                                                </button>
+                                                <button
+                                                    type="button"
+                                                    onClick={() => updateField('videoType', 'i2v')}
+                                                    className={`p-3 rounded-lg border text-center transition-all ${formData.videoType === 'i2v'
+                                                        ? 'bg-purple-500/20 border-purple-500 text-purple-400'
+                                                        : 'bg-slate-800/50 border-slate-700 hover:border-purple-500/50'
+                                                        }`}
+                                                >
+                                                    <Image className="w-5 h-5 mx-auto mb-1" />
+                                                    <p className="text-xs font-medium">Image-to-Video</p>
+                                                    <p className="text-xs text-muted-foreground">Jana dari gambar</p>
+                                                </button>
                                             </div>
-                                            <button
-                                                onClick={() => updateField('useI2V', !formData.useI2V)}
-                                                className={`w-12 h-6 rounded-full transition-all ${formData.useI2V ? 'bg-purple-500' : 'bg-slate-700'}`}
-                                            >
-                                                <div className={`w-5 h-5 rounded-full bg-white transition-transform ${formData.useI2V ? 'translate-x-6' : 'translate-x-0.5'}`} />
-                                            </button>
                                         </div>
                                     </div>
 
-                                    {/* Auto-Prompt Section */}
+                                    {/* Gemini Auto-Prompt Section */}
                                     <div className="p-4 rounded-xl bg-gradient-to-r from-violet-500/10 via-purple-500/10 to-pink-500/10 border border-violet-500/30">
                                         <div className="flex items-center gap-2 mb-3">
                                             <Sparkles className="w-5 h-5 text-violet-400" />
                                             <Label className="text-sm font-bold text-violet-400">
-                                                ✨ Auto-Prompt (Sora 2 Style)
+                                                ✨ Gemini AI Prompt Generator
                                             </Label>
                                         </div>
                                         <p className="text-xs text-muted-foreground mb-4">
-                                            AI akan mengembangkan deskripsi produk anda menjadi prompt video yang detail dan menarik
+                                            Gemini 2.5 Flash-Lite akan menjana prompt video yang optimum untuk Sora 2
                                         </p>
+
+                                        {/* Prompt Mode Selection */}
+                                        <div className="mb-4">
+                                            <Label className="text-sm font-medium mb-2 block">Mode Prompt</Label>
+                                            <div className="grid grid-cols-2 gap-2">
+                                                <button
+                                                    type="button"
+                                                    onClick={() => updateField('promptMode', 'auto')}
+                                                    className={`p-3 rounded-lg border text-center transition-all ${formData.promptMode === 'auto'
+                                                        ? 'bg-violet-500/20 border-violet-500 text-violet-400'
+                                                        : 'bg-slate-800/50 border-slate-700 hover:border-violet-500/50'
+                                                        }`}
+                                                >
+                                                    <Wand2 className="w-5 h-5 mx-auto mb-1" />
+                                                    <p className="text-xs font-medium">Auto Prompt</p>
+                                                    <p className="text-xs text-muted-foreground">AI jana dari produk</p>
+                                                </button>
+                                                <button
+                                                    type="button"
+                                                    onClick={() => updateField('promptMode', 'manual')}
+                                                    className={`p-3 rounded-lg border text-center transition-all ${formData.promptMode === 'manual'
+                                                        ? 'bg-blue-500/20 border-blue-500 text-blue-400'
+                                                        : 'bg-slate-800/50 border-slate-700 hover:border-blue-500/50'
+                                                        }`}
+                                                >
+                                                    <Edit3 className="w-5 h-5 mx-auto mb-1" />
+                                                    <p className="text-xs font-medium">Manual Prompt</p>
+                                                    <p className="text-xs text-muted-foreground">Tulis sendiri</p>
+                                                </button>
+                                            </div>
+                                        </div>
+
+                                        {/* Video Style Selection */}
+                                        <div className="mb-4">
+                                            <Label className="text-sm font-medium mb-2 block">Gaya Video</Label>
+                                            <div className="grid grid-cols-2 gap-2">
+                                                <button
+                                                    type="button"
+                                                    onClick={() => {
+                                                        updateField('videoStyle', 'ugc');
+                                                        updateField('aspectRatio', 'portrait');
+                                                    }}
+                                                    className={`p-3 rounded-lg border text-center transition-all ${formData.videoStyle === 'ugc'
+                                                        ? 'bg-pink-500/20 border-pink-500 text-pink-400'
+                                                        : 'bg-slate-800/50 border-slate-700 hover:border-pink-500/50'
+                                                        }`}
+                                                >
+                                                    <p className="text-xs font-bold">📱 UGC Style</p>
+                                                    <p className="text-xs text-muted-foreground">TikTok/Reels (9:16)</p>
+                                                    <p className="text-xs text-muted-foreground">Casual, influencer</p>
+                                                </button>
+                                                <button
+                                                    type="button"
+                                                    onClick={() => {
+                                                        updateField('videoStyle', 'storyboard');
+                                                        updateField('aspectRatio', 'landscape');
+                                                    }}
+                                                    className={`p-3 rounded-lg border text-center transition-all ${formData.videoStyle === 'storyboard'
+                                                        ? 'bg-amber-500/20 border-amber-500 text-amber-400'
+                                                        : 'bg-slate-800/50 border-slate-700 hover:border-amber-500/50'
+                                                        }`}
+                                                >
+                                                    <p className="text-xs font-bold">🎬 Storyboard</p>
+                                                    <p className="text-xs text-muted-foreground">Cinematic (16:9)</p>
+                                                    <p className="text-xs text-muted-foreground">Formal, dramatic</p>
+                                                </button>
+                                            </div>
+                                        </div>
 
                                         {/* CTA Type Selection */}
                                         <div className="mb-4">
@@ -569,54 +639,36 @@ ${formData.productDescription}
                                                     Umum
                                                 </button>
                                             </div>
-                                            <p className="text-xs text-muted-foreground mt-2">
-                                                {formData.ctaType === 'fb' && '📘 Klik Learn More, Facebook Shop, PM kami'}
-                                                {formData.ctaType === 'tiktok' && '🛒 Tekan beg kuning, DM untuk tempah, Link di bio'}
-                                                {formData.ctaType === 'general' && '📢 Tempah sekarang, Hubungi kami'}
-                                            </p>
                                         </div>
 
-                                        {/* API Key Input */}
-                                        <div className="mb-4">
-                                            <div className="flex items-center gap-2 mb-2">
-                                                <Key className="w-4 h-4 text-green-400" />
-                                                <Label className="text-xs font-medium text-green-400">OpenAI API Key</Label>
-                                            </div>
-                                            <div className="flex gap-2">
-                                                <Input
-                                                    type="password"
-                                                    placeholder="sk-..."
-                                                    value={formData.openaiApiKey}
-                                                    onChange={(e) => updateField('openaiApiKey', e.target.value)}
-                                                    className="flex-1 bg-slate-800/50 text-sm"
+                                        {/* Manual Prompt Input (only for manual mode) */}
+                                        {formData.promptMode === 'manual' && (
+                                            <div className="mb-4">
+                                                <Label className="text-sm font-medium mb-2 block">Prompt Manual</Label>
+                                                <Textarea
+                                                    placeholder="Tulis prompt video anda di sini. Contoh: Tunjukkan produk kosmetik di atas meja putih, kamera zoom in perlahan, pencahayaan soft..."
+                                                    value={formData.manualPrompt}
+                                                    onChange={(e) => updateField('manualPrompt', e.target.value)}
+                                                    className="min-h-[100px] bg-slate-800/50 text-sm"
                                                 />
-                                                <Button
-                                                    variant="outline"
-                                                    size="sm"
-                                                    onClick={saveApiKey}
-                                                    disabled={!formData.openaiApiKey}
-                                                    className="border-green-500/30 text-green-400"
-                                                >
-                                                    <Check className="w-4 h-4" />
-                                                </Button>
                                             </div>
-                                        </div>
+                                        )}
 
                                         {/* Generate Button */}
                                         <Button
                                             onClick={handleEnhancePrompt}
-                                            disabled={isEnhancing || !formData.openaiApiKey || !formData.productName || !formData.productDescription}
+                                            disabled={isEnhancing || !formData.productName || !formData.productDescription}
                                             className="w-full gap-2 bg-gradient-to-r from-violet-600 to-purple-600 hover:from-violet-700 hover:to-purple-700"
                                         >
                                             {isEnhancing ? (
                                                 <>
                                                     <Loader2 className="w-4 h-4 animate-spin" />
-                                                    AI sedang menjana prompt...
+                                                    Gemini AI sedang menjana prompt...
                                                 </>
                                             ) : (
                                                 <>
                                                     <Wand2 className="w-4 h-4" />
-                                                    ✨ Generate Auto-Prompt
+                                                    ✨ Generate dengan Gemini AI
                                                 </>
                                             )}
                                         </Button>
@@ -734,15 +786,14 @@ ${formData.productDescription}
                                 {/* Aspect Ratio */}
                                 <div>
                                     <Label className="text-sm font-medium mb-3 block">Format / Ratio</Label>
-                                    <div className="grid grid-cols-3 gap-2">
+                                    <div className="grid grid-cols-2 gap-2">
                                         {[
-                                            { id: 'landscape', label: '16:9', desc: 'Landscape' },
                                             { id: 'portrait', label: '9:16', desc: 'Portrait/Reels' },
-                                            { id: 'square', label: '1:1', desc: 'Square' },
+                                            { id: 'landscape', label: '16:9', desc: 'Landscape' },
                                         ].map(ratio => (
                                             <button
                                                 key={ratio.id}
-                                                onClick={() => updateField('aspectRatio', ratio.id)}
+                                                onClick={() => updateField('aspectRatio', ratio.id as 'landscape' | 'portrait')}
                                                 className={`p-3 rounded-xl border-2 transition-all text-center ${formData.aspectRatio === ratio.id
                                                     ? 'border-primary bg-primary/10'
                                                     : 'border-slate-700 hover:border-slate-600'
@@ -759,17 +810,18 @@ ${formData.productDescription}
                                 {formData.contentType === 'video' && (
                                     <div>
                                         <Label className="text-sm font-medium mb-3 block">Durasi Video</Label>
-                                        <div className="grid grid-cols-3 gap-2">
-                                            {[5, 10, 15].map(dur => (
+                                        <div className="grid grid-cols-2 gap-2">
+                                            {[10, 15].map(dur => (
                                                 <button
                                                     key={dur}
-                                                    onClick={() => updateField('duration', dur)}
+                                                    onClick={() => updateField('duration', dur as 10 | 15)}
                                                     className={`p-3 rounded-xl border-2 transition-all ${formData.duration === dur
                                                         ? 'border-primary bg-primary/10'
                                                         : 'border-slate-700 hover:border-slate-600'
                                                         }`}
                                                 >
                                                     <p className="font-bold text-lg">{dur}s</p>
+                                                    <p className="text-xs text-muted-foreground">{dur === 10 ? 'Standard' : 'Extended'}</p>
                                                 </button>
                                             ))}
                                         </div>
