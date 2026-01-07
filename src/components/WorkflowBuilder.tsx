@@ -760,6 +760,35 @@ ${formData.productDescription}
                                                 </div>
                                             </div>
 
+                                            {/* Duration Selection */}
+                                            <div className="mb-4">
+                                                <Label className="text-sm font-medium mb-2 block">Durasi Video</Label>
+                                                <div className="grid grid-cols-2 gap-2">
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => updateField('duration', 10 as 10 | 15)}
+                                                        className={`p-3 rounded-lg border text-center transition-all ${formData.duration === 10
+                                                            ? 'bg-green-500/20 border-green-500 text-green-400'
+                                                            : 'bg-slate-800/50 border-slate-700 hover:border-green-500/50'
+                                                            }`}
+                                                    >
+                                                        <p className="text-lg font-bold">10s</p>
+                                                        <p className="text-xs text-muted-foreground">Standard</p>
+                                                    </button>
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => updateField('duration', 15 as 10 | 15)}
+                                                        className={`p-3 rounded-lg border text-center transition-all ${formData.duration === 15
+                                                            ? 'bg-blue-500/20 border-blue-500 text-blue-400'
+                                                            : 'bg-slate-800/50 border-slate-700 hover:border-blue-500/50'
+                                                            }`}
+                                                    >
+                                                        <p className="text-lg font-bold">15s</p>
+                                                        <p className="text-xs text-muted-foreground">Extended</p>
+                                                    </button>
+                                                </div>
+                                            </div>
+
                                             {/* CTA Type Selection */}
                                             <div className="mb-4">
                                                 <Label className="text-sm font-medium mb-2 block">Jenis CTA (Call-to-Action)</Label>
