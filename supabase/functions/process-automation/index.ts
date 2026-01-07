@@ -247,12 +247,25 @@ async function startVideoGeneration(
         .eq('id', workflowId)
         .single();
 
-    const aspectRatioRaw = workflow?.aspect_ratio || '16:9';
+    const aspectRatioRaw = workflow?.aspect_ratio || 'landscape';
     const duration = workflow?.duration || 10;
     const imageUrl = workflow?.product_image_url;
 
     // Map aspect ratio to GeminiGen format (landscape/portrait)
-    const aspectRatio = aspectRatioRaw === '9:16' ? 'portrait' : 'landscape';
+    // Database stores 'portrait' or 'landscape' directly, or '9:16'/'16:9' 
+    let aspectRatio: string;
+    if (aspectRatioRaw === 'portrait' || aspectRatioRaw === '9:16') {
+        aspectRatio = 'portrait';
+    } else {
+        aspectRatio = 'landscape';
+    }
+
+    console.log('Workflow settings:', {
+        aspect_ratio_raw: aspectRatioRaw,
+        aspect_ratio_mapped: aspectRatio,
+        duration,
+        product_image_url: imageUrl,
+    });
 
     // Call GeminiGen API
     const formData = new FormData();
