@@ -475,6 +475,72 @@ const AutomationDashboard: React.FC<AutomationDashboardProps> = ({ userProfile }
         setShowBuilder(true);
     };
 
+    // Duplicate Workflow
+    const duplicateWorkflow = async (workflow: AutomationWorkflow) => {
+        try {
+            toast.info('Menduplikat workflow...');
+
+            // Cast to any for dynamic fields
+            const w = workflow as any;
+
+            // Create new workflow with copied data
+            const { data: newWorkflow, error: workflowError } = await supabase
+                .from('automation_workflows')
+                .insert({
+                    user_id: userProfile.id,
+                    name: `${workflow.name} (Salinan)`,
+                    description: workflow.description,
+                    content_type: workflow.content_type,
+                    prompt_template: workflow.prompt_template,
+                    caption_template: workflow.caption_template,
+                    aspect_ratio: workflow.aspect_ratio,
+                    duration: workflow.duration,
+                    product_image_url: w.product_image_url || null,
+                    cta_type: w.cta_type || 'general',
+                    product_name: w.product_name || null,
+                    product_description: w.product_description || null,
+                    target_audience: w.target_audience || null,
+                    content_style: w.content_style || 'professional',
+                    prompt_mode: w.prompt_mode || 'auto',
+                    video_type: w.video_type || 't2v',
+                    video_style: w.video_style || 'ugc',
+                    character_gender: w.character_gender || 'female',
+                    is_active: false, // Start as inactive
+                })
+                .select()
+                .single();
+
+            if (workflowError) throw workflowError;
+
+            // Copy schedule if exists
+            const { data: originalSchedule } = await supabase
+                .from('automation_schedules')
+                .select('*')
+                .eq('workflow_id', workflow.id)
+                .maybeSingle();
+
+            if (originalSchedule && newWorkflow) {
+                await supabase
+                    .from('automation_schedules')
+                    .insert({
+                        workflow_id: newWorkflow.id,
+                        schedule_type: originalSchedule.schedule_type,
+                        hour_of_day: originalSchedule.hour_of_day,
+                        minute_of_hour: originalSchedule.minute_of_hour,
+                        timezone: originalSchedule.timezone,
+                        is_active: false,
+                        next_run_at: new Date().toISOString(),
+                    });
+            }
+
+            toast.success('Workflow berjaya diduplikat!');
+            loadData();
+        } catch (error) {
+            console.error('Error duplicating workflow:', error);
+            toast.error('Gagal duplikat workflow');
+        }
+    };
+
     if (loading) {
         return (
             <div className="min-h-screen pt-16 pb-24 px-4 flex items-center justify-center">
@@ -816,7 +882,7 @@ const AutomationDashboard: React.FC<AutomationDashboardProps> = ({ userProfile }
                                                     </div>
                                                 </div>
                                                 {/* Action buttons - full width on mobile */}
-                                                <div className="grid grid-cols-3 gap-2 mt-3 pt-3 border-t border-slate-700/50">
+                                                <div className="grid grid-cols-4 gap-2 mt-3 pt-3 border-t border-slate-700/50">
                                                     <Button
                                                         variant="outline"
                                                         size="sm"
@@ -844,6 +910,20 @@ const AutomationDashboard: React.FC<AutomationDashboardProps> = ({ userProfile }
                                                     >
                                                         <Settings className="w-4 h-4" />
                                                         <span className="text-[10px] sm:text-xs">Edit</span>
+                                                    </Button>
+                                                    <Button
+                                                        variant="outline"
+                                                        size="sm"
+                                                        className="min-h-[44px] gap-1 touch-manipulation flex flex-col sm:flex-row items-center justify-center text-cyan-400 border-cyan-500/50 hover:bg-cyan-500/10 disabled:opacity-50"
+                                                        disabled={!subscriptionStatus.isActive}
+                                                        onClick={(e) => {
+                                                            e.preventDefault();
+                                                            e.stopPropagation();
+                                                            duplicateWorkflow(workflow);
+                                                        }}
+                                                    >
+                                                        <RefreshCw className="w-4 h-4" />
+                                                        <span className="text-[10px] sm:text-xs">Duplikat</span>
                                                     </Button>
                                                     <Button
                                                         variant="outline"
