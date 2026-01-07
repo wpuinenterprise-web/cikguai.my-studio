@@ -387,114 +387,78 @@ ${formData.productDescription}
                     </CardHeader>
 
                     <CardContent className="p-6">
-                        {/* Step 1: Basic Info & Product Details */}
+                        {/* Step 1: Basic Info & Prompt Setup */}
                         {step === 1 && (
                             <div className="space-y-5 animate-fade-in">
+                                {/* Workflow Name - always required */}
                                 <div>
-                                    <h3 className="text-lg font-bold text-foreground mb-4 flex items-center gap-2">
-                                        <Sparkles className="w-5 h-5 text-primary" />
-                                        Maklumat Produk
-                                    </h3>
+                                    <Label htmlFor="workflowName" className="text-sm font-medium">
+                                        Nama Workflow <span className="text-destructive">*</span>
+                                    </Label>
+                                    <Input
+                                        id="workflowName"
+                                        placeholder="cth: Video Produk Skincare"
+                                        value={formData.name}
+                                        onChange={(e) => updateField('name', e.target.value)}
+                                        className="mt-1 bg-slate-800/50"
+                                    />
                                 </div>
 
-                                <div className="space-y-4">
-                                    <div>
-                                        <Label htmlFor="workflowName" className="text-sm font-medium">
-                                            Nama Workflow <span className="text-destructive">*</span>
+                                {/* Prompt Mode Selection - FIRST CHOICE */}
+                                <div className="p-4 rounded-xl bg-gradient-to-r from-violet-500/10 via-purple-500/10 to-pink-500/10 border border-violet-500/30">
+                                    <div className="flex items-center gap-2 mb-3">
+                                        <Sparkles className="w-5 h-5 text-violet-400" />
+                                        <Label className="text-sm font-bold text-violet-400">
+                                            Pilih Jenis Prompt
                                         </Label>
-                                        <Input
-                                            id="workflowName"
-                                            placeholder="cth: Promo Produk Kecantikan"
-                                            value={formData.name}
-                                            onChange={(e) => updateField('name', e.target.value)}
-                                            className="mt-1 bg-slate-800/50"
-                                        />
                                     </div>
-
-                                    <div>
-                                        <Label htmlFor="productName" className="text-sm font-medium">
-                                            Nama Produk <span className="text-destructive">*</span>
-                                        </Label>
-                                        <Input
-                                            id="productName"
-                                            placeholder="cth: Serum Vitamin C"
-                                            value={formData.productName}
-                                            onChange={(e) => updateField('productName', e.target.value)}
-                                            className="mt-1 bg-slate-800/50"
-                                        />
+                                    <div className="grid grid-cols-2 gap-3">
+                                        <button
+                                            type="button"
+                                            onClick={() => updateField('promptMode', 'auto')}
+                                            className={`p-4 rounded-xl border-2 text-center transition-all ${formData.promptMode === 'auto'
+                                                ? 'bg-violet-500/20 border-violet-500'
+                                                : 'bg-slate-800/50 border-slate-700 hover:border-violet-500/50'
+                                                }`}
+                                        >
+                                            <Wand2 className={`w-8 h-8 mx-auto mb-2 ${formData.promptMode === 'auto' ? 'text-violet-400' : 'text-muted-foreground'}`} />
+                                            <p className="font-bold text-sm">Auto Prompt</p>
+                                            <p className="text-xs text-muted-foreground">AI jana dari produk</p>
+                                        </button>
+                                        <button
+                                            type="button"
+                                            onClick={() => updateField('promptMode', 'manual')}
+                                            className={`p-4 rounded-xl border-2 text-center transition-all ${formData.promptMode === 'manual'
+                                                ? 'bg-blue-500/20 border-blue-500'
+                                                : 'bg-slate-800/50 border-slate-700 hover:border-blue-500/50'
+                                                }`}
+                                        >
+                                            <Edit3 className={`w-8 h-8 mx-auto mb-2 ${formData.promptMode === 'manual' ? 'text-blue-400' : 'text-muted-foreground'}`} />
+                                            <p className="font-bold text-sm">Manual Prompt</p>
+                                            <p className="text-xs text-muted-foreground">Tulis bebas</p>
+                                        </button>
                                     </div>
+                                </div>
 
-                                    <div>
-                                        <Label htmlFor="productDesc" className="text-sm font-medium">
-                                            Deskripsi Produk <span className="text-destructive">*</span>
-                                        </Label>
-                                        <Textarea
-                                            id="productDesc"
-                                            placeholder="Terangkan produk anda dengan detail - kelebihan, manfaat, bahan-bahan..."
-                                            value={formData.productDescription}
-                                            onChange={(e) => updateField('productDescription', e.target.value)}
-                                            className="mt-1 bg-slate-800/50 min-h-[100px]"
-                                        />
-                                    </div>
-
-                                    <div>
-                                        <Label htmlFor="targetAudience" className="text-sm font-medium">
-                                            Target Audience
-                                        </Label>
-                                        <Input
-                                            id="targetAudience"
-                                            placeholder="cth: wanita umur 25-45, peminat skincare"
-                                            value={formData.targetAudience}
-                                            onChange={(e) => updateField('targetAudience', e.target.value)}
-                                            className="mt-1 bg-slate-800/50"
-                                        />
-                                    </div>
-
-                                    {/* Product Image Upload */}
-                                    <div className="p-4 rounded-xl bg-gradient-to-r from-purple-500/10 to-pink-500/10 border border-purple-500/30">
-                                        <div className="flex items-center gap-2 mb-3">
-                                            <Upload className="w-5 h-5 text-purple-400" />
-                                            <Label className="text-sm font-bold text-purple-400">
-                                                Gambar Produk (untuk I2V)
+                                {/* MANUAL PROMPT MODE - Free form with video settings */}
+                                {formData.promptMode === 'manual' && (
+                                    <div className="space-y-4">
+                                        {/* Manual Prompt Textarea */}
+                                        <div>
+                                            <Label className="text-sm font-medium mb-2 block">
+                                                Prompt Video <span className="text-destructive">*</span>
                                             </Label>
+                                            <Textarea
+                                                placeholder="Tulis prompt video anda di sini. Contoh: A beautiful Malaysian woman in hijab showcasing skincare product, camera slowly zooms in..."
+                                                value={formData.manualPrompt}
+                                                onChange={(e) => updateField('manualPrompt', e.target.value)}
+                                                className="min-h-[150px] bg-slate-800/50 text-sm"
+                                            />
+                                            <p className="text-xs text-muted-foreground mt-1">Tulis dalam English untuk hasil terbaik dengan Sora 2</p>
                                         </div>
 
-                                        {formData.productImageUrl ? (
-                                            <div className="relative">
-                                                <img
-                                                    src={formData.productImageUrl}
-                                                    alt="Product"
-                                                    className="w-full h-40 object-cover rounded-lg"
-                                                />
-                                                <button
-                                                    onClick={() => updateField('productImageUrl', '')}
-                                                    className="absolute top-2 right-2 p-1 bg-red-500 rounded-full"
-                                                >
-                                                    <X className="w-4 h-4 text-white" />
-                                                </button>
-                                            </div>
-                                        ) : (
-                                            <label className="flex flex-col items-center justify-center w-full h-32 border-2 border-dashed border-purple-500/30 rounded-xl cursor-pointer hover:border-purple-500/50 transition-all">
-                                                <input
-                                                    type="file"
-                                                    accept="image/*"
-                                                    onChange={handleImageUpload}
-                                                    className="hidden"
-                                                    disabled={uploading}
-                                                />
-                                                {uploading ? (
-                                                    <Loader2 className="w-8 h-8 animate-spin text-purple-400" />
-                                                ) : (
-                                                    <>
-                                                        <Upload className="w-8 h-8 text-purple-400 mb-2" />
-                                                        <p className="text-xs text-muted-foreground">Klik untuk upload gambar produk</p>
-                                                    </>
-                                                )}
-                                            </label>
-                                        )}
-
-                                        {/* Video Type Toggle (T2V/I2V) */}
-                                        <div className="mt-3">
+                                        {/* Video Type (T2V / I2V) */}
+                                        <div>
                                             <Label className="text-sm font-medium mb-2 block">Jenis Video</Label>
                                             <div className="grid grid-cols-2 gap-2">
                                                 <button
@@ -507,7 +471,6 @@ ${formData.productDescription}
                                                 >
                                                     <Video className="w-5 h-5 mx-auto mb-1" />
                                                     <p className="text-xs font-medium">Text-to-Video</p>
-                                                    <p className="text-xs text-muted-foreground">Jana dari teks</p>
                                                 </button>
                                                 <button
                                                     type="button"
@@ -519,263 +482,409 @@ ${formData.productDescription}
                                                 >
                                                     <Image className="w-5 h-5 mx-auto mb-1" />
                                                     <p className="text-xs font-medium">Image-to-Video</p>
-                                                    <p className="text-xs text-muted-foreground">Jana dari gambar</p>
+                                                </button>
+                                            </div>
+                                        </div>
+
+                                        {/* Image Upload for I2V */}
+                                        {formData.videoType === 'i2v' && (
+                                            <div className="p-3 rounded-lg bg-purple-500/10 border border-purple-500/30">
+                                                <Label className="text-sm font-medium mb-2 block">Upload Gambar</Label>
+                                                {formData.productImageUrl ? (
+                                                    <div className="relative">
+                                                        <img src={formData.productImageUrl} alt="Reference" className="w-full h-32 object-cover rounded-lg" />
+                                                        <button onClick={() => updateField('productImageUrl', '')} className="absolute top-2 right-2 p-1 bg-red-500 rounded-full">
+                                                            <X className="w-4 h-4 text-white" />
+                                                        </button>
+                                                    </div>
+                                                ) : (
+                                                    <label className="flex flex-col items-center justify-center w-full h-24 border-2 border-dashed border-purple-500/30 rounded-lg cursor-pointer hover:border-purple-500/50">
+                                                        <input type="file" accept="image/*" onChange={handleImageUpload} className="hidden" disabled={uploading} />
+                                                        {uploading ? <Loader2 className="w-6 h-6 animate-spin text-purple-400" /> : <Upload className="w-6 h-6 text-purple-400" />}
+                                                    </label>
+                                                )}
+                                            </div>
+                                        )}
+
+                                        {/* Duration */}
+                                        <div>
+                                            <Label className="text-sm font-medium mb-2 block">Durasi</Label>
+                                            <div className="grid grid-cols-2 gap-2">
+                                                <button type="button" onClick={() => updateField('duration', 10 as 10 | 15)}
+                                                    className={`p-3 rounded-lg border transition-all ${formData.duration === 10 ? 'bg-primary/20 border-primary' : 'bg-slate-800/50 border-slate-700'}`}>
+                                                    <p className="font-bold">10 saat</p>
+                                                </button>
+                                                <button type="button" onClick={() => updateField('duration', 15 as 10 | 15)}
+                                                    className={`p-3 rounded-lg border transition-all ${formData.duration === 15 ? 'bg-primary/20 border-primary' : 'bg-slate-800/50 border-slate-700'}`}>
+                                                    <p className="font-bold">15 saat</p>
+                                                </button>
+                                            </div>
+                                        </div>
+
+                                        {/* Aspect Ratio */}
+                                        <div>
+                                            <Label className="text-sm font-medium mb-2 block">Ratio Video</Label>
+                                            <div className="grid grid-cols-2 gap-2">
+                                                <button type="button" onClick={() => updateField('aspectRatio', 'portrait' as 'portrait' | 'landscape')}
+                                                    className={`p-3 rounded-lg border transition-all ${formData.aspectRatio === 'portrait' ? 'bg-primary/20 border-primary' : 'bg-slate-800/50 border-slate-700'}`}>
+                                                    <p className="font-bold">9:16</p>
+                                                    <p className="text-xs text-muted-foreground">Portrait</p>
+                                                </button>
+                                                <button type="button" onClick={() => updateField('aspectRatio', 'landscape' as 'portrait' | 'landscape')}
+                                                    className={`p-3 rounded-lg border transition-all ${formData.aspectRatio === 'landscape' ? 'bg-primary/20 border-primary' : 'bg-slate-800/50 border-slate-700'}`}>
+                                                    <p className="font-bold">16:9</p>
+                                                    <p className="text-xs text-muted-foreground">Landscape</p>
                                                 </button>
                                             </div>
                                         </div>
                                     </div>
+                                )}
 
-                                    {/* Gemini Auto-Prompt Section */}
-                                    <div className="p-4 rounded-xl bg-gradient-to-r from-violet-500/10 via-purple-500/10 to-pink-500/10 border border-violet-500/30">
-                                        <div className="flex items-center gap-2 mb-3">
-                                            <Sparkles className="w-5 h-5 text-violet-400" />
-                                            <Label className="text-sm font-bold text-violet-400">
-                                                ✨ Gemini AI Prompt Generator
+                                {/* AUTO PROMPT MODE - Product Details */}
+                                {formData.promptMode === 'auto' && (
+                                    <div className="space-y-4">
+                                        <div>
+                                            <h3 className="text-lg font-bold text-foreground mb-4 flex items-center gap-2">
+                                                <Sparkles className="w-5 h-5 text-primary" />
+                                                Maklumat Produk
+                                            </h3>
+                                        </div>
+
+                                        <div>
+                                            <Label htmlFor="productName" className="text-sm font-medium">
+                                                Nama Produk <span className="text-destructive">*</span>
                                             </Label>
-                                        </div>
-                                        <p className="text-xs text-muted-foreground mb-4">
-                                            Gemini 2.5 Flash-Lite akan menjana prompt video yang optimum untuk Sora 2
-                                        </p>
-
-                                        {/* Prompt Mode Selection */}
-                                        <div className="mb-4">
-                                            <Label className="text-sm font-medium mb-2 block">Mode Prompt</Label>
-                                            <div className="grid grid-cols-2 gap-2">
-                                                <button
-                                                    type="button"
-                                                    onClick={() => updateField('promptMode', 'auto')}
-                                                    className={`p-3 rounded-lg border text-center transition-all ${formData.promptMode === 'auto'
-                                                        ? 'bg-violet-500/20 border-violet-500 text-violet-400'
-                                                        : 'bg-slate-800/50 border-slate-700 hover:border-violet-500/50'
-                                                        }`}
-                                                >
-                                                    <Wand2 className="w-5 h-5 mx-auto mb-1" />
-                                                    <p className="text-xs font-medium">Auto Prompt</p>
-                                                    <p className="text-xs text-muted-foreground">AI jana dari produk</p>
-                                                </button>
-                                                <button
-                                                    type="button"
-                                                    onClick={() => updateField('promptMode', 'manual')}
-                                                    className={`p-3 rounded-lg border text-center transition-all ${formData.promptMode === 'manual'
-                                                        ? 'bg-blue-500/20 border-blue-500 text-blue-400'
-                                                        : 'bg-slate-800/50 border-slate-700 hover:border-blue-500/50'
-                                                        }`}
-                                                >
-                                                    <Edit3 className="w-5 h-5 mx-auto mb-1" />
-                                                    <p className="text-xs font-medium">Manual Prompt</p>
-                                                    <p className="text-xs text-muted-foreground">Tulis sendiri</p>
-                                                </button>
-                                            </div>
+                                            <Input
+                                                id="productName"
+                                                placeholder="cth: Serum Vitamin C"
+                                                value={formData.productName}
+                                                onChange={(e) => updateField('productName', e.target.value)}
+                                                className="mt-1 bg-slate-800/50"
+                                            />
                                         </div>
 
-                                        {/* Video Style Selection */}
-                                        <div className="mb-4">
-                                            <Label className="text-sm font-medium mb-2 block">Gaya Video</Label>
-                                            <div className="grid grid-cols-2 gap-2">
-                                                <button
-                                                    type="button"
-                                                    onClick={() => {
-                                                        updateField('videoStyle', 'ugc');
-                                                        updateField('aspectRatio', 'portrait');
-                                                    }}
-                                                    className={`p-3 rounded-lg border text-center transition-all ${formData.videoStyle === 'ugc'
-                                                        ? 'bg-pink-500/20 border-pink-500 text-pink-400'
-                                                        : 'bg-slate-800/50 border-slate-700 hover:border-pink-500/50'
-                                                        }`}
-                                                >
-                                                    <p className="text-xs font-bold">📱 UGC Style</p>
-                                                    <p className="text-xs text-muted-foreground">TikTok/Reels (9:16)</p>
-                                                    <p className="text-xs text-muted-foreground">Casual, influencer</p>
-                                                </button>
-                                                <button
-                                                    type="button"
-                                                    onClick={() => {
-                                                        updateField('videoStyle', 'storyboard');
-                                                        updateField('aspectRatio', 'landscape');
-                                                    }}
-                                                    className={`p-3 rounded-lg border text-center transition-all ${formData.videoStyle === 'storyboard'
-                                                        ? 'bg-amber-500/20 border-amber-500 text-amber-400'
-                                                        : 'bg-slate-800/50 border-slate-700 hover:border-amber-500/50'
-                                                        }`}
-                                                >
-                                                    <p className="text-xs font-bold">🎬 Storyboard</p>
-                                                    <p className="text-xs text-muted-foreground">Cinematic (16:9)</p>
-                                                    <p className="text-xs text-muted-foreground">Formal, dramatic</p>
-                                                </button>
-                                            </div>
+                                        <div>
+                                            <Label htmlFor="productDesc" className="text-sm font-medium">
+                                                Deskripsi Produk <span className="text-destructive">*</span>
+                                            </Label>
+                                            <Textarea
+                                                id="productDesc"
+                                                placeholder="Terangkan produk anda dengan detail - kelebihan, manfaat, bahan-bahan..."
+                                                value={formData.productDescription}
+                                                onChange={(e) => updateField('productDescription', e.target.value)}
+                                                className="mt-1 bg-slate-800/50 min-h-[100px]"
+                                            />
                                         </div>
 
-                                        {/* Character Gender Selection */}
-                                        <div className="mb-4">
-                                            <Label className="text-sm font-medium mb-2 block">Watak / Model</Label>
-                                            <div className="grid grid-cols-2 gap-2">
-                                                <button
-                                                    type="button"
-                                                    onClick={() => updateField('characterGender', 'female')}
-                                                    className={`p-3 rounded-lg border text-center transition-all ${formData.characterGender === 'female'
-                                                        ? 'bg-pink-500/20 border-pink-500 text-pink-400'
-                                                        : 'bg-slate-800/50 border-slate-700 hover:border-pink-500/50'
-                                                        }`}
-                                                >
-                                                    <p className="text-lg mb-1">👩</p>
-                                                    <p className="text-xs font-bold">Perempuan</p>
-                                                    <p className="text-xs text-muted-foreground">Melayu bertudung 30-an</p>
-                                                </button>
-                                                <button
-                                                    type="button"
-                                                    onClick={() => updateField('characterGender', 'male')}
-                                                    className={`p-3 rounded-lg border text-center transition-all ${formData.characterGender === 'male'
-                                                        ? 'bg-blue-500/20 border-blue-500 text-blue-400'
-                                                        : 'bg-slate-800/50 border-slate-700 hover:border-blue-500/50'
-                                                        }`}
-                                                >
-                                                    <p className="text-lg mb-1">👨</p>
-                                                    <p className="text-xs font-bold">Lelaki</p>
-                                                    <p className="text-xs text-muted-foreground">Melayu influencer 30-an</p>
-                                                </button>
-                                            </div>
+                                        <div>
+                                            <Label htmlFor="targetAudience" className="text-sm font-medium">
+                                                Target Audience
+                                            </Label>
+                                            <Input
+                                                id="targetAudience"
+                                                placeholder="cth: wanita umur 25-45, peminat skincare"
+                                                value={formData.targetAudience}
+                                                onChange={(e) => updateField('targetAudience', e.target.value)}
+                                                className="mt-1 bg-slate-800/50"
+                                            />
                                         </div>
 
-                                        {/* CTA Type Selection */}
-                                        <div className="mb-4">
-                                            <Label className="text-sm font-medium mb-2 block">Jenis CTA (Call-to-Action)</Label>
-                                            <div className="grid grid-cols-3 gap-2">
-                                                <button
-                                                    type="button"
-                                                    onClick={() => updateField('ctaType', 'fb')}
-                                                    className={`p-3 rounded-lg border text-center text-xs transition-all ${formData.ctaType === 'fb'
-                                                        ? 'bg-blue-500/20 border-blue-500 text-blue-400'
-                                                        : 'bg-slate-800/50 border-slate-700 hover:border-blue-500/50'
-                                                        }`}
-                                                >
-                                                    <Facebook className="w-4 h-4 mx-auto mb-1" />
-                                                    Facebook
-                                                </button>
-                                                <button
-                                                    type="button"
-                                                    onClick={() => updateField('ctaType', 'tiktok')}
-                                                    className={`p-3 rounded-lg border text-center text-xs transition-all ${formData.ctaType === 'tiktok'
-                                                        ? 'bg-pink-500/20 border-pink-500 text-pink-400'
-                                                        : 'bg-slate-800/50 border-slate-700 hover:border-pink-500/50'
-                                                        }`}
-                                                >
-                                                    <Video className="w-4 h-4 mx-auto mb-1" />
-                                                    TikTok
-                                                </button>
-                                                <button
-                                                    type="button"
-                                                    onClick={() => updateField('ctaType', 'general')}
-                                                    className={`p-3 rounded-lg border text-center text-xs transition-all ${formData.ctaType === 'general'
-                                                        ? 'bg-green-500/20 border-green-500 text-green-400'
-                                                        : 'bg-slate-800/50 border-slate-700 hover:border-green-500/50'
-                                                        }`}
-                                                >
-                                                    <Send className="w-4 h-4 mx-auto mb-1" />
-                                                    Umum
-                                                </button>
+                                        {/* Product Image Upload */}
+                                        <div className="p-4 rounded-xl bg-gradient-to-r from-purple-500/10 to-pink-500/10 border border-purple-500/30">
+                                            <div className="flex items-center gap-2 mb-3">
+                                                <Upload className="w-5 h-5 text-purple-400" />
+                                                <Label className="text-sm font-bold text-purple-400">
+                                                    Gambar Produk (untuk I2V)
+                                                </Label>
                                             </div>
-                                        </div>
 
-                                        {/* Manual Prompt Input (only for manual mode) */}
-                                        {formData.promptMode === 'manual' && (
-                                            <div className="mb-4">
-                                                <Label className="text-sm font-medium mb-2 block">Prompt Manual</Label>
-                                                <Textarea
-                                                    placeholder="Tulis prompt video anda di sini. Contoh: Tunjukkan produk kosmetik di atas meja putih, kamera zoom in perlahan, pencahayaan soft..."
-                                                    value={formData.manualPrompt}
-                                                    onChange={(e) => updateField('manualPrompt', e.target.value)}
-                                                    className="min-h-[100px] bg-slate-800/50 text-sm"
-                                                />
-                                            </div>
-                                        )}
-
-                                        {/* Generate Button */}
-                                        <Button
-                                            onClick={handleEnhancePrompt}
-                                            disabled={isEnhancing || !formData.productName || !formData.productDescription}
-                                            className="w-full gap-2 bg-gradient-to-r from-violet-600 to-purple-600 hover:from-violet-700 hover:to-purple-700"
-                                        >
-                                            {isEnhancing ? (
-                                                <>
-                                                    <Loader2 className="w-4 h-4 animate-spin" />
-                                                    Gemini AI sedang menjana prompt...
-                                                </>
-                                            ) : (
-                                                <>
-                                                    <Wand2 className="w-4 h-4" />
-                                                    ✨ Generate dengan Gemini AI
-                                                </>
-                                            )}
-                                        </Button>
-
-                                        {/* Enhanced Prompt Preview */}
-                                        {showPromptPreview && enhancedPrompt && (
-                                            <div className="mt-4 space-y-3 animate-fade-in">
-                                                <div className="flex items-center justify-between">
-                                                    <Label className="text-sm font-medium text-violet-300">
-                                                        📝 Video Prompt Preview
-                                                    </Label>
-                                                    <div className="flex gap-2">
-                                                        <Button
-                                                            variant="ghost"
-                                                            size="sm"
-                                                            onClick={() => setIsEditingPrompt(!isEditingPrompt)}
-                                                            className="h-7 px-2 text-xs"
-                                                        >
-                                                            <Edit3 className="w-3 h-3 mr-1" />
-                                                            {isEditingPrompt ? 'Done' : 'Edit'}
-                                                        </Button>
-                                                        <Button
-                                                            variant="ghost"
-                                                            size="sm"
-                                                            onClick={handleEnhancePrompt}
-                                                            disabled={isEnhancing}
-                                                            className="h-7 px-2 text-xs"
-                                                        >
-                                                            <RefreshCw className={`w-3 h-3 mr-1 ${isEnhancing ? 'animate-spin' : ''}`} />
-                                                            Regenerate
-                                                        </Button>
-                                                    </div>
-                                                </div>
-
-                                                {isEditingPrompt ? (
-                                                    <Textarea
-                                                        value={enhancedPrompt}
-                                                        onChange={(e) => setEnhancedPrompt(e.target.value)}
-                                                        className="min-h-[150px] bg-slate-800/50 text-sm"
+                                            {formData.productImageUrl ? (
+                                                <div className="relative">
+                                                    <img
+                                                        src={formData.productImageUrl}
+                                                        alt="Product"
+                                                        className="w-full h-40 object-cover rounded-lg"
                                                     />
-                                                ) : (
-                                                    <div className="p-3 rounded-lg bg-slate-800/50 border border-slate-700/50 max-h-[200px] overflow-y-auto">
-                                                        <p className="text-xs text-foreground/80 whitespace-pre-wrap">
-                                                            {enhancedPrompt}
-                                                        </p>
-                                                    </div>
-                                                )}
+                                                    <button
+                                                        onClick={() => updateField('productImageUrl', '')}
+                                                        className="absolute top-2 right-2 p-1 bg-red-500 rounded-full"
+                                                    >
+                                                        <X className="w-4 h-4 text-white" />
+                                                    </button>
+                                                </div>
+                                            ) : (
+                                                <label className="flex flex-col items-center justify-center w-full h-32 border-2 border-dashed border-purple-500/30 rounded-xl cursor-pointer hover:border-purple-500/50 transition-all">
+                                                    <input
+                                                        type="file"
+                                                        accept="image/*"
+                                                        onChange={handleImageUpload}
+                                                        className="hidden"
+                                                        disabled={uploading}
+                                                    />
+                                                    {uploading ? (
+                                                        <Loader2 className="w-8 h-8 animate-spin text-purple-400" />
+                                                    ) : (
+                                                        <>
+                                                            <Upload className="w-8 h-8 text-purple-400 mb-2" />
+                                                            <p className="text-xs text-muted-foreground">Klik untuk upload gambar produk</p>
+                                                        </>
+                                                    )}
+                                                </label>
+                                            )}
 
-                                                {/* Caption Preview */}
-                                                {enhancedCaption && (
-                                                    <div>
-                                                        <Label className="text-sm font-medium text-violet-300 mb-2 block">
-                                                            💬 Caption Preview
+                                            {/* Video Type Toggle (T2V/I2V) */}
+                                            <div className="mt-3">
+                                                <Label className="text-sm font-medium mb-2 block">Jenis Video</Label>
+                                                <div className="grid grid-cols-2 gap-2">
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => updateField('videoType', 't2v')}
+                                                        className={`p-3 rounded-lg border text-center transition-all ${formData.videoType === 't2v'
+                                                            ? 'bg-violet-500/20 border-violet-500 text-violet-400'
+                                                            : 'bg-slate-800/50 border-slate-700 hover:border-violet-500/50'
+                                                            }`}
+                                                    >
+                                                        <Video className="w-5 h-5 mx-auto mb-1" />
+                                                        <p className="text-xs font-medium">Text-to-Video</p>
+                                                        <p className="text-xs text-muted-foreground">Jana dari teks</p>
+                                                    </button>
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => updateField('videoType', 'i2v')}
+                                                        className={`p-3 rounded-lg border text-center transition-all ${formData.videoType === 'i2v'
+                                                            ? 'bg-purple-500/20 border-purple-500 text-purple-400'
+                                                            : 'bg-slate-800/50 border-slate-700 hover:border-purple-500/50'
+                                                            }`}
+                                                    >
+                                                        <Image className="w-5 h-5 mx-auto mb-1" />
+                                                        <p className="text-xs font-medium">Image-to-Video</p>
+                                                        <p className="text-xs text-muted-foreground">Jana dari gambar</p>
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        {/* Gemini Auto-Prompt Section */}
+                                        <div className="p-4 rounded-xl bg-gradient-to-r from-violet-500/10 via-purple-500/10 to-pink-500/10 border border-violet-500/30">
+                                            <div className="flex items-center gap-2 mb-3">
+                                                <Sparkles className="w-5 h-5 text-violet-400" />
+                                                <Label className="text-sm font-bold text-violet-400">
+                                                    ✨ Gemini AI Prompt Generator
+                                                </Label>
+                                            </div>
+                                            <p className="text-xs text-muted-foreground mb-4">
+                                                Gemini 2.5 Flash-Lite akan menjana prompt video yang optimum untuk Sora 2
+                                            </p>
+
+                                            {/* Video Style Selection */}
+                                            <div className="mb-4">
+                                                <Label className="text-sm font-medium mb-2 block">Gaya Video</Label>
+                                                <div className="grid grid-cols-2 gap-2">
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => {
+                                                            updateField('videoStyle', 'ugc');
+                                                            updateField('aspectRatio', 'portrait');
+                                                        }}
+                                                        className={`p-3 rounded-lg border text-center transition-all ${formData.videoStyle === 'ugc'
+                                                            ? 'bg-pink-500/20 border-pink-500 text-pink-400'
+                                                            : 'bg-slate-800/50 border-slate-700 hover:border-pink-500/50'
+                                                            }`}
+                                                    >
+                                                        <p className="text-xs font-bold">📱 UGC Style</p>
+                                                        <p className="text-xs text-muted-foreground">TikTok/Reels (9:16)</p>
+                                                        <p className="text-xs text-muted-foreground">Casual, influencer</p>
+                                                    </button>
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => {
+                                                            updateField('videoStyle', 'storyboard');
+                                                            updateField('aspectRatio', 'landscape');
+                                                        }}
+                                                        className={`p-3 rounded-lg border text-center transition-all ${formData.videoStyle === 'storyboard'
+                                                            ? 'bg-amber-500/20 border-amber-500 text-amber-400'
+                                                            : 'bg-slate-800/50 border-slate-700 hover:border-amber-500/50'
+                                                            }`}
+                                                    >
+                                                        <p className="text-xs font-bold">🎬 Storyboard</p>
+                                                        <p className="text-xs text-muted-foreground">Cinematic (16:9)</p>
+                                                        <p className="text-xs text-muted-foreground">Formal, dramatic</p>
+                                                    </button>
+                                                </div>
+                                            </div>
+
+                                            {/* Character Gender Selection */}
+                                            <div className="mb-4">
+                                                <Label className="text-sm font-medium mb-2 block">Watak / Model</Label>
+                                                <div className="grid grid-cols-2 gap-2">
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => updateField('characterGender', 'female')}
+                                                        className={`p-3 rounded-lg border text-center transition-all ${formData.characterGender === 'female'
+                                                            ? 'bg-pink-500/20 border-pink-500 text-pink-400'
+                                                            : 'bg-slate-800/50 border-slate-700 hover:border-pink-500/50'
+                                                            }`}
+                                                    >
+                                                        <p className="text-lg mb-1">👩</p>
+                                                        <p className="text-xs font-bold">Perempuan</p>
+                                                        <p className="text-xs text-muted-foreground">Melayu bertudung 30-an</p>
+                                                    </button>
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => updateField('characterGender', 'male')}
+                                                        className={`p-3 rounded-lg border text-center transition-all ${formData.characterGender === 'male'
+                                                            ? 'bg-blue-500/20 border-blue-500 text-blue-400'
+                                                            : 'bg-slate-800/50 border-slate-700 hover:border-blue-500/50'
+                                                            }`}
+                                                    >
+                                                        <p className="text-lg mb-1">👨</p>
+                                                        <p className="text-xs font-bold">Lelaki</p>
+                                                        <p className="text-xs text-muted-foreground">Melayu influencer 30-an</p>
+                                                    </button>
+                                                </div>
+                                            </div>
+
+                                            {/* CTA Type Selection */}
+                                            <div className="mb-4">
+                                                <Label className="text-sm font-medium mb-2 block">Jenis CTA (Call-to-Action)</Label>
+                                                <div className="grid grid-cols-3 gap-2">
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => updateField('ctaType', 'fb')}
+                                                        className={`p-3 rounded-lg border text-center text-xs transition-all ${formData.ctaType === 'fb'
+                                                            ? 'bg-blue-500/20 border-blue-500 text-blue-400'
+                                                            : 'bg-slate-800/50 border-slate-700 hover:border-blue-500/50'
+                                                            }`}
+                                                    >
+                                                        <Facebook className="w-4 h-4 mx-auto mb-1" />
+                                                        Facebook
+                                                    </button>
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => updateField('ctaType', 'tiktok')}
+                                                        className={`p-3 rounded-lg border text-center text-xs transition-all ${formData.ctaType === 'tiktok'
+                                                            ? 'bg-pink-500/20 border-pink-500 text-pink-400'
+                                                            : 'bg-slate-800/50 border-slate-700 hover:border-pink-500/50'
+                                                            }`}
+                                                    >
+                                                        <Video className="w-4 h-4 mx-auto mb-1" />
+                                                        TikTok
+                                                    </button>
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => updateField('ctaType', 'general')}
+                                                        className={`p-3 rounded-lg border text-center text-xs transition-all ${formData.ctaType === 'general'
+                                                            ? 'bg-green-500/20 border-green-500 text-green-400'
+                                                            : 'bg-slate-800/50 border-slate-700 hover:border-green-500/50'
+                                                            }`}
+                                                    >
+                                                        <Send className="w-4 h-4 mx-auto mb-1" />
+                                                        Umum
+                                                    </button>
+                                                </div>
+                                            </div>
+
+                                            {/* Manual Prompt Input (only for manual mode) */}
+                                            {formData.promptMode === 'manual' && (
+                                                <div className="mb-4">
+                                                    <Label className="text-sm font-medium mb-2 block">Prompt Manual</Label>
+                                                    <Textarea
+                                                        placeholder="Tulis prompt video anda di sini. Contoh: Tunjukkan produk kosmetik di atas meja putih, kamera zoom in perlahan, pencahayaan soft..."
+                                                        value={formData.manualPrompt}
+                                                        onChange={(e) => updateField('manualPrompt', e.target.value)}
+                                                        className="min-h-[100px] bg-slate-800/50 text-sm"
+                                                    />
+                                                </div>
+                                            )}
+
+                                            {/* Generate Button */}
+                                            <Button
+                                                onClick={handleEnhancePrompt}
+                                                disabled={isEnhancing || !formData.productName || !formData.productDescription}
+                                                className="w-full gap-2 bg-gradient-to-r from-violet-600 to-purple-600 hover:from-violet-700 hover:to-purple-700"
+                                            >
+                                                {isEnhancing ? (
+                                                    <>
+                                                        <Loader2 className="w-4 h-4 animate-spin" />
+                                                        Gemini AI sedang menjana prompt...
+                                                    </>
+                                                ) : (
+                                                    <>
+                                                        <Wand2 className="w-4 h-4" />
+                                                        ✨ Generate dengan Gemini AI
+                                                    </>
+                                                )}
+                                            </Button>
+
+                                            {/* Enhanced Prompt Preview */}
+                                            {showPromptPreview && enhancedPrompt && (
+                                                <div className="mt-4 space-y-3 animate-fade-in">
+                                                    <div className="flex items-center justify-between">
+                                                        <Label className="text-sm font-medium text-violet-300">
+                                                            📝 Video Prompt Preview
                                                         </Label>
-                                                        <div className="p-3 rounded-lg bg-slate-800/50 border border-slate-700/50">
-                                                            <p className="text-xs text-foreground/80 whitespace-pre-wrap">
-                                                                {enhancedCaption}
-                                                            </p>
+                                                        <div className="flex gap-2">
+                                                            <Button
+                                                                variant="ghost"
+                                                                size="sm"
+                                                                onClick={() => setIsEditingPrompt(!isEditingPrompt)}
+                                                                className="h-7 px-2 text-xs"
+                                                            >
+                                                                <Edit3 className="w-3 h-3 mr-1" />
+                                                                {isEditingPrompt ? 'Done' : 'Edit'}
+                                                            </Button>
+                                                            <Button
+                                                                variant="ghost"
+                                                                size="sm"
+                                                                onClick={handleEnhancePrompt}
+                                                                disabled={isEnhancing}
+                                                                className="h-7 px-2 text-xs"
+                                                            >
+                                                                <RefreshCw className={`w-3 h-3 mr-1 ${isEnhancing ? 'animate-spin' : ''}`} />
+                                                                Regenerate
+                                                            </Button>
                                                         </div>
                                                     </div>
-                                                )}
 
-                                                <div className="flex items-center gap-2 p-2 rounded-lg bg-green-500/10 border border-green-500/20">
-                                                    <Check className="w-4 h-4 text-green-400" />
-                                                    <p className="text-xs text-green-400">
-                                                        Prompt ini akan digunakan untuk workflow anda
-                                                    </p>
+                                                    {isEditingPrompt ? (
+                                                        <Textarea
+                                                            value={enhancedPrompt}
+                                                            onChange={(e) => setEnhancedPrompt(e.target.value)}
+                                                            className="min-h-[150px] bg-slate-800/50 text-sm"
+                                                        />
+                                                    ) : (
+                                                        <div className="p-3 rounded-lg bg-slate-800/50 border border-slate-700/50 max-h-[200px] overflow-y-auto">
+                                                            <p className="text-xs text-foreground/80 whitespace-pre-wrap">
+                                                                {enhancedPrompt}
+                                                            </p>
+                                                        </div>
+                                                    )}
+
+                                                    {/* Caption Preview */}
+                                                    {enhancedCaption && (
+                                                        <div>
+                                                            <Label className="text-sm font-medium text-violet-300 mb-2 block">
+                                                                💬 Caption Preview
+                                                            </Label>
+                                                            <div className="p-3 rounded-lg bg-slate-800/50 border border-slate-700/50">
+                                                                <p className="text-xs text-foreground/80 whitespace-pre-wrap">
+                                                                    {enhancedCaption}
+                                                                </p>
+                                                            </div>
+                                                        </div>
+                                                    )}
+
+                                                    <div className="flex items-center gap-2 p-2 rounded-lg bg-green-500/10 border border-green-500/20">
+                                                        <Check className="w-4 h-4 text-green-400" />
+                                                        <p className="text-xs text-green-400">
+                                                            Prompt ini akan digunakan untuk workflow anda
+                                                        </p>
+                                                    </div>
                                                 </div>
-                                            </div>
-                                        )}
+                                            )}
+                                        </div>
                                     </div>
-                                </div>
+                                )}
                             </div>
                         )}
 
