@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -102,6 +102,30 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({
     const [showPromptPreview, setShowPromptPreview] = useState(!!editWorkflow?.prompt_template);
     const [isEditingPrompt, setIsEditingPrompt] = useState(false);
 
+    // Load schedule data when editing existing workflow
+    useEffect(() => {
+        const loadScheduleData = async () => {
+            if (editWorkflow?.id) {
+                const { data: schedule } = await supabase
+                    .from('automation_schedules')
+                    .select('*')
+                    .eq('workflow_id', editWorkflow.id)
+                    .maybeSingle();
+
+                if (schedule) {
+                    setFormData(prev => ({
+                        ...prev,
+                        scheduleType: schedule.schedule_type || 'daily',
+                        hourOfDay: schedule.hour_of_day ?? 9,
+                        minuteOfHour: schedule.minute_of_hour ?? 0,
+                        platforms: schedule.platforms || ['telegram'],
+                    }));
+                }
+            }
+        };
+
+        loadScheduleData();
+    }, [editWorkflow?.id]);
 
     const updateField = (field: keyof WorkflowFormData, value: any) => {
         setFormData(prev => ({ ...prev, [field]: value }));
