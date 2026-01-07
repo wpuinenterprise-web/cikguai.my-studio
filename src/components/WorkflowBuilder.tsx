@@ -303,6 +303,7 @@ ${formData.productDescription}
                         schedule_type: formData.scheduleType,
                         hour_of_day: formData.hourOfDay,
                         minute_of_hour: formData.minuteOfHour,
+                        platforms: formData.platforms,
                     })
                     .eq('workflow_id', editWorkflow.id);
 
@@ -348,6 +349,7 @@ ${formData.productDescription}
                         timezone: 'Asia/Kuala_Lumpur',
                         is_active: true,
                         next_run_at: calculateNextRunAt(),
+                        platforms: formData.platforms,
                     });
 
                 if (scheduleError) throw scheduleError;
@@ -997,6 +999,86 @@ ${formData.productDescription}
                                         </p>
                                     </div>
                                 )}
+
+                                {/* Platform Selection */}
+                                <div className="pt-4 border-t border-slate-700/50">
+                                    <h3 className="text-lg font-bold text-foreground mb-4 flex items-center gap-2">
+                                        <Send className="w-5 h-5 text-primary" />
+                                        Platform Posting
+                                    </h3>
+                                    <p className="text-sm text-muted-foreground mb-4">
+                                        Pilih platform untuk auto-post konten anda
+                                    </p>
+
+                                    <div className="grid grid-cols-2 gap-3">
+                                        {/* Telegram */}
+                                        <button
+                                            type="button"
+                                            onClick={() => togglePlatform('telegram')}
+                                            className={`p-3 rounded-xl border-2 transition-all flex flex-col items-center gap-2 ${formData.platforms.includes('telegram')
+                                                ? 'border-blue-500 bg-blue-500/10'
+                                                : 'border-slate-700 hover:border-slate-600'
+                                                }`}
+                                        >
+                                            <Send className={`w-6 h-6 ${formData.platforms.includes('telegram') ? 'text-blue-400' : 'text-muted-foreground'}`} />
+                                            <span className="text-xs font-medium">Telegram</span>
+                                            {formData.platforms.includes('telegram') && (
+                                                <Check className="w-4 h-4 text-blue-400" />
+                                            )}
+                                        </button>
+
+                                        {/* Facebook */}
+                                        <button
+                                            type="button"
+                                            onClick={() => togglePlatform('facebook')}
+                                            className={`p-3 rounded-xl border-2 transition-all flex flex-col items-center gap-2 ${formData.platforms.includes('facebook')
+                                                ? 'border-blue-600 bg-blue-600/10'
+                                                : 'border-slate-700 hover:border-slate-600 opacity-50'
+                                                }`}
+                                            disabled
+                                        >
+                                            <Facebook className={`w-6 h-6 ${formData.platforms.includes('facebook') ? 'text-blue-500' : 'text-muted-foreground'}`} />
+                                            <span className="text-xs font-medium">Facebook</span>
+                                            <span className="text-xs text-muted-foreground">Akan Datang</span>
+                                        </button>
+
+                                        {/* Instagram */}
+                                        <button
+                                            type="button"
+                                            onClick={() => togglePlatform('instagram')}
+                                            className={`p-3 rounded-xl border-2 transition-all flex flex-col items-center gap-2 ${formData.platforms.includes('instagram')
+                                                ? 'border-pink-500 bg-pink-500/10'
+                                                : 'border-slate-700 hover:border-slate-600 opacity-50'
+                                                }`}
+                                            disabled
+                                        >
+                                            <Instagram className={`w-6 h-6 ${formData.platforms.includes('instagram') ? 'text-pink-400' : 'text-muted-foreground'}`} />
+                                            <span className="text-xs font-medium">Instagram</span>
+                                            <span className="text-xs text-muted-foreground">Akan Datang</span>
+                                        </button>
+
+                                        {/* YouTube */}
+                                        <button
+                                            type="button"
+                                            onClick={() => togglePlatform('youtube')}
+                                            className={`p-3 rounded-xl border-2 transition-all flex flex-col items-center gap-2 ${formData.platforms.includes('youtube')
+                                                ? 'border-red-500 bg-red-500/10'
+                                                : 'border-slate-700 hover:border-slate-600 opacity-50'
+                                                }`}
+                                            disabled
+                                        >
+                                            <Youtube className={`w-6 h-6 ${formData.platforms.includes('youtube') ? 'text-red-400' : 'text-muted-foreground'}`} />
+                                            <span className="text-xs font-medium">YouTube</span>
+                                            <span className="text-xs text-muted-foreground">Akan Datang</span>
+                                        </button>
+                                    </div>
+
+                                    {formData.platforms.length === 0 && (
+                                        <p className="text-xs text-amber-400 mt-3">
+                                            ⚠️ Sila pilih sekurang-kurangnya satu platform
+                                        </p>
+                                    )}
+                                </div>
                             </div>
                         )}
 

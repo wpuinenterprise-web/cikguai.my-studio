@@ -42,6 +42,7 @@ const AutomationDashboard: React.FC<AutomationDashboardProps> = ({ userProfile }
     const [workflows, setWorkflows] = useState<AutomationWorkflow[]>([]);
     const [postQueue, setPostQueue] = useState<AutomationPostQueue[]>([]);
     const [socialAccounts, setSocialAccounts] = useState<SocialMediaAccount[]>([]);
+    const [schedules, setSchedules] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
     const [activeTab, setActiveTab] = useState<'overview' | 'workflows' | 'queue' | 'accounts'>('overview');
     const [showBuilder, setShowBuilder] = useState(false);
@@ -123,6 +124,11 @@ const AutomationDashboard: React.FC<AutomationDashboardProps> = ({ userProfile }
                 .from('social_media_accounts')
                 .select('*');
 
+            // Load schedules
+            const { data: schedulesData } = await supabase
+                .from('automation_schedules')
+                .select('*');
+
             // Load today's stats
             const today = new Date().toISOString().split('T')[0];
             const { data: historyData } = await supabase
@@ -133,6 +139,7 @@ const AutomationDashboard: React.FC<AutomationDashboardProps> = ({ userProfile }
             setWorkflows((workflowsData || []) as unknown as AutomationWorkflow[]);
             setPostQueue((queueData || []) as unknown as AutomationPostQueue[]);
             setSocialAccounts((accountsData || []) as unknown as SocialMediaAccount[]);
+            setSchedules(schedulesData || []);
 
             const completed = historyData?.filter(h => h.status === 'success').length || 0;
             const failed = historyData?.filter(h => h.status === 'failed').length || 0;
@@ -879,6 +886,33 @@ const AutomationDashboard: React.FC<AutomationDashboardProps> = ({ userProfile }
                                                             <span>•</span>
                                                             <span>{workflow.duration}s</span>
                                                         </div>
+                                                        {/* Schedule and Platform Info */}
+                                                        {(() => {
+                                                            const schedule = schedules.find(s => s.workflow_id === workflow.id);
+                                                            return (
+                                                                <div className="flex items-center gap-2 mt-2 flex-wrap">
+                                                                    {schedule && (
+                                                                        <>
+                                                                            <Badge variant="outline" className="text-xs bg-blue-500/10 text-blue-400 border-blue-500/30">
+                                                                                <Clock className="w-3 h-3 mr-1" />
+                                                                                {String(schedule.hour_of_day).padStart(2, '0')}:{String(schedule.minute_of_hour).padStart(2, '0')}
+                                                                                {schedule.schedule_type === 'hourly' ? ' (Setiap Jam)' : ' (Setiap Hari)'}
+                                                                            </Badge>
+                                                                            {schedule.platforms && schedule.platforms.length > 0 && (
+                                                                                <div className="flex gap-1">
+                                                                                    {schedule.platforms.map((p: string) => (
+                                                                                        <Badge key={p} variant="outline" className="text-xs bg-purple-500/10 text-purple-400 border-purple-500/30 capitalize">
+                                                                                            {getPlatformIcon(p)}
+                                                                                            <span className="ml-1">{p}</span>
+                                                                                        </Badge>
+                                                                                    ))}
+                                                                                </div>
+                                                                            )}
+                                                                        </>
+                                                                    )}
+                                                                </div>
+                                                            );
+                                                        })()}
                                                     </div>
                                                 </div>
                                                 {/* Action buttons - full width on mobile */}
@@ -946,345 +980,355 @@ const AutomationDashboard: React.FC<AutomationDashboardProps> = ({ userProfile }
                                 )}
                             </CardContent>
                         </Card>
-                    </div>
+                    </div >
                 )}
 
-                {activeTab === 'queue' && (
-                    <div className="animate-fade-in">
-                        <Card className="bg-slate-900/50 border-slate-700/50">
-                            <CardHeader>
-                                <CardTitle className="text-lg">Post Queue</CardTitle>
-                            </CardHeader>
-                            <CardContent>
-                                {postQueue.length === 0 ? (
-                                    <div className="text-center py-12">
-                                        <Clock className="w-16 h-16 mx-auto mb-4 text-muted-foreground/30" />
-                                        <h3 className="text-lg font-bold text-foreground mb-2">Queue Kosong</h3>
-                                        <p className="text-muted-foreground text-sm">
-                                            Post yang dijadualkan akan muncul di sini
-                                        </p>
-                                    </div>
-                                ) : (
-                                    <div className="space-y-3">
-                                        {postQueue.map((post) => (
-                                            <div key={post.id} className="p-4 rounded-xl bg-slate-800/50 border border-slate-700/50">
-                                                <div className="flex items-start justify-between gap-3">
-                                                    <div className="flex-1 min-w-0">
-                                                        <div className="flex items-center gap-2 mb-2">
-                                                            {getStatusBadge(post.status)}
-                                                            <span className="text-xs text-muted-foreground capitalize">{post.content_type}</span>
+                {
+                    activeTab === 'queue' && (
+                        <div className="animate-fade-in">
+                            <Card className="bg-slate-900/50 border-slate-700/50">
+                                <CardHeader>
+                                    <CardTitle className="text-lg">Post Queue</CardTitle>
+                                </CardHeader>
+                                <CardContent>
+                                    {postQueue.length === 0 ? (
+                                        <div className="text-center py-12">
+                                            <Clock className="w-16 h-16 mx-auto mb-4 text-muted-foreground/30" />
+                                            <h3 className="text-lg font-bold text-foreground mb-2">Queue Kosong</h3>
+                                            <p className="text-muted-foreground text-sm">
+                                                Post yang dijadualkan akan muncul di sini
+                                            </p>
+                                        </div>
+                                    ) : (
+                                        <div className="space-y-3">
+                                            {postQueue.map((post) => (
+                                                <div key={post.id} className="p-4 rounded-xl bg-slate-800/50 border border-slate-700/50">
+                                                    <div className="flex items-start justify-between gap-3">
+                                                        <div className="flex-1 min-w-0">
+                                                            <div className="flex items-center gap-2 mb-2">
+                                                                {getStatusBadge(post.status)}
+                                                                <span className="text-xs text-muted-foreground capitalize">{post.content_type}</span>
+                                                            </div>
+                                                            <p className="text-sm text-foreground mb-2 line-clamp-2">
+                                                                {post.caption || post.prompt_used || 'No content'}
+                                                            </p>
+                                                            <div className="flex items-center gap-2">
+                                                                {post.platforms.map((p) => (
+                                                                    <div key={p} className="flex items-center gap-1 text-xs text-muted-foreground">
+                                                                        {getPlatformIcon(p)}
+                                                                        <span className="capitalize">{p}</span>
+                                                                    </div>
+                                                                ))}
+                                                            </div>
                                                         </div>
-                                                        <p className="text-sm text-foreground mb-2 line-clamp-2">
-                                                            {post.caption || post.prompt_used || 'No content'}
-                                                        </p>
-                                                        <div className="flex items-center gap-2">
-                                                            {post.platforms.map((p) => (
-                                                                <div key={p} className="flex items-center gap-1 text-xs text-muted-foreground">
-                                                                    {getPlatformIcon(p)}
-                                                                    <span className="capitalize">{p}</span>
-                                                                </div>
-                                                            ))}
-                                                        </div>
+                                                        {post.content_url && (
+                                                            <div className="w-16 h-16 rounded-lg overflow-hidden bg-slate-700/50 flex-shrink-0">
+                                                                {post.content_type === 'image' ? (
+                                                                    <img src={post.content_url} alt="" className="w-full h-full object-cover" />
+                                                                ) : (
+                                                                    <video src={post.content_url} className="w-full h-full object-cover" />
+                                                                )}
+                                                            </div>
+                                                        )}
                                                     </div>
-                                                    {post.content_url && (
-                                                        <div className="w-16 h-16 rounded-lg overflow-hidden bg-slate-700/50 flex-shrink-0">
-                                                            {post.content_type === 'image' ? (
-                                                                <img src={post.content_url} alt="" className="w-full h-full object-cover" />
-                                                            ) : (
-                                                                <video src={post.content_url} className="w-full h-full object-cover" />
-                                                            )}
-                                                        </div>
-                                                    )}
                                                 </div>
-                                            </div>
-                                        ))}
-                                    </div>
-                                )}
-                            </CardContent>
-                        </Card>
-                    </div>
-                )}
+                                            ))}
+                                        </div>
+                                    )}
+                                </CardContent>
+                            </Card>
+                        </div>
+                    )
+                }
 
-                {activeTab === 'accounts' && (
-                    <div className="animate-fade-in">
-                        <Card className="bg-slate-900/50 border-slate-700/50">
-                            <CardHeader className="flex flex-row items-center justify-between">
-                                <CardTitle className="text-lg">Akaun Media Sosial</CardTitle>
-                                <Button size="sm" className="gap-2">
-                                    <Plus className="w-4 h-4" />
-                                    Sambung
-                                </Button>
-                            </CardHeader>
-                            <CardContent>
-                                <div className="grid gap-4">
-                                    {/* Telegram */}
-                                    <div className="p-4 rounded-xl bg-slate-800/50 border border-slate-700/50">
-                                        <div className="flex items-center justify-between">
-                                            <div className="flex items-center gap-3">
-                                                <div className="w-10 h-10 rounded-xl bg-blue-500/20 flex items-center justify-center">
-                                                    <Send className="w-5 h-5 text-blue-400" />
+                {
+                    activeTab === 'accounts' && (
+                        <div className="animate-fade-in">
+                            <Card className="bg-slate-900/50 border-slate-700/50">
+                                <CardHeader className="flex flex-row items-center justify-between">
+                                    <CardTitle className="text-lg">Akaun Media Sosial</CardTitle>
+                                    <Button size="sm" className="gap-2">
+                                        <Plus className="w-4 h-4" />
+                                        Sambung
+                                    </Button>
+                                </CardHeader>
+                                <CardContent>
+                                    <div className="grid gap-4">
+                                        {/* Telegram */}
+                                        <div className="p-4 rounded-xl bg-slate-800/50 border border-slate-700/50">
+                                            <div className="flex items-center justify-between">
+                                                <div className="flex items-center gap-3">
+                                                    <div className="w-10 h-10 rounded-xl bg-blue-500/20 flex items-center justify-center">
+                                                        <Send className="w-5 h-5 text-blue-400" />
+                                                    </div>
+                                                    <div>
+                                                        <h4 className="font-bold text-foreground">Telegram</h4>
+                                                        <p className="text-xs text-muted-foreground">
+                                                            {socialAccounts.find(a => a.platform === 'telegram')?.account_name || 'Tidak disambung'}
+                                                        </p>
+                                                    </div>
                                                 </div>
-                                                <div>
-                                                    <h4 className="font-bold text-foreground">Telegram</h4>
-                                                    <p className="text-xs text-muted-foreground">
-                                                        {socialAccounts.find(a => a.platform === 'telegram')?.account_name || 'Tidak disambung'}
-                                                    </p>
+                                                <div className="flex items-center gap-2">
+                                                    {socialAccounts.find(a => a.platform === 'telegram') && (
+                                                        <Badge className="bg-green-500/20 text-green-400 border-green-500/30">
+                                                            <CheckCircle className="w-3 h-3 mr-1" />
+                                                            Aktif
+                                                        </Badge>
+                                                    )}
+                                                    <Button
+                                                        variant="outline"
+                                                        size="sm"
+                                                        onClick={openTelegramModal}
+                                                    >
+                                                        {socialAccounts.find(a => a.platform === 'telegram') ? 'Urus' : 'Sambung'}
+                                                    </Button>
                                                 </div>
                                             </div>
-                                            <div className="flex items-center gap-2">
-                                                {socialAccounts.find(a => a.platform === 'telegram') && (
-                                                    <Badge className="bg-green-500/20 text-green-400 border-green-500/30">
-                                                        <CheckCircle className="w-3 h-3 mr-1" />
-                                                        Aktif
-                                                    </Badge>
-                                                )}
-                                                <Button
-                                                    variant="outline"
-                                                    size="sm"
-                                                    onClick={openTelegramModal}
-                                                >
-                                                    {socialAccounts.find(a => a.platform === 'telegram') ? 'Urus' : 'Sambung'}
+                                        </div>
+
+                                        {/* Facebook */}
+                                        <div className="p-4 rounded-xl bg-slate-800/50 border border-slate-700/50">
+                                            <div className="flex items-center justify-between">
+                                                <div className="flex items-center gap-3">
+                                                    <div className="w-10 h-10 rounded-xl bg-blue-600/20 flex items-center justify-center">
+                                                        <Facebook className="w-5 h-5 text-blue-500" />
+                                                    </div>
+                                                    <div>
+                                                        <h4 className="font-bold text-foreground">Facebook</h4>
+                                                        <p className="text-xs text-muted-foreground">
+                                                            {socialAccounts.find(a => a.platform === 'facebook')?.account_name || 'Tidak disambung'}
+                                                        </p>
+                                                    </div>
+                                                </div>
+                                                <Button variant="outline" size="sm">
+                                                    {socialAccounts.find(a => a.platform === 'facebook') ? 'Urus' : 'Sambung'}
+                                                </Button>
+                                            </div>
+                                        </div>
+
+                                        {/* Instagram */}
+                                        <div className="p-4 rounded-xl bg-slate-800/50 border border-slate-700/50">
+                                            <div className="flex items-center justify-between">
+                                                <div className="flex items-center gap-3">
+                                                    <div className="w-10 h-10 rounded-xl bg-pink-500/20 flex items-center justify-center">
+                                                        <Instagram className="w-5 h-5 text-pink-400" />
+                                                    </div>
+                                                    <div>
+                                                        <h4 className="font-bold text-foreground">Instagram</h4>
+                                                        <p className="text-xs text-muted-foreground">
+                                                            {socialAccounts.find(a => a.platform === 'instagram')?.account_name || 'Tidak disambung'}
+                                                        </p>
+                                                    </div>
+                                                </div>
+                                                <Button variant="outline" size="sm">
+                                                    {socialAccounts.find(a => a.platform === 'instagram') ? 'Urus' : 'Sambung'}
+                                                </Button>
+                                            </div>
+                                        </div>
+
+                                        {/* YouTube */}
+                                        <div className="p-4 rounded-xl bg-slate-800/50 border border-slate-700/50">
+                                            <div className="flex items-center justify-between">
+                                                <div className="flex items-center gap-3">
+                                                    <div className="w-10 h-10 rounded-xl bg-red-500/20 flex items-center justify-center">
+                                                        <Youtube className="w-5 h-5 text-red-400" />
+                                                    </div>
+                                                    <div>
+                                                        <h4 className="font-bold text-foreground">YouTube</h4>
+                                                        <p className="text-xs text-muted-foreground">
+                                                            {socialAccounts.find(a => a.platform === 'youtube')?.account_name || 'Tidak disambung'}
+                                                        </p>
+                                                    </div>
+                                                </div>
+                                                <Button variant="outline" size="sm">
+                                                    {socialAccounts.find(a => a.platform === 'youtube') ? 'Urus' : 'Sambung'}
                                                 </Button>
                                             </div>
                                         </div>
                                     </div>
+                                </CardContent>
+                            </Card>
+                        </div>
+                    )
+                }
+            </div >
 
-                                    {/* Facebook */}
-                                    <div className="p-4 rounded-xl bg-slate-800/50 border border-slate-700/50">
-                                        <div className="flex items-center justify-between">
-                                            <div className="flex items-center gap-3">
-                                                <div className="w-10 h-10 rounded-xl bg-blue-600/20 flex items-center justify-center">
-                                                    <Facebook className="w-5 h-5 text-blue-500" />
-                                                </div>
-                                                <div>
-                                                    <h4 className="font-bold text-foreground">Facebook</h4>
-                                                    <p className="text-xs text-muted-foreground">
-                                                        {socialAccounts.find(a => a.platform === 'facebook')?.account_name || 'Tidak disambung'}
-                                                    </p>
-                                                </div>
-                                            </div>
-                                            <Button variant="outline" size="sm">
-                                                {socialAccounts.find(a => a.platform === 'facebook') ? 'Urus' : 'Sambung'}
-                                            </Button>
-                                        </div>
-                                    </div>
+            {/* Workflow Builder Modal */}
+            {
+                showBuilder && (
+                    <WorkflowBuilder
+                        userProfile={userProfile}
+                        editWorkflow={editingWorkflow}
+                        onClose={() => {
+                            setShowBuilder(false);
+                            setEditingWorkflow(null);
+                        }}
+                        onSuccess={() => {
+                            setShowBuilder(false);
+                            setEditingWorkflow(null);
+                            loadData();
+                        }}
+                    />
+                )
+            }
 
-                                    {/* Instagram */}
-                                    <div className="p-4 rounded-xl bg-slate-800/50 border border-slate-700/50">
-                                        <div className="flex items-center justify-between">
-                                            <div className="flex items-center gap-3">
-                                                <div className="w-10 h-10 rounded-xl bg-pink-500/20 flex items-center justify-center">
-                                                    <Instagram className="w-5 h-5 text-pink-400" />
-                                                </div>
-                                                <div>
-                                                    <h4 className="font-bold text-foreground">Instagram</h4>
-                                                    <p className="text-xs text-muted-foreground">
-                                                        {socialAccounts.find(a => a.platform === 'instagram')?.account_name || 'Tidak disambung'}
-                                                    </p>
-                                                </div>
-                                            </div>
-                                            <Button variant="outline" size="sm">
-                                                {socialAccounts.find(a => a.platform === 'instagram') ? 'Urus' : 'Sambung'}
-                                            </Button>
-                                        </div>
-                                    </div>
-
-                                    {/* YouTube */}
-                                    <div className="p-4 rounded-xl bg-slate-800/50 border border-slate-700/50">
-                                        <div className="flex items-center justify-between">
-                                            <div className="flex items-center gap-3">
-                                                <div className="w-10 h-10 rounded-xl bg-red-500/20 flex items-center justify-center">
-                                                    <Youtube className="w-5 h-5 text-red-400" />
-                                                </div>
-                                                <div>
-                                                    <h4 className="font-bold text-foreground">YouTube</h4>
-                                                    <p className="text-xs text-muted-foreground">
-                                                        {socialAccounts.find(a => a.platform === 'youtube')?.account_name || 'Tidak disambung'}
-                                                    </p>
-                                                </div>
-                                            </div>
-                                            <Button variant="outline" size="sm">
-                                                {socialAccounts.find(a => a.platform === 'youtube') ? 'Urus' : 'Sambung'}
-                                            </Button>
-                                        </div>
-                                    </div>
+            {/* Delete Confirmation Modal */}
+            {
+                showDeleteModal && workflowToDelete && (
+                    <div className="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-4">
+                        <Card className="w-full max-w-sm bg-slate-900 border-slate-700">
+                            <CardHeader>
+                                <CardTitle className="text-lg flex items-center gap-2 text-red-400">
+                                    <Trash2 className="w-5 h-5" />
+                                    Padam Workflow
+                                </CardTitle>
+                            </CardHeader>
+                            <CardContent className="space-y-4">
+                                <p className="text-muted-foreground">
+                                    Adakah anda pasti mahu padam workflow <strong className="text-foreground">"{workflowToDelete.name}"</strong>?
+                                </p>
+                                <p className="text-sm text-amber-400">
+                                    ⚠️ Tindakan ini tidak boleh dibatalkan.
+                                </p>
+                                <div className="flex gap-2 pt-2">
+                                    <Button
+                                        variant="outline"
+                                        className="flex-1"
+                                        onClick={() => {
+                                            setShowDeleteModal(false);
+                                            setWorkflowToDelete(null);
+                                        }}
+                                        disabled={deleting}
+                                    >
+                                        Batal
+                                    </Button>
+                                    <Button
+                                        variant="destructive"
+                                        className="flex-1 gap-2"
+                                        onClick={confirmDeleteWorkflow}
+                                        disabled={deleting}
+                                    >
+                                        {deleting ? (
+                                            <>
+                                                <Loader2 className="w-4 h-4 animate-spin" />
+                                                Mempadam...
+                                            </>
+                                        ) : (
+                                            <>
+                                                <Trash2 className="w-4 h-4" />
+                                                Padam
+                                            </>
+                                        )}
+                                    </Button>
                                 </div>
                             </CardContent>
                         </Card>
                     </div>
-                )}
-            </div>
-
-            {/* Workflow Builder Modal */}
-            {showBuilder && (
-                <WorkflowBuilder
-                    userProfile={userProfile}
-                    editWorkflow={editingWorkflow}
-                    onClose={() => {
-                        setShowBuilder(false);
-                        setEditingWorkflow(null);
-                    }}
-                    onSuccess={() => {
-                        setShowBuilder(false);
-                        setEditingWorkflow(null);
-                        loadData();
-                    }}
-                />
-            )}
-
-            {/* Delete Confirmation Modal */}
-            {showDeleteModal && workflowToDelete && (
-                <div className="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-4">
-                    <Card className="w-full max-w-sm bg-slate-900 border-slate-700">
-                        <CardHeader>
-                            <CardTitle className="text-lg flex items-center gap-2 text-red-400">
-                                <Trash2 className="w-5 h-5" />
-                                Padam Workflow
-                            </CardTitle>
-                        </CardHeader>
-                        <CardContent className="space-y-4">
-                            <p className="text-muted-foreground">
-                                Adakah anda pasti mahu padam workflow <strong className="text-foreground">"{workflowToDelete.name}"</strong>?
-                            </p>
-                            <p className="text-sm text-amber-400">
-                                ⚠️ Tindakan ini tidak boleh dibatalkan.
-                            </p>
-                            <div className="flex gap-2 pt-2">
-                                <Button
-                                    variant="outline"
-                                    className="flex-1"
-                                    onClick={() => {
-                                        setShowDeleteModal(false);
-                                        setWorkflowToDelete(null);
-                                    }}
-                                    disabled={deleting}
-                                >
-                                    Batal
-                                </Button>
-                                <Button
-                                    variant="destructive"
-                                    className="flex-1 gap-2"
-                                    onClick={confirmDeleteWorkflow}
-                                    disabled={deleting}
-                                >
-                                    {deleting ? (
-                                        <>
-                                            <Loader2 className="w-4 h-4 animate-spin" />
-                                            Mempadam...
-                                        </>
-                                    ) : (
-                                        <>
-                                            <Trash2 className="w-4 h-4" />
-                                            Padam
-                                        </>
-                                    )}
-                                </Button>
-                            </div>
-                        </CardContent>
-                    </Card>
-                </div>
-            )}
+                )
+            }
 
             {/* Telegram Connection Modal */}
-            {showTelegramModal && (
-                <div className="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-4">
-                    <Card className="w-full max-w-md bg-slate-900 border-slate-700">
-                        <CardHeader className="flex flex-row items-center justify-between">
-                            <CardTitle className="text-lg flex items-center gap-2">
-                                <Send className="w-5 h-5 text-blue-400" />
-                                Sambung Telegram
-                            </CardTitle>
-                            <Button variant="ghost" size="sm" onClick={() => setShowTelegramModal(false)}>
-                                <X className="w-4 h-4" />
-                            </Button>
-                        </CardHeader>
-                        <CardContent className="space-y-4">
-                            <div className="p-3 rounded-lg bg-blue-500/10 border border-blue-500/20">
-                                <p className="text-xs text-blue-300">
-                                    <strong>Langkah Setup:</strong>
-                                </p>
-                                <ol className="text-xs text-blue-200/80 mt-2 space-y-1 list-decimal list-inside">
-                                    <li>Buat bot di @BotFather (dapatkan token)</li>
-                                    <li>Masukkan Bot Token di bawah</li>
-                                    <li>Tambah bot ke channel/group anda sebagai admin</li>
-                                    <li>Dapatkan Chat ID channel/group anda</li>
-                                    <li>Masukkan Chat ID dan test connection</li>
-                                </ol>
-                            </div>
-
-                            <div>
-                                <Label className="text-sm font-medium mb-2 block">
-                                    Bot Token (dari @BotFather)
-                                </Label>
-                                <Input
-                                    type="password"
-                                    placeholder="123456789:ABC-DEF..."
-                                    value={telegramBotToken}
-                                    onChange={(e) => setTelegramBotToken(e.target.value)}
-                                    className="bg-slate-800/50 font-mono text-xs"
-                                />
-                                <p className="text-xs text-muted-foreground mt-1">
-                                    Token bot anda akan disimpan dengan selamat
-                                </p>
-                            </div>
-
-                            <div>
-                                <Label className="text-sm font-medium mb-2 block">
-                                    Chat ID Telegram
-                                </Label>
-                                <Input
-                                    placeholder="@channelname atau -1001234567890"
-                                    value={telegramChatId}
-                                    onChange={(e) => setTelegramChatId(e.target.value)}
-                                    className="bg-slate-800/50"
-                                />
-                                <p className="text-xs text-muted-foreground mt-1">
-                                    Contoh: @YourChannel atau -1001234567890
-                                </p>
-                            </div>
-
-                            <div className="flex gap-2">
-                                <Button
-                                    variant="outline"
-                                    className="flex-1 gap-2"
-                                    onClick={testTelegramConnection}
-                                    disabled={testingConnection || !telegramChatId.trim()}
-                                >
-                                    {testingConnection ? (
-                                        <>
-                                            <Loader2 className="w-4 h-4 animate-spin" />
-                                            Testing...
-                                        </>
-                                    ) : (
-                                        <>
-                                            <Zap className="w-4 h-4" />
-                                            Test Connection
-                                        </>
-                                    )}
+            {
+                showTelegramModal && (
+                    <div className="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-4">
+                        <Card className="w-full max-w-md bg-slate-900 border-slate-700">
+                            <CardHeader className="flex flex-row items-center justify-between">
+                                <CardTitle className="text-lg flex items-center gap-2">
+                                    <Send className="w-5 h-5 text-blue-400" />
+                                    Sambung Telegram
+                                </CardTitle>
+                                <Button variant="ghost" size="sm" onClick={() => setShowTelegramModal(false)}>
+                                    <X className="w-4 h-4" />
                                 </Button>
-                                <Button
-                                    className="flex-1 gap-2"
-                                    onClick={saveTelegramConnection}
-                                    disabled={telegramSaving || !telegramChatId.trim()}
-                                >
-                                    {telegramSaving ? (
-                                        <>
-                                            <Loader2 className="w-4 h-4 animate-spin" />
-                                            Menyimpan...
-                                        </>
-                                    ) : (
-                                        <>
-                                            <CheckCircle className="w-4 h-4" />
-                                            Simpan
-                                        </>
-                                    )}
-                                </Button>
-                            </div>
-                        </CardContent>
-                    </Card>
-                </div>
-            )}
-        </div>
+                            </CardHeader>
+                            <CardContent className="space-y-4">
+                                <div className="p-3 rounded-lg bg-blue-500/10 border border-blue-500/20">
+                                    <p className="text-xs text-blue-300">
+                                        <strong>Langkah Setup:</strong>
+                                    </p>
+                                    <ol className="text-xs text-blue-200/80 mt-2 space-y-1 list-decimal list-inside">
+                                        <li>Buat bot di @BotFather (dapatkan token)</li>
+                                        <li>Masukkan Bot Token di bawah</li>
+                                        <li>Tambah bot ke channel/group anda sebagai admin</li>
+                                        <li>Dapatkan Chat ID channel/group anda</li>
+                                        <li>Masukkan Chat ID dan test connection</li>
+                                    </ol>
+                                </div>
+
+                                <div>
+                                    <Label className="text-sm font-medium mb-2 block">
+                                        Bot Token (dari @BotFather)
+                                    </Label>
+                                    <Input
+                                        type="password"
+                                        placeholder="123456789:ABC-DEF..."
+                                        value={telegramBotToken}
+                                        onChange={(e) => setTelegramBotToken(e.target.value)}
+                                        className="bg-slate-800/50 font-mono text-xs"
+                                    />
+                                    <p className="text-xs text-muted-foreground mt-1">
+                                        Token bot anda akan disimpan dengan selamat
+                                    </p>
+                                </div>
+
+                                <div>
+                                    <Label className="text-sm font-medium mb-2 block">
+                                        Chat ID Telegram
+                                    </Label>
+                                    <Input
+                                        placeholder="@channelname atau -1001234567890"
+                                        value={telegramChatId}
+                                        onChange={(e) => setTelegramChatId(e.target.value)}
+                                        className="bg-slate-800/50"
+                                    />
+                                    <p className="text-xs text-muted-foreground mt-1">
+                                        Contoh: @YourChannel atau -1001234567890
+                                    </p>
+                                </div>
+
+                                <div className="flex gap-2">
+                                    <Button
+                                        variant="outline"
+                                        className="flex-1 gap-2"
+                                        onClick={testTelegramConnection}
+                                        disabled={testingConnection || !telegramChatId.trim()}
+                                    >
+                                        {testingConnection ? (
+                                            <>
+                                                <Loader2 className="w-4 h-4 animate-spin" />
+                                                Testing...
+                                            </>
+                                        ) : (
+                                            <>
+                                                <Zap className="w-4 h-4" />
+                                                Test Connection
+                                            </>
+                                        )}
+                                    </Button>
+                                    <Button
+                                        className="flex-1 gap-2"
+                                        onClick={saveTelegramConnection}
+                                        disabled={telegramSaving || !telegramChatId.trim()}
+                                    >
+                                        {telegramSaving ? (
+                                            <>
+                                                <Loader2 className="w-4 h-4 animate-spin" />
+                                                Menyimpan...
+                                            </>
+                                        ) : (
+                                            <>
+                                                <CheckCircle className="w-4 h-4" />
+                                                Simpan
+                                            </>
+                                        )}
+                                    </Button>
+                                </div>
+                            </CardContent>
+                        </Card>
+                    </div>
+                )
+            }
+        </div >
     );
 };
 
