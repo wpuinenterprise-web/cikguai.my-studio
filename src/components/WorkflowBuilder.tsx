@@ -58,6 +58,7 @@ interface WorkflowFormData {
     videoStyle: 'ugc' | 'storyboard';
     manualPrompt: string;
     ctaType: 'fb' | 'tiktok' | 'general';
+    characterGender: 'male' | 'female';
 }
 
 const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({
@@ -88,7 +89,8 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({
         videoType: editWorkflow?.product_image_url ? 'i2v' : (editWorkflow?.video_type || 't2v'),
         videoStyle: editWorkflow?.video_style || 'ugc',
         manualPrompt: editWorkflow?.prompt_template || '',
-        ctaType: editWorkflow?.cta_type || 'general',
+        ctaType: editWorkflow?.cta_type || 'tiktok',
+        characterGender: editWorkflow?.character_gender || 'female',
     });
 
     const [uploading, setUploading] = useState(false);
@@ -168,6 +170,7 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({
                     duration: formData.duration,
                     manualPrompt: formData.manualPrompt,
                     ctaType: formData.ctaType,
+                    characterGender: formData.characterGender,
                 }
             });
 
@@ -262,6 +265,7 @@ ${formData.productDescription}
                 prompt_mode: formData.promptMode,
                 video_type: formData.videoType,
                 video_style: formData.videoStyle,
+                character_gender: formData.characterGender,
             };
 
             let workflowId: string;
@@ -597,6 +601,37 @@ ${formData.productDescription}
                                                     <p className="text-xs font-bold">🎬 Storyboard</p>
                                                     <p className="text-xs text-muted-foreground">Cinematic (16:9)</p>
                                                     <p className="text-xs text-muted-foreground">Formal, dramatic</p>
+                                                </button>
+                                            </div>
+                                        </div>
+
+                                        {/* Character Gender Selection */}
+                                        <div className="mb-4">
+                                            <Label className="text-sm font-medium mb-2 block">Watak / Model</Label>
+                                            <div className="grid grid-cols-2 gap-2">
+                                                <button
+                                                    type="button"
+                                                    onClick={() => updateField('characterGender', 'female')}
+                                                    className={`p-3 rounded-lg border text-center transition-all ${formData.characterGender === 'female'
+                                                        ? 'bg-pink-500/20 border-pink-500 text-pink-400'
+                                                        : 'bg-slate-800/50 border-slate-700 hover:border-pink-500/50'
+                                                        }`}
+                                                >
+                                                    <p className="text-lg mb-1">👩</p>
+                                                    <p className="text-xs font-bold">Perempuan</p>
+                                                    <p className="text-xs text-muted-foreground">Melayu bertudung 30-an</p>
+                                                </button>
+                                                <button
+                                                    type="button"
+                                                    onClick={() => updateField('characterGender', 'male')}
+                                                    className={`p-3 rounded-lg border text-center transition-all ${formData.characterGender === 'male'
+                                                        ? 'bg-blue-500/20 border-blue-500 text-blue-400'
+                                                        : 'bg-slate-800/50 border-slate-700 hover:border-blue-500/50'
+                                                        }`}
+                                                >
+                                                    <p className="text-lg mb-1">👨</p>
+                                                    <p className="text-xs font-bold">Lelaki</p>
+                                                    <p className="text-xs text-muted-foreground">Melayu influencer 30-an</p>
                                                 </button>
                                             </div>
                                         </div>

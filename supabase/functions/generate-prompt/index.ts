@@ -9,42 +9,54 @@ const corsHeaders = {
 const GEMINI_API_KEY = Deno.env.get('GEMINI_API_KEY') || 'AIzaSyDHRfnrHDyvSyUjf5xcYRmhwRQMoCp5cgY';
 const GEMINI_API_URL = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-lite:generateContent';
 
-// Master System Instruction for Gemini
+// Enhanced Master System Instruction for Gemini with detailed UGC specs
 const SYSTEM_INSTRUCTION = `# ROLE: Anti-Gravity Director (Sora 2 Specialist)
 
-# LOGIC GATE:
-1. METHOD [AUTO/MANUAL]: 
-   - If AUTO: Expand the idea into a high-conversion script.
-   - If MANUAL: Optimize user's text for Sora 2 physics without changing the core intent.
-2. INPUT [T2V/I2V]:
-   - If T2V: Describe scene from scratch.
-   - If I2V: Use image as 'Keyframe 0'. Focus on animating specific elements of the image.
-3. STYLE [UGC/STORYBOARD]:
-   - UGC: 9:16, handheld, ring-light, casual Malay, influencer vibe.
-   - STORYBOARD: 16:9, anamorphic, cinematic lighting, dramatic/formal Malay.
-4. FORMAT: Match [RATIO] and [DURATION: 10s/15s].
+You are an expert video prompt generator for Sora 2 AI. Generate detailed, optimized prompts that create high-converting product videos.
 
-# OUTPUT REQUIREMENTS:
-Return a JSON object only. Ensure motion descriptions are progressive and do not loop.
-The output MUST be valid JSON with this structure:
+# VIDEO STRUCTURE RULES:
+1. **UGC STYLE (15 seconds)**:
+   - 0-3s: HOOK - Attention-grabbing opening, face close-up or product reveal
+   - 3-6s: PROBLEM/DESIRE - Show the need or aspiration  
+   - 6-9s: PRODUCT SHOWCASE - Different angle, product in use
+   - 9-12s: BENEFIT/RESULT - Show transformation or satisfaction
+   - 12-15s: CTA - Clear call-to-action with presenter
+
+2. **CAMERA CHANGES**: Change camera angle/shot type every 3 seconds
+   - Close-up → Medium shot → Product detail → Wide shot → Face close-up
+
+3. **CHARACTER DESCRIPTIONS**:
+   - FEMALE: "A confident Malaysian Malay woman in her 30s wearing a beautiful modest hijab, natural makeup, warm friendly smile, looking directly at camera with genuine enthusiasm"
+   - MALE: "A well-groomed Malaysian Malay man in his 30s with a neat appearance, wearing a smart casual outfit (no earrings, no chains, no bracelets, no shorts), confident influencer style, engaging with camera naturally"
+
+4. **VISUAL RULES**:
+   - NO text overlays or subtitles in the video EXCEPT for CTA text at the end
+   - Clean, professional lighting (ring light or soft natural light)
+   - Vertical 9:16 format for UGC, horizontal 16:9 for Storyboard
+   - Smooth, natural movements - no robotic motion
+
+5. **DIALOGUE RULES**:
+   - Bahasa Melayu Malaysia yang santai dan natural
+   - Short, punchy sentences that fit the timing
+   - Sync perfectly with the speaking duration
+   - Casual tone like talking to a friend
+
+# CTA TYPES:
+- TikTok: "Tekan beg kuning sekarang!"
+- Facebook: "Tekan Learn More untuk tahu lebih lanjut"
+- General: "Hubungi kami sekarang di [platform]"
+
+# OUTPUT FORMAT:
+Return a JSON object with:
 {
-  "system_decision": {
-    "workflow_path": "METHOD_INPUT_STYLE",
-    "resolution": "RATIO_SELECTED",
-    "timer": "DURATION_SELECTED"
-  },
-  "sora_2_payload": {
-    "visual_prompt": "(Technical English: Subject + Action + Environment + Camera + Lighting. Optimized for Sora 2 physics.)",
-    "i2v_motion_reference": "(Only if I2V: Describe how the static pixels in the source image transform into motion over DURATION.)",
-    "motion_sequence": {
-      "0_5s": "Initial motion",
-      "5_10s": "Progressive change",
-      "10_15s": "Climax/Ending (if 15s)"
-    }
-  },
-  "audio_payload": {
-    "dialogue_bm": "(Bahasa Melayu Malaysia based on STYLE selection)",
-    "tone": "Casual/Energetic for UGC or Deep/Cinematic for Storyboard"
+  "visual_prompt": "(Detailed English technical prompt for Sora 2 - describe every 3-second segment with camera angles, lighting, movements, expressions)",
+  "dialogue_bm": "(Bahasa Melayu dialogue script with timing - e.g., [0-3s] 'Korang nak tahu tak...')",
+  "motion_sequence": {
+    "0_3s": "Hook description",
+    "3_6s": "Problem/desire description", 
+    "6_9s": "Product showcase description",
+    "9_12s": "Benefit description",
+    "12_15s": "CTA description"
   }
 }`;
 
@@ -59,7 +71,8 @@ interface PromptRequest {
     aspectRatio: 'landscape' | 'portrait';
     duration: 10 | 15;
     manualPrompt?: string;
-    ctaType?: 'fb' | 'tiktok' | 'general';
+    ctaType: 'fb' | 'tiktok' | 'general';
+    characterGender: 'male' | 'female';
 }
 
 serve(async (req) => {
@@ -74,7 +87,7 @@ serve(async (req) => {
         const {
             productName,
             productDescription,
-            targetAudience = 'general audience',
+            targetAudience = 'wanita Malaysia 25-45 tahun',
             contentStyle = 'professional',
             promptMode,
             videoType,
@@ -82,44 +95,73 @@ serve(async (req) => {
             aspectRatio,
             duration,
             manualPrompt,
-            ctaType = 'general'
+            ctaType,
+            characterGender = 'female'
         } = body;
+
+        // Get character description based on gender
+        const characterDesc = characterGender === 'female'
+            ? "A confident Malaysian Malay woman in her 30s wearing a beautiful modest hijab, natural makeup, warm friendly smile"
+            : "A well-groomed Malaysian Malay man in his 30s, smart casual outfit (no earrings, no chains, no bracelets, no shorts), confident influencer style";
+
+        // Get CTA text based on type
+        const ctaText = ctaType === 'tiktok'
+            ? "Tekan beg kuning sekarang!"
+            : ctaType === 'fb'
+                ? "Tekan Learn More untuk tahu lebih lanjut"
+                : "Hubungi kami sekarang!";
 
         // Build user prompt based on mode
         let userPrompt: string;
 
         if (promptMode === 'manual' && manualPrompt) {
             // Manual mode - optimize user's text
-            userPrompt = `METHOD: MANUAL
-INPUT: ${videoType.toUpperCase()}
-STYLE: ${videoStyle.toUpperCase()}
-RATIO: ${aspectRatio === 'portrait' ? '9:16' : '16:9'}
-DURATION: ${duration}s
-CTA_TYPE: ${ctaType}
+            userPrompt = `OPTIMIZE THIS PROMPT for Sora 2 video generation.
 
 USER'S ORIGINAL PROMPT:
 ${manualPrompt}
 
-Optimize this prompt for Sora 2 video generation while keeping the core intent intact.`;
+SETTINGS:
+- Video Type: ${videoType.toUpperCase()} ${videoType === 'i2v' ? '(animate from a product image as keyframe 0)' : '(generate from text)'}
+- Style: ${videoStyle.toUpperCase()} ${videoStyle === 'ugc' ? '(vertical 9:16, casual influencer style)' : '(horizontal 16:9, cinematic)'}
+- Duration: ${duration} seconds
+- Character: ${characterGender.toUpperCase()} - ${characterDesc}
+- CTA: "${ctaText}"
+
+Transform into a detailed Sora 2 prompt with:
+1. Camera angle changes every 3 seconds
+2. Character matching the description
+3. No text/subtitles except CTA at end
+4. Bahasa Melayu dialogue script`;
         } else {
             // Auto mode - generate from product details
-            userPrompt = `METHOD: AUTO
-INPUT: ${videoType.toUpperCase()}
-STYLE: ${videoStyle.toUpperCase()}
-RATIO: ${aspectRatio === 'portrait' ? '9:16' : '16:9'}
-DURATION: ${duration}s
-CTA_TYPE: ${ctaType}
+            userPrompt = `CREATE A ${duration}-SECOND ${videoStyle.toUpperCase()} VIDEO PROMPT for Sora 2.
 
 PRODUCT DETAILS:
 - Name: ${productName}
 - Description: ${productDescription}
 - Target Audience: ${targetAudience}
-- Content Style: ${contentStyle}
+- Content Feel: ${contentStyle}
 
-Generate a high-conversion video script for this product. ${videoType === 'i2v' ? 'The product image will be provided as keyframe 0.' : ''}`;
+VIDEO SETTINGS:
+- Type: ${videoType.toUpperCase()} ${videoType === 'i2v' ? '(Product image will be keyframe 0 - animate it coming to life)' : '(Generate everything from text)'}
+- Style: ${videoStyle.toUpperCase()} ${videoStyle === 'ugc' ? '(Vertical 9:16, TikTok-style, casual influencer energy)' : '(Horizontal 16:9, cinematic, dramatic)'}
+- Duration: ${duration} seconds
+- Character: ${characterGender.toUpperCase()} presenter - ${characterDesc}
+- CTA Type: "${ctaText}"
+
+REQUIREMENTS:
+1. Create a compelling ${duration}-second video structure with HOOKS that grab attention
+2. Change camera angle/shot type every 3 seconds
+3. Character must match the exact description (${characterGender === 'female' ? 'Malay woman with hijab' : 'Malay man, no accessories'})
+4. NO text overlays or subtitles EXCEPT the CTA text at the end
+5. Include Bahasa Melayu Malaysia dialogue that's casual, punchy, and perfectly timed
+6. For I2V: Describe how the product image transforms and comes alive
+
+Generate the complete video prompt with visual descriptions and dialogue script.`;
         }
 
-        console.log('Calling Gemini API with prompt:', userPrompt.substring(0, 200) + '...');
+        console.log('Calling Gemini API with prompt:', userPrompt.substring(0, 300) + '...');
 
         // Call Gemini 2.5 Flash-Lite API
         const geminiResponse = await fetch(`${GEMINI_API_URL}?key=${GEMINI_API_KEY}`, {
@@ -138,8 +180,8 @@ Generate a high-conversion video script for this product. ${videoType === 'i2v' 
                     parts: [{ text: SYSTEM_INSTRUCTION }]
                 },
                 generationConfig: {
-                    temperature: 0.7,
-                    maxOutputTokens: 2048,
+                    temperature: 0.8,
+                    maxOutputTokens: 3000,
                     responseMimeType: 'application/json'
                 }
             })
@@ -173,56 +215,52 @@ Generate a high-conversion video script for this product. ${videoType === 'i2v' 
             console.error('Failed to parse Gemini response as JSON:', responseText);
             // Fallback - use the raw text as visual prompt
             promptData = {
-                sora_2_payload: {
-                    visual_prompt: responseText,
-                },
-                audio_payload: {
-                    dialogue_bm: '',
-                    tone: videoStyle === 'ugc' ? 'Casual/Energetic' : 'Deep/Cinematic'
-                }
+                visual_prompt: responseText,
+                dialogue_bm: '',
+                motion_sequence: {}
             };
         }
 
         // Extract the final prompt for Sora 2
-        const visualPrompt = promptData.sora_2_payload?.visual_prompt || responseText;
-        const i2vMotionRef = promptData.sora_2_payload?.i2v_motion_reference || '';
-        const motionSequence = promptData.sora_2_payload?.motion_sequence || {};
-        const dialogueBm = promptData.audio_payload?.dialogue_bm || '';
+        const visualPrompt = promptData.visual_prompt || responseText;
+        const dialogueBm = promptData.dialogue_bm || '';
+        const motionSequence = promptData.motion_sequence || {};
 
-        // Build final prompt with motion sequence for better video generation
+        // Build final prompt with all details
         let finalPrompt = visualPrompt;
 
-        if (videoType === 'i2v' && i2vMotionRef) {
-            finalPrompt = `${visualPrompt}\n\nMOTION REFERENCE: ${i2vMotionRef}`;
-        }
-
-        // Add motion sequence if available
+        // Add motion sequence if available (helps Sora 2 understand timing)
         if (Object.keys(motionSequence).length > 0) {
-            finalPrompt += `\n\nMOTION SEQUENCE:\n`;
-            if (motionSequence['0_5s']) finalPrompt += `0-5s: ${motionSequence['0_5s']}\n`;
-            if (motionSequence['5_10s']) finalPrompt += `5-10s: ${motionSequence['5_10s']}\n`;
-            if (duration === 15 && motionSequence['10_15s']) {
-                finalPrompt += `10-15s: ${motionSequence['10_15s']}\n`;
+            finalPrompt += `\n\n[MOTION TIMELINE for ${duration}s video]:\n`;
+            if (motionSequence['0_3s']) finalPrompt += `[0-3s] ${motionSequence['0_3s']}\n`;
+            if (motionSequence['3_6s']) finalPrompt += `[3-6s] ${motionSequence['3_6s']}\n`;
+            if (motionSequence['6_9s']) finalPrompt += `[6-9s] ${motionSequence['6_9s']}\n`;
+            if (motionSequence['9_12s']) finalPrompt += `[9-12s] ${motionSequence['9_12s']}\n`;
+            if (duration === 15 && motionSequence['12_15s']) {
+                finalPrompt += `[12-15s] ${motionSequence['12_15s']}\n`;
             }
         }
 
-        // Generate caption for Telegram
+        // Generate caption for Telegram with proper CTA
         const caption = generateCaption(productName, productDescription, dialogueBm, ctaType);
 
-        console.log('Generated prompt:', finalPrompt.substring(0, 300) + '...');
+        console.log('Generated prompt length:', finalPrompt.length, 'chars');
 
         return new Response(
             JSON.stringify({
                 success: true,
                 prompt: finalPrompt,
                 caption: caption,
+                dialogue: dialogueBm,
                 fullResponse: promptData,
                 metadata: {
                     promptMode,
                     videoType,
                     videoStyle,
                     aspectRatio,
-                    duration
+                    duration,
+                    characterGender,
+                    ctaType
                 }
             }),
             { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -248,18 +286,25 @@ function generateCaption(
 
     switch (ctaType) {
         case 'fb':
-            cta = '👉 Klik link di bio untuk dapatkan sekarang!';
+            cta = '👉 Tekan Learn More untuk tahu lebih lanjut!';
             break;
         case 'tiktok':
-            cta = '🛒 Tekan keranjang kuning untuk beli!';
+            cta = '🛒 Tekan beg kuning sekarang!';
             break;
         default:
             cta = '📲 Hubungi kami untuk maklumat lanjut!';
     }
 
-    const caption = dialogueBm
-        ? `${dialogueBm}\n\n✨ ${productName}\n${productDescription}\n\n${cta}`
-        : `✨ ${productName}\n${productDescription}\n\n${cta}`;
+    // Extract a hook or use product name
+    const hook = dialogueBm ? dialogueBm.split(']')[1]?.substring(0, 50) || '' : '';
+
+    const caption = `✨ ${productName}
+
+${productDescription}
+
+${cta}
+
+#${productName.replace(/\s+/g, '')} #viral #fyp #tiktokmalaysia`;
 
     return caption;
 }
