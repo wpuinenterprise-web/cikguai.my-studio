@@ -105,17 +105,32 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({
     // Load schedule data when editing existing workflow
     useEffect(() => {
         const loadScheduleData = async () => {
+            console.log('WorkflowBuilder - editWorkflow:', editWorkflow);
+            console.log('WorkflowBuilder - editWorkflow.id:', editWorkflow?.id);
+
             if (editWorkflow?.id) {
-                const { data: schedule } = await supabase
+                const { data: scheduleData, error } = await supabase
                     .from('automation_schedules')
                     .select('*')
                     .eq('workflow_id', editWorkflow.id)
                     .maybeSingle();
 
+                // Cast to any for dynamic fields not in TypeScript types yet
+                const schedule = scheduleData as any;
+
+                console.log('WorkflowBuilder - loaded schedule:', schedule);
+                console.log('WorkflowBuilder - schedule error:', error);
+
                 if (schedule) {
+                    console.log('WorkflowBuilder - setting schedule data:', {
+                        scheduleType: schedule.schedule_type,
+                        hourOfDay: schedule.hour_of_day,
+                        minuteOfHour: schedule.minute_of_hour,
+                        platforms: schedule.platforms,
+                    });
                     setFormData(prev => ({
                         ...prev,
-                        scheduleType: schedule.schedule_type || 'daily',
+                        scheduleType: (schedule.schedule_type as ScheduleType) || 'daily',
                         hourOfDay: schedule.hour_of_day ?? 9,
                         minuteOfHour: schedule.minute_of_hour ?? 0,
                         platforms: schedule.platforms || ['telegram'],
