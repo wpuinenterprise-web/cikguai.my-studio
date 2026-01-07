@@ -367,7 +367,7 @@ ${formData.productDescription}
                                     {editWorkflow ? 'Edit Workflow' : 'Buat Workflow Baru'}
                                 </CardTitle>
                                 <p className="text-sm text-muted-foreground mt-1">
-                                    Step {step} / 4
+                                    Step {step} / 2
                                 </p>
                             </div>
                             <Button variant="ghost" size="sm" onClick={onClose}>
@@ -376,7 +376,7 @@ ${formData.productDescription}
                         </div>
                         {/* Progress bar */}
                         <div className="flex gap-1 mt-4">
-                            {[1, 2, 3, 4].map(s => (
+                            {[1, 2].map(s => (
                                 <div
                                     key={s}
                                     className={`flex-1 h-1 rounded-full transition-all ${s <= step ? 'bg-primary' : 'bg-slate-700'
@@ -784,19 +784,6 @@ ${formData.productDescription}
                                                 </div>
                                             </div>
 
-                                            {/* Manual Prompt Input (only for manual mode) */}
-                                            {formData.promptMode === 'manual' && (
-                                                <div className="mb-4">
-                                                    <Label className="text-sm font-medium mb-2 block">Prompt Manual</Label>
-                                                    <Textarea
-                                                        placeholder="Tulis prompt video anda di sini. Contoh: Tunjukkan produk kosmetik di atas meja putih, kamera zoom in perlahan, pencahayaan soft..."
-                                                        value={formData.manualPrompt}
-                                                        onChange={(e) => updateField('manualPrompt', e.target.value)}
-                                                        className="min-h-[100px] bg-slate-800/50 text-sm"
-                                                    />
-                                                </div>
-                                            )}
-
                                             {/* Generate Button */}
                                             <Button
                                                 onClick={handleEnhancePrompt}
@@ -1039,8 +1026,8 @@ ${formData.productDescription}
                             </div>
                         )}
 
-                        {/* Step 3: Schedule */}
-                        {step === 3 && (
+                        {/* Step 2: Schedule */}
+                        {step === 2 && (
                             <div className="space-y-5 animate-fade-in">
                                 <div>
                                     <h3 className="text-lg font-bold text-foreground mb-4 flex items-center gap-2">
@@ -1235,12 +1222,14 @@ ${formData.productDescription}
                                 {step === 1 ? 'Batal' : 'Kembali'}
                             </Button>
 
-                            {step < 4 ? (
+                            {step < 2 ? (
                                 <Button
                                     onClick={() => setStep(step + 1)}
                                     className="gap-2"
                                     disabled={
-                                        (step === 1 && (!formData.name || !formData.productName || !formData.productDescription))
+                                        (step === 1 && !formData.name) ||
+                                        (step === 1 && formData.promptMode === 'manual' && !formData.manualPrompt) ||
+                                        (step === 1 && formData.promptMode === 'auto' && (!formData.productName || !formData.productDescription))
                                     }
                                 >
                                     Seterusnya
