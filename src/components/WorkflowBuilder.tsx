@@ -379,10 +379,9 @@ ${formData.productDescription}
                 // Calculate next run time based on scheduled hour/minute
                 // User enters time in Malaysia timezone (UTC+8), convert to UTC for database
                 const calculateNextRunAt = () => {
-                    // Get current time in Malaysia (UTC+8)
                     const nowUtc = new Date();
 
-                    // Get current Malaysia time components
+                    // Get current Malaysia time
                     const nowMytHour = (nowUtc.getUTCHours() + 8) % 24;
                     const nowMytMinute = nowUtc.getUTCMinutes();
 
@@ -390,43 +389,23 @@ ${formData.productDescription}
                     const selectedMytHour = formData.hourOfDay;
                     const selectedMytMinute = formData.minuteOfHour;
 
-                    // Compare in MYT context: has this time already passed TODAY in Malaysia?
-                    const selectedMytTimeInMinutes = selectedMytHour * 60 + selectedMytMinute;
-                    const nowMytTimeInMinutes = nowMytHour * 60 + nowMytMinute;
-                    const hasPassed = selectedMytTimeInMinutes <= nowMytTimeInMinutes;
+                    // Has this time already passed TODAY in Malaysia?
+                    const hasPassed = (selectedMytHour * 60 + selectedMytMinute) <= (nowMytHour * 60 + nowMytMinute);
 
-                    // Calculate the UTC hour for the Malaysia time user selected
-                    let utcHour = selectedMytHour - 8; // Convert MYT to UTC
-                    let crossesMidnight = false;
+                    // Convert MYT to UTC
+                    let utcHour = selectedMytHour - 8;
+                    if (utcHour < 0) utcHour += 24;
 
-                    if (utcHour < 0) {
-                        utcHour += 24;
-                        crossesMidnight = true; // MYT morning times are previous day in UTC
-                    }
-
-                    // Start with today's date
+                    // Build scheduled time
                     const scheduledUtc = new Date(nowUtc);
                     scheduledUtc.setUTCHours(utcHour, selectedMytMinute, 0, 0);
 
-                    // Adjust for midnight crossing (MYT morning = UTC previous day)
-                    if (crossesMidnight) {
-                        // Don't subtract a day - the time in UTC is correct
-                        // We just need to handle the "already passed" logic correctly
-                    }
-
-                    // If scheduled time already passed TODAY in MYT, set for tomorrow
+                    // If time passed today in MYT, schedule for tomorrow
                     if (hasPassed) {
                         scheduledUtc.setUTCDate(scheduledUtc.getUTCDate() + 1);
                     }
 
-                    console.log('Schedule calculation:', {
-                        now_myt: `${nowMytHour}:${nowMytMinute}`,
-                        selected_myt: `${selectedMytHour}:${selectedMytMinute}`,
-                        has_passed_in_myt: hasPassed,
-                        calculated_utc_hour: utcHour,
-                        next_run_at_utc: scheduledUtc.toISOString(),
-                    });
-
+                    console.log('Schedule:', { nowMyt: `${nowMytHour}:${nowMytMinute}`, selectedMyt: `${selectedMytHour}:${selectedMytMinute}`, hasPassed, result: scheduledUtc.toISOString() });
                     return scheduledUtc.toISOString();
                 };
 
