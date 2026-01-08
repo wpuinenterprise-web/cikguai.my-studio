@@ -381,38 +381,48 @@ ${formData.productDescription}
                 const calculateNextRunAt = () => {
                     // Get current time in Malaysia (UTC+8)
                     const nowUtc = new Date();
-                    const myt_offset = 8 * 60; // Malaysia is UTC+8 (in minutes)
 
-                    // Create scheduled time in Malaysia timezone
-                    // Start with today's date in UTC
-                    const scheduledUtc = new Date();
+                    // Get current Malaysia time components
+                    const nowMytHour = (nowUtc.getUTCHours() + 8) % 24;
+                    const nowMytMinute = nowUtc.getUTCMinutes();
+
+                    // User selected time in MYT
+                    const selectedMytHour = formData.hourOfDay;
+                    const selectedMytMinute = formData.minuteOfHour;
+
+                    // Compare in MYT context: has this time already passed TODAY in Malaysia?
+                    const selectedMytTimeInMinutes = selectedMytHour * 60 + selectedMytMinute;
+                    const nowMytTimeInMinutes = nowMytHour * 60 + nowMytMinute;
+                    const hasPassed = selectedMytTimeInMinutes <= nowMytTimeInMinutes;
 
                     // Calculate the UTC hour for the Malaysia time user selected
-                    // e.g., 3 AM MYT = 3 - 8 = -5 = 19 (7 PM) UTC previous day
-                    let utcHour = formData.hourOfDay - 8; // Convert MYT to UTC
-                    let dayOffset = 0;
+                    let utcHour = selectedMytHour - 8; // Convert MYT to UTC
+                    let crossesMidnight = false;
 
                     if (utcHour < 0) {
                         utcHour += 24;
-                        dayOffset = -1; // Need to go to previous day
+                        crossesMidnight = true; // MYT morning times are previous day in UTC
                     }
 
-                    // Set the UTC time
-                    scheduledUtc.setUTCHours(utcHour, formData.minuteOfHour, 0, 0);
+                    // Start with today's date
+                    const scheduledUtc = new Date(nowUtc);
+                    scheduledUtc.setUTCHours(utcHour, selectedMytMinute, 0, 0);
 
-                    // Adjust day if needed (for times that cross midnight in UTC)
-                    if (dayOffset !== 0) {
-                        scheduledUtc.setUTCDate(scheduledUtc.getUTCDate() + dayOffset);
+                    // Adjust for midnight crossing (MYT morning = UTC previous day)
+                    if (crossesMidnight) {
+                        // Don't subtract a day - the time in UTC is correct
+                        // We just need to handle the "already passed" logic correctly
                     }
 
-                    // If scheduled time already passed, set for tomorrow
-                    if (scheduledUtc <= nowUtc) {
+                    // If scheduled time already passed TODAY in MYT, set for tomorrow
+                    if (hasPassed) {
                         scheduledUtc.setUTCDate(scheduledUtc.getUTCDate() + 1);
                     }
 
                     console.log('Schedule calculation:', {
-                        user_selected_hour_myt: formData.hourOfDay,
-                        user_selected_minute: formData.minuteOfHour,
+                        now_myt: `${nowMytHour}:${nowMytMinute}`,
+                        selected_myt: `${selectedMytHour}:${selectedMytMinute}`,
+                        has_passed_in_myt: hasPassed,
                         calculated_utc_hour: utcHour,
                         next_run_at_utc: scheduledUtc.toISOString(),
                     });
@@ -421,7 +431,16 @@ ${formData.productDescription}
                 };
 
 
-                const { error: scheduleError } = await supabase
+                console.log('Creating schedule for workflow:', workflowId);
+                console.log('Schedule data:', {
+                    workflow_id: workflowId,
+                    schedule_type: formData.scheduleType,
+                    hour_of_day: formData.hourOfDay,
+                    minute_of_hour: formData.minuteOfHour,
+                    next_run_at: calculateNextRunAt(),
+                });
+
+                const { data: scheduleResult, error: scheduleError } = await supabase
                     .from('automation_schedules')
                     .insert({
                         workflow_id: workflowId,
@@ -432,9 +451,14 @@ ${formData.productDescription}
                         is_active: true,
                         next_run_at: calculateNextRunAt(),
                         platforms: formData.platforms,
-                    });
+                    })
+                    .select();
 
-                if (scheduleError) throw scheduleError;
+                console.log('Schedule insert result:', scheduleResult);
+                if (scheduleError) {
+                    console.error('Schedule insert error:', scheduleError);
+                    throw scheduleError;
+                }
 
                 toast.success('Workflow berjaya dicipta!');
             }
