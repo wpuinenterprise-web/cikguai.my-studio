@@ -332,6 +332,38 @@ ${formData.productDescription}
 
             let workflowId: string;
 
+            // Helper to calculate next run time
+            const calculateNextRunAt = () => {
+                const nowUtc = new Date();
+
+                // Get current Malaysia time
+                const nowMytHour = (nowUtc.getUTCHours() + 8) % 24;
+                const nowMytMinute = nowUtc.getUTCMinutes();
+
+                // User selected time in MYT
+                const selectedMytHour = formData.hourOfDay;
+                const selectedMytMinute = formData.minuteOfHour;
+
+                // Has this time already passed TODAY in Malaysia?
+                const hasPassed = (selectedMytHour * 60 + selectedMytMinute) <= (nowMytHour * 60 + nowMytMinute);
+
+                // Convert MYT to UTC
+                let utcHour = selectedMytHour - 8;
+                if (utcHour < 0) utcHour += 24;
+
+                // Build scheduled time
+                const scheduledUtc = new Date(nowUtc);
+                scheduledUtc.setUTCHours(utcHour, selectedMytMinute, 0, 0);
+
+                // If time passed today in MYT, schedule for tomorrow
+                if (hasPassed) {
+                    scheduledUtc.setUTCDate(scheduledUtc.getUTCDate() + 1);
+                }
+
+                console.log('Schedule:', { nowMyt: `${nowMytHour}:${nowMytMinute}`, selectedMyt: `${selectedMytHour}:${selectedMytMinute}`, hasPassed, result: scheduledUtc.toISOString() });
+                return scheduledUtc.toISOString();
+            };
+
             if (editWorkflow) {
                 console.log('Updating existing workflow:', editWorkflow.id);
                 // UPDATE existing workflow
@@ -356,6 +388,7 @@ ${formData.productDescription}
                         hour_of_day: formData.hourOfDay,
                         minute_of_hour: formData.minuteOfHour,
                         platforms: formData.platforms,
+                        next_run_at: calculateNextRunAt(), // Update next run time!
                     })
                     .eq('workflow_id', editWorkflow.id);
 
@@ -378,36 +411,7 @@ ${formData.productDescription}
                 // Create schedule
                 // Calculate next run time based on scheduled hour/minute
                 // User enters time in Malaysia timezone (UTC+8), convert to UTC for database
-                const calculateNextRunAt = () => {
-                    const nowUtc = new Date();
 
-                    // Get current Malaysia time
-                    const nowMytHour = (nowUtc.getUTCHours() + 8) % 24;
-                    const nowMytMinute = nowUtc.getUTCMinutes();
-
-                    // User selected time in MYT
-                    const selectedMytHour = formData.hourOfDay;
-                    const selectedMytMinute = formData.minuteOfHour;
-
-                    // Has this time already passed TODAY in Malaysia?
-                    const hasPassed = (selectedMytHour * 60 + selectedMytMinute) <= (nowMytHour * 60 + nowMytMinute);
-
-                    // Convert MYT to UTC
-                    let utcHour = selectedMytHour - 8;
-                    if (utcHour < 0) utcHour += 24;
-
-                    // Build scheduled time
-                    const scheduledUtc = new Date(nowUtc);
-                    scheduledUtc.setUTCHours(utcHour, selectedMytMinute, 0, 0);
-
-                    // If time passed today in MYT, schedule for tomorrow
-                    if (hasPassed) {
-                        scheduledUtc.setUTCDate(scheduledUtc.getUTCDate() + 1);
-                    }
-
-                    console.log('Schedule:', { nowMyt: `${nowMytHour}:${nowMytMinute}`, selectedMyt: `${selectedMytHour}:${selectedMytMinute}`, hasPassed, result: scheduledUtc.toISOString() });
-                    return scheduledUtc.toISOString();
-                };
 
 
                 console.log('Creating schedule for workflow:', workflowId);
