@@ -381,6 +381,9 @@ ${formData.productDescription}
                 workflowId = editWorkflow.id;
 
                 // Update schedule
+                console.log('Updating schedule for workflow:', editWorkflow.id);
+                console.log('Update data:', { scheduleType: formData.scheduleType, hour: formData.hourOfDay, minute: formData.minuteOfHour });
+
                 const { data: scheduleUpdateResult, error: scheduleUpdateError } = await supabase
                     .from('automation_schedules')
                     .update({
@@ -393,15 +396,19 @@ ${formData.productDescription}
                     .eq('workflow_id', editWorkflow.id)
                     .select(); // Important: select to get updated rows
 
+                console.log('Schedule update result:', scheduleUpdateResult);
+
                 if (scheduleUpdateError) {
                     console.error('Schedule update error:', scheduleUpdateError);
-                    // Don't throw, just log. 
+                    toast.error('Gagal update jadual: ' + scheduleUpdateError.message);
                 }
 
                 // If no schedule was updated, it might be missing. Create one!
                 if (!scheduleUpdateResult || scheduleUpdateResult.length === 0) {
                     console.warn('No schedule found to update. Creating new schedule...');
-                    const { error: scheduleInsertError } = await supabase
+                    toast.warning('Jadual tidak dijumpai, mencipta jadual baru...');
+
+                    const { data: insertResult, error: scheduleInsertError } = await supabase
                         .from('automation_schedules')
                         .insert({
                             workflow_id: editWorkflow.id,
@@ -412,13 +419,20 @@ ${formData.productDescription}
                             is_active: true,
                             next_run_at: calculateNextRunAt(),
                             platforms: formData.platforms,
-                        });
+                        })
+                        .select();
+
+                    console.log('Schedule insert result:', insertResult);
 
                     if (scheduleInsertError) {
                         console.error('Schedule recovery insert error:', scheduleInsertError);
+                        toast.error('Gagal cipta jadual: ' + scheduleInsertError.message);
                     } else {
                         console.log('Schedule recovered/created during update.');
+                        toast.success('Jadual berjaya dicipta!');
                     }
+                } else {
+                    console.log('Schedule updated successfully:', scheduleUpdateResult);
                 }
 
                 toast.success('Workflow berjaya dikemaskini!');
