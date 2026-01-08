@@ -364,17 +364,47 @@ ${formData.productDescription}
 
                 // Create schedule
                 // Calculate next run time based on scheduled hour/minute
+                // User enters time in Malaysia timezone (UTC+8), convert to UTC for database
                 const calculateNextRunAt = () => {
-                    const now = new Date();
-                    const scheduled = new Date();
-                    scheduled.setHours(formData.hourOfDay, formData.minuteOfHour, 0, 0);
+                    // Get current time in Malaysia (UTC+8)
+                    const nowUtc = new Date();
+                    const myt_offset = 8 * 60; // Malaysia is UTC+8 (in minutes)
 
-                    // If scheduled time already passed today, set for tomorrow
-                    if (scheduled <= now) {
-                        scheduled.setDate(scheduled.getDate() + 1);
+                    // Create scheduled time in Malaysia timezone
+                    // Start with today's date in UTC
+                    const scheduledUtc = new Date();
+
+                    // Calculate the UTC hour for the Malaysia time user selected
+                    // e.g., 3 AM MYT = 3 - 8 = -5 = 19 (7 PM) UTC previous day
+                    let utcHour = formData.hourOfDay - 8; // Convert MYT to UTC
+                    let dayOffset = 0;
+
+                    if (utcHour < 0) {
+                        utcHour += 24;
+                        dayOffset = -1; // Need to go to previous day
                     }
 
-                    return scheduled.toISOString();
+                    // Set the UTC time
+                    scheduledUtc.setUTCHours(utcHour, formData.minuteOfHour, 0, 0);
+
+                    // Adjust day if needed (for times that cross midnight in UTC)
+                    if (dayOffset !== 0) {
+                        scheduledUtc.setUTCDate(scheduledUtc.getUTCDate() + dayOffset);
+                    }
+
+                    // If scheduled time already passed, set for tomorrow
+                    if (scheduledUtc <= nowUtc) {
+                        scheduledUtc.setUTCDate(scheduledUtc.getUTCDate() + 1);
+                    }
+
+                    console.log('Schedule calculation:', {
+                        user_selected_hour_myt: formData.hourOfDay,
+                        user_selected_minute: formData.minuteOfHour,
+                        calculated_utc_hour: utcHour,
+                        next_run_at_utc: scheduledUtc.toISOString(),
+                    });
+
+                    return scheduledUtc.toISOString();
                 };
 
 

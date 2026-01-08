@@ -214,20 +214,37 @@ function calculateNextRunTime(schedule: AutomationSchedule): string {
     let nextRun: Date;
 
     if (schedule.schedule_type === 'hourly') {
-        // Next hour at the specified minute
+        // Next hour at the specified minute (in UTC)
         nextRun = new Date(now);
-        nextRun.setHours(nextRun.getHours() + 1);
-        nextRun.setMinutes(schedule.minute_of_hour || 0);
-        nextRun.setSeconds(0);
-        nextRun.setMilliseconds(0);
+        nextRun.setUTCHours(nextRun.getUTCHours() + 1);
+        nextRun.setUTCMinutes(schedule.minute_of_hour || 0);
+        nextRun.setUTCSeconds(0);
+        nextRun.setUTCMilliseconds(0);
     } else if (schedule.schedule_type === 'daily') {
         // Tomorrow at the specified time
+        // hour_of_day is stored in Malaysia time (UTC+8), convert to UTC
+        const mytHour = schedule.hour_of_day || 9;
+        let utcHour = mytHour - 8; // Convert MYT to UTC
+        let dayOffset = 1; // Start with tomorrow
+
+        if (utcHour < 0) {
+            utcHour += 24;
+            dayOffset = 0; // Actually today in UTC (tomorrow morning MYT = tonight UTC)
+        }
+
         nextRun = new Date(now);
-        nextRun.setDate(nextRun.getDate() + 1);
-        nextRun.setHours(schedule.hour_of_day || 9);
-        nextRun.setMinutes(schedule.minute_of_hour || 0);
-        nextRun.setSeconds(0);
-        nextRun.setMilliseconds(0);
+        nextRun.setUTCDate(nextRun.getUTCDate() + dayOffset);
+        nextRun.setUTCHours(utcHour);
+        nextRun.setUTCMinutes(schedule.minute_of_hour || 0);
+        nextRun.setUTCSeconds(0);
+        nextRun.setUTCMilliseconds(0);
+
+        console.log('Next run calculation:', {
+            myt_hour: mytHour,
+            utc_hour: utcHour,
+            day_offset: dayOffset,
+            next_run: nextRun.toISOString(),
+        });
     } else {
         // Default: 1 hour from now
         nextRun = new Date(now.getTime() + 60 * 60 * 1000);
