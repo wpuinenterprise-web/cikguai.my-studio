@@ -323,16 +323,29 @@ ${formData.productDescription}
                 character_gender: formData.characterGender,
             };
 
+            console.log('Saving workflow data:', workflowData);
+            console.log('Form data state:', {
+                aspectRatio: formData.aspectRatio,
+                duration: formData.duration,
+                productImageUrl: formData.productImageUrl,
+            });
+
             let workflowId: string;
 
             if (editWorkflow) {
+                console.log('Updating existing workflow:', editWorkflow.id);
                 // UPDATE existing workflow
-                const { error: workflowError } = await supabase
+                const { data: updateResult, error: workflowError } = await supabase
                     .from('automation_workflows')
                     .update(workflowData)
-                    .eq('id', editWorkflow.id);
+                    .eq('id', editWorkflow.id)
+                    .select();
 
-                if (workflowError) throw workflowError;
+                console.log('Update result:', updateResult);
+                if (workflowError) {
+                    console.error('Update error:', workflowError);
+                    throw workflowError;
+                }
                 workflowId = editWorkflow.id;
 
                 // Update schedule
