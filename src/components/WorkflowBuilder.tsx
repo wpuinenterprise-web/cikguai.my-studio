@@ -381,7 +381,7 @@ ${formData.productDescription}
                 workflowId = editWorkflow.id;
 
                 // Update schedule
-                await supabase
+                const { data: scheduleUpdateResult, error: scheduleUpdateError } = await supabase
                     .from('automation_schedules')
                     .update({
                         schedule_type: formData.scheduleType,
@@ -390,7 +390,36 @@ ${formData.productDescription}
                         platforms: formData.platforms,
                         next_run_at: calculateNextRunAt(), // Update next run time!
                     })
-                    .eq('workflow_id', editWorkflow.id);
+                    .eq('workflow_id', editWorkflow.id)
+                    .select(); // Important: select to get updated rows
+
+                if (scheduleUpdateError) {
+                    console.error('Schedule update error:', scheduleUpdateError);
+                    // Don't throw, just log. 
+                }
+
+                // If no schedule was updated, it might be missing. Create one!
+                if (!scheduleUpdateResult || scheduleUpdateResult.length === 0) {
+                    console.warn('No schedule found to update. Creating new schedule...');
+                    const { error: scheduleInsertError } = await supabase
+                        .from('automation_schedules')
+                        .insert({
+                            workflow_id: editWorkflow.id,
+                            schedule_type: formData.scheduleType,
+                            hour_of_day: formData.hourOfDay,
+                            minute_of_hour: formData.minuteOfHour,
+                            timezone: 'Asia/Kuala_Lumpur',
+                            is_active: true,
+                            next_run_at: calculateNextRunAt(),
+                            platforms: formData.platforms,
+                        });
+
+                    if (scheduleInsertError) {
+                        console.error('Schedule recovery insert error:', scheduleInsertError);
+                    } else {
+                        console.log('Schedule recovered/created during update.');
+                    }
+                }
 
                 toast.success('Workflow berjaya dikemaskini!');
             } else {
