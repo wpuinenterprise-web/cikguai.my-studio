@@ -174,17 +174,6 @@ const Index = () => {
 
   return (
     <div className="flex flex-col md:flex-row h-screen w-full bg-[#020617] text-slate-200 overflow-hidden font-sans relative">
-      {/* Maintenance Announcement Banner */}
-      <div className="fixed top-0 left-0 right-0 z-50 bg-gradient-to-r from-amber-600 via-orange-500 to-amber-600 text-white px-4 py-2 shadow-lg">
-        <div className="max-w-4xl mx-auto flex items-center justify-center gap-2 text-center">
-          <span className="text-lg">⚠️</span>
-          <p className="text-xs md:text-sm font-semibold">
-            <strong>PENGUMUMAN:</strong> Server sedang menjalani penyelenggaraan besar selama 3 hari (9-11 Jan).
-            Penjanaan video/imej mungkin lambat. Jika gagal, sila cuba lagi. Terima kasih atas kesabaran anda! 🙏
-          </p>
-          <span className="text-lg">⚠️</span>
-        </div>
-      </div>
 
       <AnimatedBackground />
       <Sidebar
