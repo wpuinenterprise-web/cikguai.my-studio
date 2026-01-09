@@ -91,6 +91,16 @@ serve(async (req) => {
 
                 if (!telegramAccount?.extra_data?.chat_id) continue;
 
+                // Check if there's already a pending/generating entry for this workflow
+                const { count: existingCount } = await supabase
+                    .from('automation_posts_queue')
+                    .select('id', { count: 'exact', head: true })
+                    .eq('workflow_id', workflow.id)
+                    .in('status', ['pending', 'generating']);
+
+                // Skip if already has pending/generating entry (prevent duplicates)
+                if (existingCount && existingCount > 0) continue;
+
                 // Create queue entry
                 const { error: queueError } = await supabase
                     .from('automation_posts_queue')
