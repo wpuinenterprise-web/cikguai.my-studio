@@ -22,6 +22,10 @@ export interface UserProfile {
   referral_code?: string;
   referred_by?: string;
   created_at?: string;
+  // Workflow subscription fields
+  workflow_access_approved?: boolean;
+  workflow_subscription_ends_at?: string;
+  workflow_subscription_days?: number;
 }
 
 export interface GeneratedVideo {

@@ -71,18 +71,19 @@ const AutomationDashboard: React.FC<AutomationDashboardProps> = ({ userProfile }
     // Subscription Status Check
     const getSubscriptionStatus = () => {
         // Admin bypass - admin always has full access
-        if ((userProfile as any).is_admin) {
+        if (userProfile.is_admin) {
             return { isActive: true, status: 'active' as const, daysLeft: 9999 };
         }
 
-        const isApproved = (userProfile as any).workflow_access_approved;
-        const expiryDate = (userProfile as any).workflow_subscription_ends_at;
+        const isApproved = userProfile.workflow_access_approved;
+        const expiryDate = userProfile.workflow_subscription_ends_at;
 
         if (!isApproved) {
             return { isActive: false, status: 'pending' as const, daysLeft: 0 };
         }
         if (!expiryDate) {
-            return { isActive: false, status: 'pending' as const, daysLeft: 0 };
+            // Approved but no expiry = unlimited access
+            return { isActive: true, status: 'active' as const, daysLeft: 365 };
         }
 
         const now = new Date();
