@@ -17,18 +17,6 @@ interface AutomationSchedule {
     is_active: boolean;
 }
 
-interface AutomationWorkflow {
-    id: string;
-    user_id: string;
-    name: string;
-    content_type: string;
-    prompt_template: string;
-    caption_template: string;
-    aspect_ratio: string;
-    duration: number;
-    is_active: boolean;
-}
-
 serve(async (req) => {
     if (req.method === 'OPTIONS') {
         return new Response(null, { headers: corsHeaders });
@@ -39,87 +27,60 @@ serve(async (req) => {
         const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
         const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-        console.log('🕐 Running automation scheduler...');
-
-        // Get schedules that are due to run
         const now = new Date().toISOString();
 
-        const { data: dueSchedules, error: scheduleError } = await supabase
+        // Quick count check first (minimal query)
+        const { count } = await supabase
             .from('automation_schedules')
-            .select(`
-        id,
-        workflow_id,
-        schedule_type,
-        hour_of_day,
-        minute_of_hour,
-        timezone,
-        next_run_at,
-        is_active
-      `)
+            .select('id', { count: 'exact', head: true })
             .eq('is_active', true)
             .lte('next_run_at', now);
 
-        if (scheduleError) {
-            console.error('Error fetching schedules:', scheduleError);
-            throw scheduleError;
-        }
-
-        console.log(`Found ${dueSchedules?.length || 0} schedules due to run`);
-
-        if (!dueSchedules || dueSchedules.length === 0) {
+        if (!count || count === 0) {
             return new Response(
-                JSON.stringify({
-                    success: true,
-                    message: 'No schedules due to run',
-                    processed: 0
-                }),
+                JSON.stringify({ s: true, p: 0 }),
                 { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
             );
         }
 
+        // Get full schedule data only if there are items to process
+        const { data: dueSchedules, error: scheduleError } = await supabase
+            .from('automation_schedules')
+            .select('id, workflow_id, schedule_type, hour_of_day, minute_of_hour')
+            .eq('is_active', true)
+            .lte('next_run_at', now);
+
+        if (scheduleError || !dueSchedules) {
+            return new Response(
+                JSON.stringify({ s: false, e: 'fetch_error' }),
+                { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+            );
+        }
+
         let processedCount = 0;
-        const errors: string[] = [];
 
         for (const schedule of dueSchedules) {
             try {
-                // Get workflow details
-                const { data: workflow, error: workflowError } = await supabase
+                const { data: workflow } = await supabase
                     .from('automation_workflows')
-                    .select('*')
+                    .select('id, user_id, name, content_type, prompt_template, caption_template')
                     .eq('id', schedule.workflow_id)
                     .eq('is_active', true)
                     .single();
 
-                if (workflowError || !workflow) {
-                    console.log(`Workflow ${schedule.workflow_id} not found or inactive`);
-                    continue;
-                }
+                if (!workflow) continue;
 
-                console.log(`Processing workflow: ${workflow.name}`);
-
-                // Check user's subscription status
+                // Check user subscription
                 const { data: userProfile } = await supabase
                     .from('profiles')
                     .select('workflow_access_approved, workflow_subscription_ends_at')
                     .eq('id', workflow.user_id)
                     .single();
 
-                if (!userProfile?.workflow_access_approved) {
-                    console.log(`User ${workflow.user_id} not approved for workflow access`);
-                    errors.push(`Workflow "${workflow.name}": User not approved for workflows`);
-                    continue;
-                }
+                if (!userProfile?.workflow_access_approved) continue;
+                if (userProfile.workflow_subscription_ends_at && new Date(userProfile.workflow_subscription_ends_at) < new Date()) continue;
 
-                if (userProfile.workflow_subscription_ends_at) {
-                    const expiryDate = new Date(userProfile.workflow_subscription_ends_at);
-                    if (expiryDate < new Date()) {
-                        console.log(`User ${workflow.user_id} subscription expired`);
-                        errors.push(`Workflow "${workflow.name}": User subscription expired`);
-                        continue;
-                    }
-                }
-
-                // Get user's connected Telegram account
+                // Check Telegram connection
                 const { data: telegramAccount } = await supabase
                     .from('social_media_accounts')
                     .select('extra_data')
@@ -128,16 +89,10 @@ serve(async (req) => {
                     .eq('is_connected', true)
                     .single();
 
-                const chatId = telegramAccount?.extra_data?.chat_id;
-
-                if (!chatId) {
-                    console.log(`No Telegram account connected for user ${workflow.user_id}`);
-                    errors.push(`Workflow "${workflow.name}": No Telegram account connected`);
-                    continue;
-                }
+                if (!telegramAccount?.extra_data?.chat_id) continue;
 
                 // Create queue entry
-                const { data: queueEntry, error: queueError } = await supabase
+                const { error: queueError } = await supabase
                     .from('automation_posts_queue')
                     .insert({
                         workflow_id: workflow.id,
@@ -148,62 +103,31 @@ serve(async (req) => {
                         platforms: ['telegram'],
                         status: 'pending',
                         scheduled_for: now,
-                    })
-                    .select()
-                    .single();
+                    });
 
-                if (queueError) {
-                    console.error('Error creating queue entry:', queueError);
-                    errors.push(`Workflow "${workflow.name}": Failed to create queue entry`);
-                    continue;
-                }
+                if (queueError) continue;
 
-                console.log(`Created queue entry: ${queueEntry.id}`);
-
-                // Calculate next run time
-                const nextRunAt = calculateNextRunTime(schedule);
-
-                // Update schedule
+                // Calculate and update next run time
+                const nextRunAt = calculateNextRunTime(schedule as AutomationSchedule);
                 await supabase
                     .from('automation_schedules')
-                    .update({
-                        last_run_at: now,
-                        next_run_at: nextRunAt,
-                    })
+                    .update({ last_run_at: now, next_run_at: nextRunAt })
                     .eq('id', schedule.id);
 
                 processedCount++;
-
-                // Trigger process-automation function immediately
-                try {
-                    await supabase.functions.invoke('process-automation', {
-                        body: { queue_id: queueEntry.id }
-                    });
-                } catch (invokeError) {
-                    console.error('Error invoking process-automation:', invokeError);
-                    // Continue even if invoke fails - the processor can pick it up later
-                }
-
-            } catch (err) {
-                console.error(`Error processing schedule ${schedule.id}:`, err);
-                errors.push(`Schedule ${schedule.id}: ${err.message}`);
+            } catch {
+                continue;
             }
         }
 
         return new Response(
-            JSON.stringify({
-                success: true,
-                message: `Processed ${processedCount} schedules`,
-                processed: processedCount,
-                errors: errors.length > 0 ? errors : undefined,
-            }),
+            JSON.stringify({ s: true, p: processedCount }),
             { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
 
     } catch (error) {
-        console.error('Error in run-scheduler:', error);
         return new Response(
-            JSON.stringify({ success: false, error: error.message }),
+            JSON.stringify({ s: false }),
             { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
     }
@@ -214,22 +138,19 @@ function calculateNextRunTime(schedule: AutomationSchedule): string {
     let nextRun: Date;
 
     if (schedule.schedule_type === 'hourly') {
-        // Next hour at the specified minute (in UTC)
         nextRun = new Date(now);
         nextRun.setUTCHours(nextRun.getUTCHours() + 1);
         nextRun.setUTCMinutes(schedule.minute_of_hour || 0);
         nextRun.setUTCSeconds(0);
         nextRun.setUTCMilliseconds(0);
     } else if (schedule.schedule_type === 'daily') {
-        // Tomorrow at the specified time
-        // hour_of_day is stored in Malaysia time (UTC+8), convert to UTC
         const mytHour = schedule.hour_of_day || 9;
-        let utcHour = mytHour - 8; // Convert MYT to UTC
-        let dayOffset = 1; // Start with tomorrow
+        let utcHour = mytHour - 8;
+        let dayOffset = 1;
 
         if (utcHour < 0) {
             utcHour += 24;
-            dayOffset = 0; // Actually today in UTC (tomorrow morning MYT = tonight UTC)
+            dayOffset = 0;
         }
 
         nextRun = new Date(now);
@@ -238,17 +159,10 @@ function calculateNextRunTime(schedule: AutomationSchedule): string {
         nextRun.setUTCMinutes(schedule.minute_of_hour || 0);
         nextRun.setUTCSeconds(0);
         nextRun.setUTCMilliseconds(0);
-
-        console.log('Next run calculation:', {
-            myt_hour: mytHour,
-            utc_hour: utcHour,
-            day_offset: dayOffset,
-            next_run: nextRun.toISOString(),
-        });
     } else {
-        // Default: 1 hour from now
         nextRun = new Date(now.getTime() + 60 * 60 * 1000);
     }
 
     return nextRun.toISOString();
 }
+

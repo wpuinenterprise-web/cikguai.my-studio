@@ -23,7 +23,7 @@ serve(async (req) => {
         const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
         const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-        console.log('🔄 Polling for generating videos...');
+
 
         // Get items that are currently generating
         const { data: generatingItems, error: queueError } = await supabase
@@ -34,12 +34,9 @@ serve(async (req) => {
             .order('generation_started_at', { ascending: true })
             .limit(10);
 
-        if (queueError) {
-            console.error('Error fetching queue:', queueError);
-            throw queueError;
-        }
+        if (queueError) throw queueError;
 
-        console.log(`Found ${generatingItems?.length || 0} generating items to check`);
+
 
         if (!generatingItems || generatingItems.length === 0) {
             return new Response(
@@ -54,7 +51,7 @@ serve(async (req) => {
 
         for (const item of generatingItems) {
             try {
-                console.log(`Checking status for queue item: ${item.id}, UUID: ${item.geminigen_uuid}`);
+
 
                 // Check video status from GeminiGen History API
                 const statusResponse = await fetch(
@@ -66,7 +63,7 @@ serve(async (req) => {
                 );
 
                 const statusData = await statusResponse.json();
-                console.log(`Video status for ${item.geminigen_uuid}:`, JSON.stringify(statusData));
+
 
                 // GeminiGen status codes: 1 = processing, 2 = completed, 3 = failed
                 if (statusData.status === 2) {
@@ -76,21 +73,12 @@ serve(async (req) => {
 
                     if (statusData.generated_video && statusData.generated_video.length > 0) {
                         const video = statusData.generated_video[0];
-                        // Try video_url first (often more stable), then file_download_url
                         videoUrl = video.video_url || video.file_download_url;
-                        console.log('Video URLs available:', JSON.stringify({
-                            video_url: video.video_url?.substring(0, 100),
-                            file_download_url: video.file_download_url?.substring(0, 100),
-                            using: videoUrl?.substring(0, 100)
-                        }));
                     }
 
-                    if (!videoUrl) {
-                        console.error('Video completed but no URL found:', JSON.stringify(statusData));
-                        throw new Error('Video completed but no URL found');
-                    }
+                    if (!videoUrl) throw new Error('Video completed but no URL found');
 
-                    console.log(`Video completed, using URL: ${videoUrl.substring(0, 100)}...`);
+
 
                     // Get user's Telegram settings
                     const { data: telegramAccount } = await supabase
@@ -124,13 +112,13 @@ serve(async (req) => {
                     const telegramApiUrl = `https://api.telegram.org/bot${userBotToken}`;
 
                     // Download video bytes from GeminiGen
-                    console.log(`Downloading video from: ${videoUrl}`);
+
                     const videoResponse = await fetch(videoUrl);
                     if (!videoResponse.ok) {
                         throw new Error(`Failed to download video: ${videoResponse.status}`);
                     }
                     const videoBlob = await videoResponse.blob();
-                    console.log(`Downloaded video: ${videoBlob.size} bytes`);
+
 
                     // Upload to Telegram as multipart form-data
                     const formData = new FormData();
@@ -146,7 +134,7 @@ serve(async (req) => {
                     });
 
                     const telegramResult = await telegramResponse.json();
-                    console.log('Telegram response:', JSON.stringify(telegramResult));
+
 
                     if (!telegramResult.ok) {
                         throw new Error(telegramResult.description || 'Failed to post to Telegram');
@@ -177,12 +165,11 @@ serve(async (req) => {
 
                     completedCount++;
                     results.push({ id: item.id, status: 'completed', videoUrl });
-                    console.log(`✅ Item ${item.id} completed and posted to Telegram`);
+
 
                 } else if (statusData.status === 3) {
                     // Video failed
                     const errorMsg = statusData.error_message || 'Video generation failed';
-                    console.error(`Video failed for ${item.id}:`, errorMsg);
 
                     await supabase
                         .from('automation_posts_queue')
@@ -199,13 +186,13 @@ serve(async (req) => {
                 } else {
                     // Still processing - log progress
                     const progress = statusData.status_percentage || 0;
-                    console.log(`Video ${item.id} still processing: ${progress}%`);
+
                     results.push({ id: item.id, status: 'generating', progress });
                 }
 
             } catch (err: unknown) {
                 const errorMessage = err instanceof Error ? err.message : 'Unknown error';
-                console.error(`Error processing item ${item.id}:`, errorMessage);
+
 
                 await supabase
                     .from('automation_posts_queue')
@@ -222,21 +209,13 @@ serve(async (req) => {
         }
 
         return new Response(
-            JSON.stringify({
-                success: true,
-                message: `Checked ${generatingItems.length} items: ${completedCount} completed, ${failedCount} failed`,
-                completed: completedCount,
-                failed: failedCount,
-                results
-            }),
+            JSON.stringify({ s: true, c: completedCount, f: failedCount }),
             { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
 
     } catch (error: unknown) {
-        console.error('Error in poll-automation-videos:', error);
-        const errorMessage = error instanceof Error ? error.message : 'Unknown error';
         return new Response(
-            JSON.stringify({ success: false, error: errorMessage }),
+            JSON.stringify({ s: false }),
             { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
     }

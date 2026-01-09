@@ -27,7 +27,7 @@ serve(async (req) => {
         const body = await req.json().catch(() => ({}));
         const specificQueueId = body.queue_id;
 
-        console.log('🚀 Processing automation queue (async mode)...');
+
 
         // Get ONLY pending items - 'generating' items are handled by poll function
         let query = supabase
@@ -47,12 +47,9 @@ serve(async (req) => {
 
         const { data: queueItems, error: queueError } = await query;
 
-        if (queueError) {
-            console.error('Error fetching queue:', queueError);
-            throw queueError;
-        }
+        if (queueError) throw queueError;
 
-        console.log(`Found ${queueItems?.length || 0} pending items to start`);
+
 
         if (!queueItems || queueItems.length === 0) {
             return new Response(
@@ -66,7 +63,7 @@ serve(async (req) => {
 
         for (const item of queueItems) {
             try {
-                console.log(`Starting generation for queue item: ${item.id}`);
+
 
                 // Validate Telegram connection before starting
                 const { data: telegramAccount } = await supabase
@@ -108,7 +105,7 @@ serve(async (req) => {
                         })
                         .eq('id', item.id);
 
-                    console.log(`Video generation started for ${item.id}, UUID: ${geminigenUuid}`);
+
                     startedCount++;
                     results.push({ id: item.id, status: 'generating', geminigen_uuid: geminigenUuid });
 
@@ -149,7 +146,7 @@ serve(async (req) => {
                     });
 
                     const telegramResult = await telegramResponse.json();
-                    console.log('Telegram response:', JSON.stringify(telegramResult));
+
 
                     if (!telegramResult.ok) {
                         throw new Error(telegramResult.description || 'Failed to post to Telegram');
@@ -184,7 +181,7 @@ serve(async (req) => {
 
             } catch (err: unknown) {
                 const errorMessage = err instanceof Error ? err.message : 'Unknown error';
-                console.error(`Error starting generation for item ${item.id}:`, errorMessage);
+
 
                 // Update queue to failed
                 await supabase
@@ -212,20 +209,13 @@ serve(async (req) => {
         }
 
         return new Response(
-            JSON.stringify({
-                success: true,
-                message: `Started ${startedCount} items. Use poll-automation-videos to check video completion.`,
-                started: startedCount,
-                results,
-            }),
+            JSON.stringify({ s: true, n: startedCount }),
             { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
 
     } catch (error: unknown) {
-        console.error('Error in process-automation:', error);
-        const errorMessage = error instanceof Error ? error.message : 'Unknown error';
         return new Response(
-            JSON.stringify({ success: false, error: errorMessage }),
+            JSON.stringify({ s: false }),
             { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
     }
