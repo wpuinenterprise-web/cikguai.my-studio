@@ -41,125 +41,164 @@ serve(async (req) => {
             );
         }
 
-        // Build style description
-        const styleDescriptions: Record<string, string> = {
-            professional: 'professional, clean, corporate, trustworthy',
-            creative: 'creative, artistic, eye-catching, unique',
-            minimal: 'minimal, simple, elegant, sophisticated',
-            dynamic: 'dynamic, energetic, engaging, modern'
-        };
+        // Character gender randomization
+        const characterGenders = ['female', 'male'];
+        const randomGender = characterGenders[Math.floor(Math.random() * characterGenders.length)];
 
-        const styleDesc = styleDescriptions[contentStyle] || styleDescriptions.professional;
+        const characterDescription = randomGender === 'female'
+            ? 'seorang wanita cantik Melayu berumur 30-an, bertudung labuh, berkulit cerah, senyuman mesra, penampilan sopan dan profesional'
+            : 'seorang lelaki Melayu berumur 30-an, tampan dan kemas, berpenampilan seperti influencer, tiada subang/rantai/gelang, berpakaian sopan (kemeja atau baju Melayu)';
+
+        // Platform-specific CTA
+        const ctaText: Record<string, string> = {
+            fb: 'Tekan Learn More untuk tahu lebih lanjut!',
+            tiktok: 'Tekan beg kuning sekarang! 🛒',
+            general: 'Dapatkan sekarang sebelum kehabisan!'
+        };
+        const platformCta = ctaText[ctaType] || ctaText.general;
 
         // Build aspect ratio description
         const aspectDesc = aspectRatio === 'portrait'
-            ? 'vertical 9:16 (suitable for TikTok, Reels, Shorts)'
+            ? 'vertical 9:16 (TikTok, Reels, Shorts)'
             : aspectRatio === 'square'
-                ? 'square 1:1 (suitable for Instagram feed)'
-                : 'horizontal 16:9 (suitable for YouTube, Facebook)';
+                ? 'square 1:1 (Instagram feed)'
+                : 'horizontal 16:9 (YouTube, Facebook)';
 
-        // CTA Instructions based on platform
-        const ctaInstructions: Record<string, string> = {
-            fb: `CALL-TO-ACTION (Facebook style):
-- "Klik Learn More sekarang!"
-- "Dapatkan sekarang di Facebook Shop"
-- "PM kami untuk harga promosi"
-- "Share dengan kawan yang memerlukan!"`,
-            tiktok: `CALL-TO-ACTION (TikTok style):
-- "Tekan beg kuning sekarang! 🛒"
-- "DM untuk tempah!"
-- "Link di bio! 🔗"
-- "Comment [SAYA NAK] untuk info lanjut!"`,
-            general: `CALL-TO-ACTION (Universal):
-- "Tempah sekarang!"
-- "Hubungi kami hari ini"
-- "Dapatkan promosi eksklusif"
-- "Jangan lepaskan peluang ini!"`
-        };
-
-        const ctaInstruction = ctaInstructions[ctaType] || ctaInstructions.general;
-
-        // Product image instruction
-        const imageInstruction = productImageUrl
-            ? `IMPORTANT: The video MUST feature the exact product shown in the reference image. Maintain the product's appearance, colors, packaging exactly as shown.`
-            : '';
-
-        // Varied hook types for randomization
+        // Varied hook types for 0-3 seconds (NO DIALOG, visual only)
         const hookTypes = [
-            'Start with a relatable problem statement - person looking frustrated',
-            'Open with a shocking statistic or fact displayed visually',
-            'Begin with a before/after teaser - quick glimpse of transformation',
-            'Start with an unboxing moment - hands opening package',
-            'Open with a reaction shot - person amazed at results',
-            'Begin with product in action - immediate demonstration',
-            'Start with a question pose - person looking curious at camera',
-            'Open with lifestyle shot - product in beautiful setting'
+            'Close-up shot of hands holding the product, slowly revealing the packaging with soft lighting',
+            'Person looking frustrated/tired, then notices the product on table - curious expression',
+            'Unboxing moment - hands opening a package with anticipation',
+            'Person scrolling phone, stops and looks surprised - sees product',
+            'Before/after teaser - quick flash of dull skin then glowing skin',
+            'Product hero shot with beautiful bokeh background, slow zoom in',
+            'Person waking up, stretching, reaches for the product on bedside table',
+            'Kitchen counter with natural morning light, product placed elegantly'
         ];
         const randomHook = hookTypes[Math.floor(Math.random() * hookTypes.length)];
 
-        const systemPrompt = `You are an expert AI video prompt engineer specializing in creating highly detailed prompts for Sora 2 AI video generation. Your task is to take simple product descriptions and transform them into cinematic, attention-grabbing video prompts.
+        const systemPrompt = `You are an expert UGC (User Generated Content) video prompt engineer for Sora 2.0 AI. Create highly detailed, cinematic prompts that produce BEAUTIFUL, ENGAGING Malaysian UGC-style videos.
 
-CRITICAL RULES:
-1. Generate prompts that Sora AI understands perfectly - focus on visual descriptions
-2. Include specific camera movements, angles, and transitions
-3. Describe lighting, atmosphere, and mood in detail
-4. For UGC-style videos, include character descriptions and expressions
-5. Keep the video length in mind (${duration} seconds)
-6. Optimize for ${aspectDesc}
-7. Style should be: ${styleDesc}
-${imageInstruction}
+=== CRITICAL RULES ===
 
-LANGUAGE & DIALOG RULES:
-- If people speak in the video, they MUST speak in BAHASA MELAYU MALAYSIA (Malaysian Malay dialect)
-- Use natural Malaysian expressions and slang when appropriate
-- DO NOT include any subtitles or text overlays in the video
-- The video should be purely visual without on-screen text
-- Dialog should sound natural like real Malaysian conversations
+VIDEO SPECIFICATIONS:
+- Resolution: 1080p HD
+- Duration: ${duration} seconds
+- Aspect Ratio: ${aspectDesc}
+- Style: Natural UGC, feels authentic like real person reviewing product
+- NO text, NO subtitles, NO watermarks on video EXCEPT CTA text shown at final moment
 
-HOOK REQUIREMENT:
-- Use this hook style: ${randomHook}
-- Make the hook attention-grabbing in the first 2-3 seconds
-- Each video should feel unique with different hook styles
+=== CHARACTER REQUIREMENTS ===
 
-PROMPT STRUCTURE for ${duration}-second video:
-- HOOK (first 2-3 seconds): ${randomHook}
-- PRODUCT DETAILS (middle): Showcase key features, benefits, how it looks
-- CTA/CLOSING (last 2-3 seconds): Strong visual with call-to-action feeling
+MUST use this character: ${characterDescription}
 
-${ctaInstruction}
+For FEMALE:
+- Wanita Melayu cantik, umur 30-an
+- MESTI bertudung labuh (hijab covering chest)
+- Berkulit cerah dan berseri
+- Senyuman manis dan mesra
+- Penampilan sopan dan elegan
+- Expresi wajah natural dan engaging
 
-OUTPUT FORMAT:
-You must return a JSON object with exactly this structure:
+For MALE:
+- Lelaki Melayu, umur 30-an
+- Tampan dan kemas bergaya influencer
+- TIADA subang, rantai, gelang
+- TIADA seluar pendek (mesti seluar panjang)
+- Berpakaian sopan (kemeja/baju casual)
+- Ekspresi confident dan friendly
+
+=== VIDEO STRUCTURE (WAJIB) ===
+
+0-1 SAAT (HOOK - TANPA DIALOG):
+${randomHook}
+- Pure visual hook, NO speaking yet
+- Grab attention immediately
+- Show intrigue or problem
+
+1-3 SAAT:
+- Character starts speaking
+- Introduce problem/relatability
+- Camera: Medium close-up
+
+3-6 SAAT:
+- Show product clearly
+- Character explains benefit
+- Camera: Cut to product close-up, then back to character
+
+6-9 SAAT:
+- Demonstrate product (bancuh/apply/use)
+- Character continues explaining
+- Camera: Over-shoulder shot showing hands using product
+
+9-12 SAAT:
+- Share more benefits/testimonial feel
+- Character excited expression
+- Camera: Different angle - side profile or slightly lower angle
+
+12-15 SAAT (CTA):
+- Strong closing statement
+- Show excitement/satisfaction
+- END with CTA text on screen: "${platformCta}"
+- Camera: Front facing, confident pose
+
+=== CAMERA TECHNIQUE ===
+
+EVERY 3 SECONDS CHANGE:
+- Camera angle (front → side → close-up → over-shoulder)
+- Shot composition
+- Makes video dynamic, not boring
+
+Camera movements: Subtle handheld feel (authentic UGC), occasional smooth zoom, natural transitions
+
+=== DIALOG RULES ===
+
+LANGUAGE: Bahasa Melayu Malaysia CASUAL (bukan formal)
+SPEAKING: Character TALKS to camera (bukan voiceover)
+TONE: Santai, mesra, macam kawan cerita dengan kawan
+PACE: Natural, sync dengan mulut - cukup masa untuk habis cakap
+
+Example dialog style:
+"Korang tau tak..." / "Serious best gila..." / "Yang paling best..." / "Jom grab sekarang!"
+
+JANGAN gunakan:
+- Bahasa formal/baku
+- Perkataan susah/teknikal
+- Ayat panjang berjela
+
+=== OUTPUT FORMAT ===
+
+Return JSON:
 {
-  "enhancedPrompt": "Your detailed video prompt here as ONE paragraph...",
-  "caption": "Social media caption with emojis, hashtags, and CTA in Bahasa Malaysia..."
-}
+  "enhancedPrompt": "Full detailed video prompt in ONE paragraph, describing exact sequence of shots, camera angles, character expressions, actions, and speaking moments. Write for Sora AI to understand perfectly.",
+  "caption": "Social media caption in Bahasa Malaysia with emojis and hashtags",
+  "dialog": "The exact Malaysian Malay casual dialog the character will speak"
+}`;
 
-The enhancedPrompt should be written as ONE flowing paragraph describing the entire video sequence. Do NOT use timestamps or bullet points.
-The caption MUST include the CTA and be written in Bahasa Malaysia.`;
-
-        const userPrompt = `Transform this simple product description into a detailed, cinematic AI video prompt:
+        const userPrompt = `Generate a UGC-style product review video prompt for:
 
 PRODUCT: ${productName}
 DESCRIPTION: ${productDescription}
-TARGET AUDIENCE: ${targetAudience || 'General audience'}
-VIDEO DURATION: ${duration} seconds
-ASPECT RATIO: ${aspectDesc}
-STYLE: ${styleDesc}
+TARGET AUDIENCE: ${targetAudience || 'Malaysian consumers interested in beauty/health products'}
+DURATION: ${duration} seconds
+PLATFORM CTA: "${platformCta}"
+CHARACTER: ${randomGender === 'female' ? 'FEMALE (wanita Melayu bertudung 30-an)' : 'MALE (lelaki Melayu 30-an style influencer)'}
 
-Create a visually stunning video prompt that would make viewers stop scrolling. Include:
-1. HOOK: Dramatic opening shot to grab attention (show a problem or eye-catching visual)
-2. PRODUCT SHOWCASE: Smooth camera movements (dolly, pan, zoom) to show the product
-3. DETAILS: Beautiful lighting and atmosphere highlighting product features
-4. BENEFIT: Show product in use/action
-5. CTA: Ending that makes viewer want to take action
+Create a DETAILED Sora 2.0 video prompt that shows:
+1. HOOK (0-1s): ${randomHook} - NO speaking, visual only
+2. INTRODUCTION (1-3s): Character starts speaking, relatable problem
+3. PRODUCT DEMO (3-9s): Show and use the product, explain benefits
+4. BENEFITS (9-12s): More selling points, excited expression
+5. CTA (12-15s): Strong close with "${platformCta}" text appearing on screen
 
-Also create a catchy social media caption in Bahasa Malaysia with:
-- Relevant emojis
-- Call-to-action matching the platform
-- Hashtags
+IMPORTANT:
+- Character is ${characterDescription}
+- Dialog must be in casual Malaysian Malay
+- Camera angle changes every 3 seconds
+- NO text/subtitle except CTA at the end
+- Make it feel like real UGC, not advertisement
 
-Return as JSON with "enhancedPrompt" and "caption" fields.`;
+Return JSON with enhancedPrompt, caption, and dialog fields.`;
 
         console.log('Calling OpenAI API for prompt enhancement...');
 
