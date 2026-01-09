@@ -142,7 +142,10 @@ const AutomationDashboard: React.FC<AutomationDashboardProps> = ({ userProfile }
             setSchedules(schedulesData || []);
 
             const completed = historyData?.filter(h => h.status === 'success').length || 0;
-            const failed = historyData?.filter(h => h.status === 'failed').length || 0;
+            const failedInHistory = historyData?.filter(h => h.status === 'failed').length || 0;
+            // Also count failed items from queue (not yet logged to history)
+            const failedInQueue = queueData?.filter(q => q.status === 'failed').length || 0;
+            const failed = failedInHistory + failedInQueue;
 
             setStats({
                 totalWorkflows: workflowsData?.length || 0,
