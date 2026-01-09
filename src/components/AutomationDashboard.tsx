@@ -68,15 +68,36 @@ const AutomationDashboard: React.FC<AutomationDashboardProps> = ({ userProfile }
         failedToday: 0,
     });
 
+    // Fresh profile state - to get latest subscription status
+    const [freshProfile, setFreshProfile] = useState<UserProfile | null>(null);
+
+    // Fetch fresh profile data on mount
+    useEffect(() => {
+        const fetchFreshProfile = async () => {
+            const { data } = await supabase
+                .from('profiles')
+                .select('*')
+                .eq('id', userProfile.id)
+                .maybeSingle();
+            if (data) {
+                setFreshProfile(data as UserProfile);
+            }
+        };
+        fetchFreshProfile();
+    }, [userProfile.id]);
+
+    // Use fresh profile if available, otherwise fallback to props
+    const currentProfile = freshProfile || userProfile;
+
     // Subscription Status Check
     const getSubscriptionStatus = () => {
         // Admin bypass - admin always has full access
-        if (userProfile.is_admin) {
+        if (currentProfile.is_admin) {
             return { isActive: true, status: 'active' as const, daysLeft: 9999 };
         }
 
-        const isApproved = userProfile.workflow_access_approved;
-        const expiryDate = userProfile.workflow_subscription_ends_at;
+        const isApproved = currentProfile.workflow_access_approved;
+        const expiryDate = currentProfile.workflow_subscription_ends_at;
 
         if (!isApproved) {
             return { isActive: false, status: 'pending' as const, daysLeft: 0 };
@@ -98,6 +119,7 @@ const AutomationDashboard: React.FC<AutomationDashboardProps> = ({ userProfile }
     };
 
     const subscriptionStatus = getSubscriptionStatus();
+
 
     useEffect(() => {
         loadData();
