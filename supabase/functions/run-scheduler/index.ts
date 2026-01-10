@@ -91,15 +91,17 @@ serve(async (req) => {
 
                 if (!telegramAccount?.extra_data?.chat_id) continue;
 
-                // Check if there's already a pending/generating entry for this workflow
-                const { count: existingCount } = await supabase
+                // ANTI-DUPLICATE CHECK: Check for any entry created in last 20 minutes
+                // This prevents rapid re-triggering when cron runs frequently
+                const twentyMinutesAgo = new Date(Date.now() - 20 * 60 * 1000).toISOString();
+                const { count: recentCount } = await supabase
                     .from('automation_posts_queue')
                     .select('id', { count: 'exact', head: true })
                     .eq('workflow_id', workflow.id)
-                    .in('status', ['pending', 'generating']);
+                    .gte('created_at', twentyMinutesAgo);
 
-                // Skip if already has pending/generating entry (prevent duplicates)
-                if (existingCount && existingCount > 0) continue;
+                // Skip if any entry created in last 20 minutes (prevents ALL duplicates)
+                if (recentCount && recentCount > 0) continue;
 
                 // Create queue entry
                 const { error: queueError } = await supabase
@@ -155,22 +157,32 @@ function calculateNextRunTime(schedule: AutomationSchedule): string {
         nextRun.setUTCMilliseconds(0);
     } else if (schedule.schedule_type === 'daily') {
         const mytHour = schedule.hour_of_day || 9;
-        let utcHour = mytHour - 8;
-        let dayOffset = 1;
+        let utcHour = mytHour - 8; // Convert MYT to UTC
 
         if (utcHour < 0) {
             utcHour += 24;
-            dayOffset = 0;
         }
 
+        // Calculate next occurrence
         nextRun = new Date(now);
-        nextRun.setUTCDate(nextRun.getUTCDate() + dayOffset);
         nextRun.setUTCHours(utcHour);
         nextRun.setUTCMinutes(schedule.minute_of_hour || 0);
         nextRun.setUTCSeconds(0);
         nextRun.setUTCMilliseconds(0);
+
+        // If calculated time is in the past or too close (within 1 hour), add 1 day
+        if (nextRun.getTime() <= now.getTime() + 60 * 60 * 1000) {
+            nextRun.setUTCDate(nextRun.getUTCDate() + 1);
+        }
     } else {
+        // Default: 1 hour from now
         nextRun = new Date(now.getTime() + 60 * 60 * 1000);
+    }
+
+    // SAFETY: Ensure next run is ALWAYS at least 30 minutes in the future
+    const minNextRun = new Date(now.getTime() + 30 * 60 * 1000);
+    if (nextRun.getTime() < minNextRun.getTime()) {
+        nextRun = minNextRun;
     }
 
     return nextRun.toISOString();
