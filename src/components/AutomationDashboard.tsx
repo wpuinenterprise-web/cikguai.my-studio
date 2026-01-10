@@ -1035,9 +1035,27 @@ const AutomationDashboard: React.FC<AutomationDashboardProps> = ({ userProfile }
                                                                 {getStatusBadge(post.status)}
                                                                 <span className="text-xs text-muted-foreground capitalize">{post.content_type}</span>
                                                             </div>
+
+                                                            {/* Caption */}
                                                             <p className="text-sm text-foreground mb-2 line-clamp-2">
-                                                                {post.caption || post.prompt_used || 'No content'}
+                                                                {post.caption || 'Tiada caption'}
                                                             </p>
+
+                                                            {/* Prompt Used - Collapsible */}
+                                                            {post.prompt_used && (
+                                                                <details className="mb-2">
+                                                                    <summary className="text-xs text-amber-400 cursor-pointer hover:text-amber-300 flex items-center gap-1">
+                                                                        <Zap className="w-3 h-3" />
+                                                                        Lihat Prompt
+                                                                    </summary>
+                                                                    <div className="mt-2 p-2 bg-slate-900/50 rounded-lg border border-slate-700/30">
+                                                                        <p className="text-xs text-muted-foreground whitespace-pre-wrap break-words">
+                                                                            {post.prompt_used}
+                                                                        </p>
+                                                                    </div>
+                                                                </details>
+                                                            )}
+
                                                             <div className="flex items-center gap-2">
                                                                 {post.platforms.map((p) => (
                                                                     <div key={p} className="flex items-center gap-1 text-xs text-muted-foreground">
