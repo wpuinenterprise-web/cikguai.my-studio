@@ -124,7 +124,14 @@ serve(async (req) => {
                     const formData = new FormData();
                     formData.append('chat_id', chatId);
                     formData.append('video', videoBlob, 'video.mp4');
-                    formData.append('caption', item.caption || '');
+
+                    // Build caption with prompt included
+                    let telegramCaption = item.caption || '';
+                    if (item.prompt_used) {
+                        telegramCaption += `\n\n━━━━━━━━━━━━━━━━\n🎬 <b>Prompt Used:</b>\n<code>${item.prompt_used.substring(0, 800)}${item.prompt_used.length > 800 ? '...' : ''}</code>`;
+                    }
+
+                    formData.append('caption', telegramCaption);
                     formData.append('parse_mode', 'HTML');
                     formData.append('supports_streaming', 'true');
 
