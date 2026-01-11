@@ -356,15 +356,17 @@ ${formData.productDescription}
                     }
 
                     // Parse date and time from user input
-                    // User inputs time in their LOCAL timezone (which should be MYT)
                     const [hours, minutes] = formData.scheduledTime.split(':').map(Number);
 
-                    // Create date from user input - this will be in browser's local timezone
-                    const scheduledDate = new Date(formData.scheduledDate);
-                    scheduledDate.setHours(hours, minutes, 0, 0);
+                    // Parse date string components (format: YYYY-MM-DD)
+                    // IMPORTANT: new Date('YYYY-MM-DD') interprets as UTC midnight!
+                    // We need to create date in LOCAL timezone instead
+                    const [year, month, day] = formData.scheduledDate.split('-').map(Number);
 
-                    // toISOString() automatically converts local time to UTC
-                    // So if user is in MYT and inputs 12:58, it becomes 16:58 previous day in UTC
+                    // Create date in LOCAL timezone (month is 0-indexed in JS)
+                    const scheduledDate = new Date(year, month - 1, day, hours, minutes, 0, 0);
+
+                    // toISOString() converts local time to UTC automatically
                     return scheduledDate.toISOString();
                 }
 
