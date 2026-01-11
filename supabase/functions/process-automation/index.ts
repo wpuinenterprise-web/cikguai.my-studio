@@ -52,14 +52,10 @@ serve(async (req) => {
 
 
         if (!queueItems || queueItems.length === 0) {
-            return new Response(
-                JSON.stringify({ success: true, message: 'No pending items to process', processed: 0 }),
-                { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-            );
+            return new Response('0', { headers: corsHeaders });
         }
 
-        let startedCount = 0;
-        const results: unknown[] = [];
+        let n = 0; // started count
 
         for (const item of queueItems) {
             try {
@@ -158,8 +154,7 @@ serve(async (req) => {
                         .eq('id', item.id);
 
 
-                    startedCount++;
-                    results.push({ id: item.id, status: 'generating', geminigen_uuid: geminigenUuid });
+                    n++;
 
                 } else {
                     // Generate image (sync - usually fast)
@@ -227,8 +222,7 @@ serve(async (req) => {
                             response_data: telegramResult,
                         });
 
-                    startedCount++;
-                    results.push({ id: item.id, status: 'completed', content_url: imageUrl });
+                    n++;
                 }
 
             } catch (err: unknown) {
@@ -256,20 +250,14 @@ serve(async (req) => {
                         error_message: errorMessage,
                     });
 
-                results.push({ id: item.id, status: 'failed', error: errorMessage });
+
             }
         }
 
-        return new Response(
-            JSON.stringify({ s: true, n: startedCount }),
-            { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        );
+        return new Response(String(n), { headers: corsHeaders });
 
-    } catch (error: unknown) {
-        return new Response(
-            JSON.stringify({ s: false }),
-            { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        );
+    } catch {
+        return new Response('e', { status: 500, headers: corsHeaders });
     }
 });
 
@@ -280,7 +268,6 @@ async function startVideoGeneration(
     supabase: ReturnType<typeof createClient>,
     apiKey: string
 ): Promise<string> {
-    console.log('Starting video generation with prompt:', prompt.substring(0, 100));
 
     // Get workflow settings
     const { data: workflow } = await supabase
@@ -302,13 +289,6 @@ async function startVideoGeneration(
         aspectRatio = 'landscape';
     }
 
-    console.log('Workflow settings:', {
-        aspect_ratio_raw: aspectRatioRaw,
-        aspect_ratio_mapped: aspectRatio,
-        duration,
-        product_image_url: imageUrl,
-    });
-
     // Call GeminiGen API
     const formData = new FormData();
     formData.append('prompt', prompt);
@@ -319,19 +299,10 @@ async function startVideoGeneration(
 
     // Add product image for I2V if available
     if (imageUrl && imageUrl.startsWith('http')) {
-        console.log('Adding reference image for I2V:', imageUrl);
         formData.append('first_frame_url', imageUrl);
         formData.append('image_url', imageUrl);
         formData.append('file_urls', imageUrl);
     }
-
-    console.log('Calling GeminiGen API with params:', {
-        prompt: prompt.substring(0, 100) + '...',
-        model: 'sora-2',
-        duration,
-        aspect_ratio: aspectRatio,
-        has_reference_image: !!imageUrl,
-    });
 
     const response = await fetch('https://api.geminigen.ai/uapi/v1/video-gen/sora', {
         method: 'POST',
@@ -344,31 +315,22 @@ async function startVideoGeneration(
         data = await response.json();
     } catch (_e) {
         const textResponse = await response.text().catch(() => 'Unable to read response');
-        console.error('GeminiGen API returned non-JSON response:', response.status, textResponse);
         throw new Error(`Video generation failed: API returned status ${response.status} - ${textResponse.substring(0, 200)}`);
     }
-
-    console.log('GeminiGen response:', JSON.stringify(data));
 
     if (!response.ok || !data.uuid) {
         const errorDetail = (typeof data.detail === 'object' ? data.detail?.message : data.detail) ||
             data.message || data.error || JSON.stringify(data);
-        console.error('GeminiGen API error:', response.status, errorDetail);
         throw new Error(`Video generation failed (${response.status}): ${errorDetail}`);
     }
 
-    // Return UUID immediately - polling is handled by poll-automation-videos
-    console.log('Video generation started with UUID:', data.uuid);
     return data.uuid;
 }
 
-// Generate image using GeminiGen API (sync - usually fast)
 async function generateImage(
     prompt: string,
     apiKey: string
 ): Promise<string | null> {
-    console.log('Generating image with prompt:', prompt.substring(0, 100));
-
     const response = await fetch('https://api.geminigen.ai/uapi/v1/images/generations', {
         method: 'POST',
         headers: {
@@ -383,7 +345,6 @@ async function generateImage(
     });
 
     const data = await response.json();
-    console.log('Image generation response:', JSON.stringify(data));
 
     if (data.images && data.images.length > 0) {
         return data.images[0].url;

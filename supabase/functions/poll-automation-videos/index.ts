@@ -39,15 +39,12 @@ serve(async (req) => {
 
 
         if (!generatingItems || generatingItems.length === 0) {
-            return new Response(
-                JSON.stringify({ success: true, message: 'No generating items to check', processed: 0 }),
-                { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-            );
+            // Minimal response - just 1 char to indicate no items
+            return new Response('0', { headers: corsHeaders });
         }
 
-        let completedCount = 0;
-        let failedCount = 0;
-        const results: unknown[] = [];
+        let c = 0; // completed
+        let f = 0; // failed
 
         for (const item of generatingItems) {
             try {
@@ -174,8 +171,7 @@ serve(async (req) => {
                             response_data: telegramResult,
                         });
 
-                    completedCount++;
-                    results.push({ id: item.id, status: 'completed', videoUrl });
+                    c++;
 
 
                 } else if (statusData.status === 3) {
@@ -191,19 +187,12 @@ serve(async (req) => {
                         })
                         .eq('id', item.id);
 
-                    failedCount++;
-                    results.push({ id: item.id, status: 'failed', error: errorMsg });
-
-                } else {
-                    // Still processing - log progress
-                    const progress = statusData.status_percentage || 0;
-
-                    results.push({ id: item.id, status: 'generating', progress });
+                    f++;
                 }
+                // else: still processing - no action needed
 
             } catch (err: unknown) {
                 const errorMessage = err instanceof Error ? err.message : 'Unknown error';
-
 
                 await supabase
                     .from('automation_posts_queue')
@@ -214,20 +203,14 @@ serve(async (req) => {
                     })
                     .eq('id', item.id);
 
-                failedCount++;
-                results.push({ id: item.id, status: 'failed', error: errorMessage });
+                f++;
             }
         }
 
-        return new Response(
-            JSON.stringify({ s: true, c: completedCount, f: failedCount }),
-            { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        );
+        // Minimal response
+        return new Response(`${c}/${f}`, { headers: corsHeaders });
 
-    } catch (error: unknown) {
-        return new Response(
-            JSON.stringify({ s: false }),
-            { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        );
+    } catch {
+        return new Response('e', { status: 500, headers: corsHeaders });
     }
 });

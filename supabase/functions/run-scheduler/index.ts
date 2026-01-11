@@ -37,10 +37,7 @@ serve(async (req) => {
             .lte('next_run_at', now);
 
         if (!count || count === 0) {
-            return new Response(
-                JSON.stringify({ s: true, p: 0 }),
-                { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-            );
+            return new Response('0', { headers: corsHeaders });
         }
 
         // Get full schedule data only if there are items to process
@@ -51,10 +48,7 @@ serve(async (req) => {
             .lte('next_run_at', now);
 
         if (scheduleError || !dueSchedules) {
-            return new Response(
-                JSON.stringify({ s: false, e: 'fetch_error' }),
-                { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-            );
+            return new Response('e', { status: 500, headers: corsHeaders });
         }
 
         let processedCount = 0;
@@ -153,16 +147,10 @@ serve(async (req) => {
             }
         }
 
-        return new Response(
-            JSON.stringify({ s: true, p: processedCount }),
-            { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        );
+        return new Response(String(processedCount), { headers: corsHeaders });
 
-    } catch (error) {
-        return new Response(
-            JSON.stringify({ s: false }),
-            { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        );
+    } catch {
+        return new Response('e', { status: 500, headers: corsHeaders });
     }
 });
 
