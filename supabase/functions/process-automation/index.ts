@@ -85,11 +85,63 @@ serve(async (req) => {
                     throw new Error('No Telegram Bot Token configured. User must set up their own bot.');
                 }
 
+                // Get workflow details to check prompt_mode
+                let promptToUse = item.prompt_used;
+
+                if (item.workflow_id) {
+                    const { data: workflow } = await supabase
+                        .from('automation_workflows')
+                        .select('prompt_mode, product_name, product_description, target_audience, content_style, aspect_ratio, duration, cta_type')
+                        .eq('id', item.workflow_id)
+                        .single();
+
+                    // If auto mode, regenerate prompt fresh for variety
+                    if (workflow?.prompt_mode === 'auto' && workflow.product_name) {
+                        try {
+                            const enhanceResponse = await fetch(`${supabaseUrl}/functions/v1/enhance-video-prompt`, {
+                                method: 'POST',
+                                headers: {
+                                    'Content-Type': 'application/json',
+                                    'Authorization': `Bearer ${supabaseServiceKey}`,
+                                },
+                                body: JSON.stringify({
+                                    productName: workflow.product_name,
+                                    productDescription: workflow.product_description || '',
+                                    targetAudience: workflow.target_audience || '',
+                                    contentStyle: workflow.content_style || 'professional',
+                                    aspectRatio: workflow.aspect_ratio || 'portrait',
+                                    duration: workflow.duration || 15,
+                                    ctaType: workflow.cta_type || 'general',
+                                }),
+                            });
+
+                            if (enhanceResponse.ok) {
+                                const enhanceData = await enhanceResponse.json();
+                                if (enhanceData.enhancedPrompt) {
+                                    promptToUse = enhanceData.enhancedPrompt;
+
+                                    // Update queue with new prompt
+                                    await supabase
+                                        .from('automation_posts_queue')
+                                        .update({
+                                            prompt_used: promptToUse,
+                                            caption: enhanceData.caption || item.caption
+                                        })
+                                        .eq('id', item.id);
+                                }
+                            }
+                        } catch (enhanceError) {
+                            // If enhance fails, use existing prompt
+                            console.error('Failed to enhance prompt:', enhanceError);
+                        }
+                    }
+                }
+
                 // Start content generation based on type
                 if (item.content_type === 'video') {
                     // Start video generation and get UUID
                     const geminigenUuid = await startVideoGeneration(
-                        item.prompt_used,
+                        promptToUse,
                         item.workflow_id,
                         supabase,
                         GEMINIGEN_API_KEY
