@@ -98,12 +98,50 @@ VIDEO SPECIFICATIONS:
 - NO text, NO subtitles, NO watermarks on video EXCEPT CTA text at end
 
 ${isI2V ? `
-=== I2V MODE DETECTED ===
-This is an IMAGE-TO-VIDEO generation. The video will start from a still image.
+=== I2V MODE DETECTED - PRODUCT PRESERVATION CRITICAL ===
+
+⚠️⚠️⚠️ MOST IMPORTANT FOR I2V: PRODUCT MUST LOOK EXACTLY LIKE THE REFERENCE IMAGE! ⚠️⚠️⚠️
+
+The video will start from a still product image. The AI must:
+
+1. KEEP PRODUCT LABEL EXACTLY AS SHOWN:
+   - DO NOT change any text on the product
+   - DO NOT add, remove, or modify logos
+   - DO NOT change label colors or design
+   - Text on packaging MUST remain readable and identical
+
+2. KEEP PRODUCT SHAPE EXACTLY AS SHOWN:
+   - Bottle shape MUST remain the same
+   - Container form MUST NOT transform
+   - Product size/proportions MUST be preserved
+   - Packaging design MUST NOT morph
+
+3. KEEP PRODUCT COLORS EXACTLY AS SHOWN:
+   - Packaging colors MUST NOT change
+   - Label colors MUST remain identical
+   - Product color (if visible) MUST stay the same
+
+4. MINIMAL TRANSFORMATION RULE:
+   - Product stays at 80-90% similarity to reference image
+   - Only allow subtle lighting changes
+   - Only allow subtle angle variations
+   - NO artistic interpretation of the product itself
+
+5. SCENE/CHARACTER CAN CHANGE, PRODUCT CANNOT:
+   - Background can have motion
+   - Character can interact with product
+   - But the PRODUCT ITSELF must remain faithful to the image
+
+PROMPT INSTRUCTIONS FOR SORA:
+- "Maintain exact product appearance from reference image"
+- "Product label text must remain unchanged and readable"
+- "Product shape and packaging must not morph or transform"
+- "Product colors and design must stay identical to the still image"
+
 - Video takes 1-2 seconds to "come alive" from the image
 - Character should NOT speak in first 1-2 seconds
 - Dialog starts at ${dialogStartTime} seconds
-- Allow extra transition time from static to motion
+- The product in every frame must look like the reference image
 ` : ''}
 
 === CHARACTER REQUIREMENTS ===
@@ -203,7 +241,14 @@ TARGET AUDIENCE: ${targetAudience || 'Malaysian consumers interested in beauty/h
 DURATION: ${duration} seconds
 PLATFORM CTA: "${platformCta}"
 CHARACTER: ${randomGender === 'female' ? 'FEMALE (wanita Melayu bertudung 30-an)' : 'MALE (lelaki Melayu 30-an style influencer)'}
-
+${isI2V ? `
+⚠️ THIS IS I2V (IMAGE-TO-VIDEO) - PRODUCT PRESERVATION IS CRITICAL:
+- The product in video MUST look EXACTLY like the reference image
+- Product label/text MUST remain unchanged and readable
+- Product shape MUST NOT morph or transform
+- Product colors MUST stay identical to the image
+- Include these phrases in the prompt: "maintain exact product appearance from reference image", "product label must remain unchanged"
+` : ''}
 Create a DETAILED Sora 2.0 video prompt that shows:
 1. HOOK (0-1s): ${randomHook} - NO speaking, visual only
 2. INTRODUCTION (1-3s): Character starts speaking, relatable problem
@@ -217,10 +262,10 @@ IMPORTANT:
 - Camera angle changes every 3 seconds
 - NO text/subtitle except CTA at the end
 - Make it feel like real UGC, not advertisement
+${isI2V ? '- PRODUCT MUST REMAIN IDENTICAL TO REFERENCE IMAGE IN EVERY FRAME' : ''}
 
 Return JSON with enhancedPrompt, caption, and dialog fields.`;
 
-        console.log('Calling OpenAI API for prompt enhancement...');
 
         const response = await fetch('https://api.openai.com/v1/chat/completions', {
             method: 'POST',
@@ -260,8 +305,6 @@ Return JSON with enhancedPrompt, caption, and dialog fields.`;
         const data = await response.json();
         const generatedContent = data.choices[0].message.content;
 
-        console.log('Raw generated content:', generatedContent.substring(0, 300));
-
         // Parse the JSON response
         let parsedContent;
         try {
@@ -283,8 +326,7 @@ Return JSON with enhancedPrompt, caption, and dialog fields.`;
                     };
                 }
             }
-        } catch (parseError) {
-            console.log('JSON parse failed, using raw content');
+        } catch {
             parsedContent = {
                 enhancedPrompt: generatedContent.trim(),
                 caption: `🔥 ${productName}\n\n${productDescription}\n\n#viral #fyp`
@@ -302,7 +344,6 @@ Return JSON with enhancedPrompt, caption, and dialog fields.`;
 
     } catch (error: unknown) {
         const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-        console.error('Error in enhance-video-prompt:', errorMessage);
         return new Response(
             JSON.stringify({ error: errorMessage }),
             { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
