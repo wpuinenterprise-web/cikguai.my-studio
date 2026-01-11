@@ -125,10 +125,23 @@ serve(async (req) => {
                     formData.append('chat_id', chatId);
                     formData.append('video', videoBlob, 'video.mp4');
 
-                    // Build caption with prompt included
-                    let telegramCaption = item.caption || '';
-                    if (item.prompt_used) {
-                        telegramCaption += `\n\n━━━━━━━━━━━━━━━━\n🎬 <b>Prompt Used:</b>\n<code>${item.prompt_used.substring(0, 800)}${item.prompt_used.length > 800 ? '...' : ''}</code>`;
+                    // Build caption with prompt - MUST stay under 1024 chars for Telegram
+                    const MAX_CAPTION_LENGTH = 950; // Leave buffer for HTML tags
+                    const captionText = item.caption || '';
+                    const promptText = item.prompt_used || '';
+
+                    let telegramCaption = '';
+
+                    if (promptText) {
+                        // Calculate available space for prompt after caption
+                        const separator = '\n\n━━━━━━━━\n🎬 Prompt:\n';
+                        const captionPart = captionText.substring(0, 200); // Max 200 chars for caption
+                        const remainingSpace = MAX_CAPTION_LENGTH - captionPart.length - separator.length - 20;
+                        const truncatedPrompt = promptText.substring(0, Math.max(remainingSpace, 100));
+
+                        telegramCaption = captionPart + separator + truncatedPrompt + (promptText.length > truncatedPrompt.length ? '...' : '');
+                    } else {
+                        telegramCaption = captionText.substring(0, MAX_CAPTION_LENGTH);
                     }
 
                     formData.append('caption', telegramCaption);
