@@ -119,12 +119,24 @@ serve(async (req) => {
 
                 if (queueError) continue;
 
-                // Calculate and update next run time
-                const nextRunAt = calculateNextRunTime(schedule as AutomationSchedule);
-                await supabase
-                    .from('automation_schedules')
-                    .update({ last_run_at: now, next_run_at: nextRunAt })
-                    .eq('id', schedule.id);
+                // For 'once' schedule type, deactivate after running (don't repeat)
+                if (schedule.schedule_type === 'once') {
+                    await supabase
+                        .from('automation_schedules')
+                        .update({
+                            last_run_at: now,
+                            is_active: false, // Deactivate one-time schedule
+                            next_run_at: null
+                        })
+                        .eq('id', schedule.id);
+                } else {
+                    // Calculate and update next run time for recurring schedules
+                    const nextRunAt = calculateNextRunTime(schedule as AutomationSchedule);
+                    await supabase
+                        .from('automation_schedules')
+                        .update({ last_run_at: now, next_run_at: nextRunAt })
+                        .eq('id', schedule.id);
+                }
 
                 processedCount++;
             } catch {

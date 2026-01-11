@@ -58,7 +58,7 @@ export interface SoraHistoryItem {
 // ============================================
 
 export type ContentType = 'video' | 'image' | 'both';
-export type ScheduleType = 'hourly' | 'daily' | 'custom';
+export type ScheduleType = 'hourly' | 'daily' | 'custom' | 'once';
 export type SocialPlatform = 'telegram' | 'facebook' | 'instagram' | 'youtube' | 'tiktok' | 'threads';
 export type PostStatus = 'pending' | 'generating' | 'ready' | 'posting' | 'completed' | 'failed' | 'partial';
 

@@ -51,6 +51,8 @@ interface WorkflowFormData {
     scheduleType: ScheduleType;
     hourOfDay: number;
     minuteOfHour: number;
+    scheduledDate: string; // For 'once' schedule type
+    scheduledTime: string; // For 'once' schedule type
     platforms: SocialPlatform[];
     productImageUrl: string;
     promptMode: 'auto' | 'manual';
@@ -83,6 +85,8 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({
         scheduleType: 'daily',
         hourOfDay: 9,
         minuteOfHour: 0,
+        scheduledDate: '',
+        scheduledTime: '09:00',
         platforms: ['telegram'],
         productImageUrl: editWorkflow?.product_image_url || '',
         promptMode: editWorkflow?.prompt_mode || 'auto',
@@ -334,6 +338,30 @@ ${formData.productDescription}
 
             // Helper to calculate next run time
             const calculateNextRunAt = () => {
+                // For one-time schedule, use the exact date/time specified
+                if (formData.scheduleType === 'once') {
+                    if (!formData.scheduledDate || !formData.scheduledTime) {
+                        // Fallback to tomorrow at selected time
+                        const tomorrow = new Date();
+                        tomorrow.setDate(tomorrow.getDate() + 1);
+                        tomorrow.setHours(9, 0, 0, 0);
+                        return tomorrow.toISOString();
+                    }
+
+                    // Parse date and time from user input (MYT)
+                    const [hours, minutes] = formData.scheduledTime.split(':').map(Number);
+
+                    // Create date in MYT then convert to UTC
+                    const scheduledDate = new Date(formData.scheduledDate);
+                    scheduledDate.setHours(hours, minutes, 0, 0);
+
+                    // Convert MYT to UTC (subtract 8 hours)
+                    const utcTime = new Date(scheduledDate.getTime() - (8 * 60 * 60 * 1000));
+
+                    return utcTime.toISOString();
+                }
+
+                // For recurring schedules (daily/hourly)
                 const nowUtc = new Date();
 
                 // Get current Malaysia time
@@ -1067,7 +1095,7 @@ ${formData.productDescription}
                                 {/* Schedule Type */}
                                 <div>
                                     <Label className="text-sm font-medium mb-3 block">Kekerapan</Label>
-                                    <div className="grid grid-cols-2 gap-3">
+                                    <div className="grid grid-cols-3 gap-3">
                                         <button
                                             onClick={() => updateField('scheduleType', 'daily')}
                                             className={`p-4 rounded-xl border-2 transition-all ${formData.scheduleType === 'daily'
@@ -1089,6 +1117,17 @@ ${formData.productDescription}
                                             <Clock className={`w-6 h-6 mx-auto mb-2 ${formData.scheduleType === 'hourly' ? 'text-primary' : 'text-muted-foreground'}`} />
                                             <p className="font-bold text-sm">Setiap Jam</p>
                                             <p className="text-xs text-muted-foreground">24x sehari</p>
+                                        </button>
+                                        <button
+                                            onClick={() => updateField('scheduleType', 'once')}
+                                            className={`p-4 rounded-xl border-2 transition-all ${formData.scheduleType === 'once'
+                                                ? 'border-amber-500 bg-amber-500/10'
+                                                : 'border-slate-700 hover:border-slate-600'
+                                                }`}
+                                        >
+                                            <Sparkles className={`w-6 h-6 mx-auto mb-2 ${formData.scheduleType === 'once' ? 'text-amber-400' : 'text-muted-foreground'}`} />
+                                            <p className="font-bold text-sm">Sekali</p>
+                                            <p className="text-xs text-muted-foreground">Tarikh pilihan</p>
                                         </button>
                                     </div>
                                 </div>
@@ -1129,6 +1168,39 @@ ${formData.productDescription}
                                         <p className="text-sm text-amber-400">
                                             ⚡ Konten akan dijana dan dipost setiap jam. Pastikan anda ada kredit yang mencukupi.
                                         </p>
+                                    </div>
+                                )}
+
+                                {/* One-time Schedule: Date and Time Picker */}
+                                {formData.scheduleType === 'once' && (
+                                    <div className="space-y-4">
+                                        <div className="p-4 rounded-xl bg-amber-500/10 border border-amber-500/30">
+                                            <p className="text-sm text-amber-400 mb-3">
+                                                📅 Pilih tarikh dan masa untuk post video anda
+                                            </p>
+                                            <div className="grid grid-cols-2 gap-3">
+                                                <div>
+                                                    <Label className="text-xs text-muted-foreground mb-1 block">Tarikh</Label>
+                                                    <input
+                                                        type="date"
+                                                        value={formData.scheduledDate}
+                                                        onChange={(e) => updateField('scheduledDate', e.target.value)}
+                                                        min={new Date().toISOString().split('T')[0]}
+                                                        className="w-full p-3 rounded-xl bg-slate-800 border border-slate-700 text-foreground"
+                                                    />
+                                                </div>
+                                                <div>
+                                                    <Label className="text-xs text-muted-foreground mb-1 block">Masa (MYT)</Label>
+                                                    <input
+                                                        type="time"
+                                                        value={formData.scheduledTime}
+                                                        onChange={(e) => updateField('scheduledTime', e.target.value)}
+                                                        className="w-full p-3 rounded-xl bg-slate-800 border border-slate-700 text-foreground"
+                                                    />
+                                                </div>
+                                            </div>
+                                            <p className="text-xs text-muted-foreground mt-2">Timezone: Malaysia (GMT+8)</p>
+                                        </div>
                                     </div>
                                 )}
 

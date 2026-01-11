@@ -921,8 +921,16 @@ const AutomationDashboard: React.FC<AutomationDashboardProps> = ({ userProfile }
                                                                         <>
                                                                             <Badge variant="outline" className="text-xs bg-blue-500/10 text-blue-400 border-blue-500/30">
                                                                                 <Clock className="w-3 h-3 mr-1" />
-                                                                                {String(schedule.hour_of_day).padStart(2, '0')}:{String(schedule.minute_of_hour).padStart(2, '0')}
-                                                                                {schedule.schedule_type === 'hourly' ? ' (Setiap Jam)' : ' (Setiap Hari)'}
+                                                                                {schedule.schedule_type === 'once' && schedule.next_run_at ? (
+                                                                                    <>
+                                                                                        {new Date(schedule.next_run_at).toLocaleDateString('ms-MY', { day: 'numeric', month: 'short' })} {new Date(schedule.next_run_at).toLocaleTimeString('ms-MY', { hour: '2-digit', minute: '2-digit', hour12: false })} (Sekali)
+                                                                                    </>
+                                                                                ) : (
+                                                                                    <>
+                                                                                        {String(schedule.hour_of_day).padStart(2, '0')}:{String(schedule.minute_of_hour).padStart(2, '0')}
+                                                                                        {schedule.schedule_type === 'hourly' ? ' (Setiap Jam)' : ' (Setiap Hari)'}
+                                                                                    </>
+                                                                                )}
                                                                             </Badge>
                                                                             {schedule.platforms && schedule.platforms.length > 0 && (
                                                                                 <div className="flex gap-1">
