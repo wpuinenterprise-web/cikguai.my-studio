@@ -119,8 +119,9 @@ serve(async (req) => {
 
                 if (queueError) continue;
 
-                // For 'once' schedule type, deactivate after running (don't repeat)
+                // For 'once' schedule type, deactivate both schedule AND workflow after running
                 if (schedule.schedule_type === 'once') {
+                    // Deactivate the schedule
                     await supabase
                         .from('automation_schedules')
                         .update({
@@ -129,6 +130,14 @@ serve(async (req) => {
                             next_run_at: null
                         })
                         .eq('id', schedule.id);
+
+                    // Also deactivate the workflow itself
+                    await supabase
+                        .from('automation_workflows')
+                        .update({
+                            is_active: false // Deactivate workflow after one-time post
+                        })
+                        .eq('id', workflow.id);
                 } else {
                     // Calculate and update next run time for recurring schedules
                     const nextRunAt = calculateNextRunTime(schedule as AutomationSchedule);
