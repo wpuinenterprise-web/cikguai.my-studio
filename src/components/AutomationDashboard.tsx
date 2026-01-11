@@ -923,7 +923,7 @@ const AutomationDashboard: React.FC<AutomationDashboardProps> = ({ userProfile }
                                                                                 <Clock className="w-3 h-3 mr-1" />
                                                                                 {schedule.schedule_type === 'once' && schedule.next_run_at ? (
                                                                                     <>
-                                                                                        {new Date(schedule.next_run_at).toLocaleDateString('ms-MY', { day: 'numeric', month: 'short' })} {new Date(schedule.next_run_at).toLocaleTimeString('ms-MY', { hour: '2-digit', minute: '2-digit', hour12: false })} (Sekali)
+                                                                                        {new Date(schedule.next_run_at).toLocaleDateString('ms-MY', { day: 'numeric', month: 'short', timeZone: 'Asia/Kuala_Lumpur' })} {new Date(schedule.next_run_at).toLocaleTimeString('ms-MY', { hour: '2-digit', minute: '2-digit', hour12: false, timeZone: 'Asia/Kuala_Lumpur' })} (Sekali)
                                                                                     </>
                                                                                 ) : (
                                                                                     <>
