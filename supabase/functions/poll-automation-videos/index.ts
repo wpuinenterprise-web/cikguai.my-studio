@@ -125,33 +125,18 @@ serve(async (req) => {
                     formData.append('chat_id', chatId);
                     formData.append('video', videoBlob, 'video.mp4');
 
-                    // Build caption with prompt - MUST stay under 1024 chars for Telegram
-                    const MAX_CAPTION_LENGTH = 900; // Strict limit well under 1024
+                    // Telegram caption - ONLY use caption field, NOT prompt
+                    // Prompt is for video generation, caption is for Telegram display
                     const captionText = item.caption || '';
-                    const promptText = item.prompt_used || '';
 
-                    let telegramCaption = '';
-
-                    if (promptText) {
-                        // Calculate available space for prompt after caption
-                        const separator = '\n\n---\nPrompt:\n';
-                        const captionPart = captionText.substring(0, 150); // Max 150 chars for caption
-                        const remainingSpace = MAX_CAPTION_LENGTH - captionPart.length - separator.length - 10;
-                        const truncatedPrompt = promptText.substring(0, Math.max(remainingSpace, 50));
-
-                        telegramCaption = captionPart + separator + truncatedPrompt;
-                        if (promptText.length > truncatedPrompt.length) {
-                            telegramCaption += '...';
-                        }
-                    } else {
-                        telegramCaption = captionText.substring(0, MAX_CAPTION_LENGTH);
+                    // Only add caption if it exists (for video-only posts, skip caption entirely)
+                    if (captionText.trim()) {
+                        // Truncate to 900 chars max for Telegram safety
+                        const telegramCaption = captionText.substring(0, 900);
+                        formData.append('caption', telegramCaption);
                     }
+                    // If no caption, video is posted without any text
 
-                    // FINAL SAFETY: Ensure caption NEVER exceeds limit
-                    telegramCaption = telegramCaption.substring(0, MAX_CAPTION_LENGTH);
-
-                    formData.append('caption', telegramCaption);
-                    // Removed parse_mode HTML to avoid issues with special characters
                     formData.append('supports_streaming', 'true');
 
                     const telegramResponse = await fetch(`${telegramApiUrl}/sendVideo`, {

@@ -59,6 +59,7 @@ interface WorkflowFormData {
     videoType: 't2v' | 'i2v';
     videoStyle: 'ugc' | 'storyboard';
     manualPrompt: string;
+    manualCaption: string; // Optional caption for manual prompt mode
     ctaType: 'fb' | 'tiktok' | 'general';
     characterGender: 'male' | 'female';
 }
@@ -93,6 +94,7 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({
         videoType: editWorkflow?.product_image_url ? 'i2v' : (editWorkflow?.video_type || 't2v'),
         videoStyle: editWorkflow?.video_style || 'ugc',
         manualPrompt: editWorkflow?.prompt_template || '',
+        manualCaption: editWorkflow?.caption_template || '', // Load existing caption for manual mode
         ctaType: editWorkflow?.cta_type || 'tiktok',
         characterGender: editWorkflow?.character_gender || 'female',
     });
@@ -267,7 +269,12 @@ Make it visually appealing and suitable for social media marketing. The content 
 
     // Generate caption template
     const generateCaptionTemplate = () => {
-        // Use enhanced caption if available
+        // For manual prompt mode, use manual caption (can be empty for video-only posts)
+        if (formData.promptMode === 'manual') {
+            return formData.manualCaption || ''; // Empty string if no caption provided
+        }
+
+        // Use enhanced caption if available (auto mode)
         if (enhancedCaption) {
             return enhancedCaption;
         }
@@ -714,6 +721,20 @@ ${formData.productDescription}
                                                     <p className="text-xs text-muted-foreground">Landscape</p>
                                                 </button>
                                             </div>
+                                        </div>
+
+                                        {/* Optional Caption for Telegram */}
+                                        <div>
+                                            <Label className="text-sm font-medium mb-2 block">
+                                                Caption Telegram <span className="text-muted-foreground text-xs">(Optional)</span>
+                                            </Label>
+                                            <Textarea
+                                                placeholder="Tulis caption untuk post Telegram. Kosongkan jika anda hanya mahu post video sahaja tanpa caption."
+                                                value={formData.manualCaption}
+                                                onChange={(e) => updateField('manualCaption', e.target.value)}
+                                                className="min-h-[80px] bg-slate-800/50 text-sm"
+                                            />
+                                            <p className="text-xs text-muted-foreground mt-1">Jika dikosongkan, video akan dipost ke Telegram tanpa caption</p>
                                         </div>
                                     </div>
                                 )}
