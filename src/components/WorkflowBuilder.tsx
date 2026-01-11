@@ -355,17 +355,17 @@ ${formData.productDescription}
                         return tomorrow.toISOString();
                     }
 
-                    // Parse date and time from user input (MYT)
+                    // Parse date and time from user input
+                    // User inputs time in their LOCAL timezone (which should be MYT)
                     const [hours, minutes] = formData.scheduledTime.split(':').map(Number);
 
-                    // Create date in MYT then convert to UTC
+                    // Create date from user input - this will be in browser's local timezone
                     const scheduledDate = new Date(formData.scheduledDate);
                     scheduledDate.setHours(hours, minutes, 0, 0);
 
-                    // Convert MYT to UTC (subtract 8 hours)
-                    const utcTime = new Date(scheduledDate.getTime() - (8 * 60 * 60 * 1000));
-
-                    return utcTime.toISOString();
+                    // toISOString() automatically converts local time to UTC
+                    // So if user is in MYT and inputs 12:58, it becomes 16:58 previous day in UTC
+                    return scheduledDate.toISOString();
                 }
 
                 // For recurring schedules (daily/hourly)
