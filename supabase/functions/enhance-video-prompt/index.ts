@@ -21,7 +21,8 @@ serve(async (req) => {
             duration,
             openaiApiKey,
             ctaType,
-            productImageUrl
+            productImageUrl,
+            characterGender // User's gender choice from workflow settings
         } = await req.json();
 
         if (!productName || !productDescription) {
@@ -41,11 +42,11 @@ serve(async (req) => {
             );
         }
 
-        // Character gender randomization
-        const characterGenders = ['female', 'male'];
-        const randomGender = characterGenders[Math.floor(Math.random() * characterGenders.length)];
+        // Use user's gender choice (LOCKED - no random override)
+        // Default to 'female' if not specified
+        const selectedGender = characterGender || 'female';
 
-        const characterDescription = randomGender === 'female'
+        const characterDescription = selectedGender === 'female'
             ? 'seorang wanita cantik Melayu berumur 30-an, bertudung labuh, berkulit cerah, senyuman mesra, penampilan sopan dan profesional'
             : 'seorang lelaki Melayu berumur 30-an, tampan dan kemas, berpenampilan seperti influencer, tiada subang/rantai/gelang, berpakaian sopan (kemeja atau baju Melayu)';
 
@@ -240,7 +241,7 @@ DESCRIPTION: ${productDescription}
 TARGET AUDIENCE: ${targetAudience || 'Malaysian consumers interested in beauty/health products'}
 DURATION: ${duration} seconds
 PLATFORM CTA: "${platformCta}"
-CHARACTER: ${randomGender === 'female' ? 'FEMALE (wanita Melayu bertudung 30-an)' : 'MALE (lelaki Melayu 30-an style influencer)'}
+CHARACTER: ${selectedGender === 'female' ? 'FEMALE (wanita Melayu bertudung 30-an)' : 'MALE (lelaki Melayu 30-an style influencer)'}
 ${isI2V ? `
 ⚠️ THIS IS I2V (IMAGE-TO-VIDEO) - PRODUCT PRESERVATION IS CRITICAL:
 - The product in video MUST look EXACTLY like the reference image

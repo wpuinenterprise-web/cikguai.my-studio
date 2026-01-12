@@ -87,7 +87,7 @@ serve(async (req) => {
                 if (item.workflow_id) {
                     const { data: workflow } = await supabase
                         .from('automation_workflows')
-                        .select('prompt_mode, product_name, product_description, target_audience, content_style, aspect_ratio, duration, cta_type')
+                        .select('prompt_mode, product_name, product_description, target_audience, content_style, aspect_ratio, duration, cta_type, character_gender, product_image_url')
                         .eq('id', item.workflow_id)
                         .single();
 
@@ -108,6 +108,8 @@ serve(async (req) => {
                                     aspectRatio: workflow.aspect_ratio || 'portrait',
                                     duration: workflow.duration || 15,
                                     ctaType: workflow.cta_type || 'general',
+                                    characterGender: workflow.character_gender || 'female', // User's gender choice
+                                    productImageUrl: workflow.product_image_url || null,
                                 }),
                             });
 
