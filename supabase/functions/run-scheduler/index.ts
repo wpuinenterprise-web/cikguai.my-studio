@@ -85,19 +85,38 @@ serve(async (req) => {
 
                 if (!telegramAccount?.extra_data?.chat_id) continue;
 
-                // ANTI-DUPLICATE CHECK: Check for any entry created in last 20 minutes
-                // This prevents rapid re-triggering when cron runs frequently
-                const twentyMinutesAgo = new Date(Date.now() - 20 * 60 * 1000).toISOString();
+                // ANTI-DUPLICATE CHECK: Check for any entry created in last 30 minutes
+                // Increased from 20 to 30 minutes for extra safety
+                const thirtyMinutesAgo = new Date(Date.now() - 30 * 60 * 1000).toISOString();
                 const { count: recentCount } = await supabase
                     .from('automation_posts_queue')
                     .select('id', { count: 'exact', head: true })
                     .eq('workflow_id', workflow.id)
-                    .gte('created_at', twentyMinutesAgo);
+                    .gte('created_at', thirtyMinutesAgo);
 
-                // Skip if any entry created in last 20 minutes (prevents ALL duplicates)
+                // Skip if any entry created in last 30 minutes (prevents ALL duplicates)
                 if (recentCount && recentCount > 0) continue;
 
-                // Create queue entry
+                // RACE CONDITION FIX: Calculate and update next_run_at IMMEDIATELY
+                // This acts as a "lock" - if another cron run checks, schedule won't be due anymore
+                const nextRunAt = schedule.schedule_type === 'once'
+                    ? null  // One-time schedules get nulled
+                    : calculateNextRunTime(schedule as AutomationSchedule);
+
+                const scheduleUpdate = schedule.schedule_type === 'once'
+                    ? { next_run_at: null, is_active: false }
+                    : { next_run_at: nextRunAt };
+
+                // Update schedule FIRST to prevent race condition
+                const { error: lockError } = await supabase
+                    .from('automation_schedules')
+                    .update(scheduleUpdate)
+                    .eq('id', schedule.id)
+                    .eq('is_active', true); // Only update if still active (atomic check)
+
+                if (lockError) continue;
+
+                // Now create queue entry (schedule is already "locked")
                 const { error: queueError } = await supabase
                     .from('automation_posts_queue')
                     .insert({
@@ -111,34 +130,24 @@ serve(async (req) => {
                         scheduled_for: now,
                     });
 
-                if (queueError) continue;
+                if (queueError) {
+                    // If queue insert failed, we need to restore schedule (rollback)
+                    // But for safety, keep schedule locked to prevent duplicates
+                    continue;
+                }
 
-                // For 'once' schedule type, deactivate both schedule AND workflow after running
+                // Update last_run_at (schedule's next_run_at already updated above)
+                await supabase
+                    .from('automation_schedules')
+                    .update({ last_run_at: now })
+                    .eq('id', schedule.id);
+
+                // For 'once' schedule type, also deactivate the workflow
                 if (schedule.schedule_type === 'once') {
-                    // Deactivate the schedule
-                    await supabase
-                        .from('automation_schedules')
-                        .update({
-                            last_run_at: now,
-                            is_active: false, // Deactivate one-time schedule
-                            next_run_at: null
-                        })
-                        .eq('id', schedule.id);
-
-                    // Also deactivate the workflow itself
                     await supabase
                         .from('automation_workflows')
-                        .update({
-                            is_active: false // Deactivate workflow after one-time post
-                        })
+                        .update({ is_active: false })
                         .eq('id', workflow.id);
-                } else {
-                    // Calculate and update next run time for recurring schedules
-                    const nextRunAt = calculateNextRunTime(schedule as AutomationSchedule);
-                    await supabase
-                        .from('automation_schedules')
-                        .update({ last_run_at: now, next_run_at: nextRunAt })
-                        .eq('id', schedule.id);
                 }
 
                 processedCount++;
