@@ -78,6 +78,18 @@ serve(async (req) => {
         ];
         const randomHook = hookTypes[Math.floor(Math.random() * hookTypes.length)];
 
+        // Random elements for VARIETY - each video generation gets different combination
+        const settings = ['cozy living room', 'bright modern kitchen', 'minimalist bedroom', 'outdoor garden', 'cafe setting', 'bathroom vanity area', 'office desk', 'balcony with city view'];
+        const cameraStyles = ['handheld natural movement', 'smooth gimbal shot', 'static tripod with slight pan', 'dynamic angles with cuts', 'close-up focus transitions'];
+        const colorGrades = ['warm golden tones', 'cool blue aesthetic', 'natural daylight colors', 'soft pastel vibes', 'vibrant saturated colors'];
+        const timeOfDay = ['morning golden hour', 'afternoon natural light', 'evening warm glow', 'bright midday'];
+
+        const randomSetting = settings[Math.floor(Math.random() * settings.length)];
+        const randomCameraStyle = cameraStyles[Math.floor(Math.random() * cameraStyles.length)];
+        const randomColorGrade = colorGrades[Math.floor(Math.random() * colorGrades.length)];
+        const randomTimeOfDay = timeOfDay[Math.floor(Math.random() * timeOfDay.length)];
+        const randomVariationId = Math.floor(Math.random() * 10000); // Unique ID to force different outputs
+
         // Detect I2V mode (image-to-video)
         const isI2V = !!productImageUrl;
         const dialogStartTime = isI2V ? '1-2' : '0-1'; // I2V videos start slower, delay dialog
@@ -257,6 +269,14 @@ TARGET AUDIENCE: ${targetAudience || 'Malaysian consumers interested in beauty/h
 DURATION: ${duration} seconds
 PLATFORM CTA: "${platformCta}"
 CHARACTER: ${selectedGender === 'female' ? 'FEMALE (wanita Melayu bertudung 30-an)' : 'MALE (lelaki Melayu 30-an style influencer)'}
+
+=== VARIATION REQUIREMENTS (MUST USE THESE EXACT ELEMENTS) ===
+- SETTING: ${randomSetting}
+- CAMERA STYLE: ${randomCameraStyle}
+- COLOR GRADE: ${randomColorGrade}
+- TIME OF DAY: ${randomTimeOfDay}
+- VARIATION ID: #${randomVariationId} (make this video UNIQUE from others)
+
 ${isI2V ? `
 ⚠️ THIS IS I2V (IMAGE-TO-VIDEO) - PRODUCT PRESERVATION IS CRITICAL:
 - The product in video MUST look EXACTLY like the reference image
@@ -295,7 +315,7 @@ Return JSON with enhancedPrompt, caption, and dialog fields.`;
                     { role: 'system', content: systemPrompt },
                     { role: 'user', content: userPrompt }
                 ],
-                temperature: 0.8,
+                temperature: 0.95, // High temperature for maximum variety
                 max_tokens: 1500,
             }),
         });
@@ -325,8 +345,8 @@ Return JSON with enhancedPrompt, caption, and dialog fields.`;
         let parsedContent;
         try {
             // Extract JSON from markdown code blocks if present
-            const jsonMatch = generatedContent.match(/```json\n?([\s\S]*?)\n?```/) ||
-                generatedContent.match(/```\n?([\s\S]*?)\n?```/);
+            const jsonMatch = generatedContent.match(/```json\n?([\s\S]*?) \n?```/) ||
+                generatedContent.match(/```\n ? ([\s\S] *?) \n ? ```/);
 
             if (jsonMatch) {
                 parsedContent = JSON.parse(jsonMatch[1].trim());
