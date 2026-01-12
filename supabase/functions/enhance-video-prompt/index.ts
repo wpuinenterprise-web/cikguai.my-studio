@@ -96,7 +96,22 @@ VIDEO SPECIFICATIONS:
 - Duration: EXACTLY ${duration} seconds (WAJIB!)
 - Aspect Ratio: ${aspectDesc}
 - Style: Natural UGC, feels authentic like real person reviewing product
-- NO text, NO subtitles, NO watermarks on video EXCEPT CTA text at end
+
+=== ⚠️ ABSOLUTELY NO SUBTITLES ⚠️ ===
+DO NOT include any subtitles, captions, or text overlays showing what the character is saying.
+NO burned-in subtitles. NO auto-captions. NO text following the dialog.
+
+ONLY ALLOWED TEXT:
+- CTA text at the end (e.g., "Dapatkan Sekarang!", button text)
+- Text effects to highlight KEY words (product name, price, promo) - NOT full sentences
+- Product label/packaging text (already on the product)
+
+FORBIDDEN:
+- Subtitles showing character's speech
+- Caption text at bottom of video
+- Any text that "follows" what the character says
+- Full sentences as text overlays
+
 
 ${isI2V ? `
 === I2V MODE DETECTED - PRODUCT PRESERVATION CRITICAL ===
