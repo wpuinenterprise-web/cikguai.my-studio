@@ -126,50 +126,43 @@ FORBIDDEN:
 
 
 ${isI2V ? `
-=== I2V MODE DETECTED - PRODUCT PRESERVATION CRITICAL ===
+=== I2V MODE DETECTED - PRODUCT PRESERVATION + CHARACTER SEPARATION ===
 
-⚠️⚠️⚠️ MOST IMPORTANT FOR I2V: PRODUCT MUST LOOK EXACTLY LIKE THE REFERENCE IMAGE! ⚠️⚠️⚠️
+⚠️⚠️⚠️ CRITICAL FOR I2V: PRODUCT AND CHARACTER ARE SEPARATE! ⚠️⚠️⚠️
 
-The video will start from a still product image. The AI must:
+The reference image is ONLY the PRODUCT - NOT the character!
+- The CHARACTER is generated fresh by AI (not from the image)
+- The PRODUCT must look exactly like the reference image
+- Character HOLDS, PRESENTS, or DISPLAYS the product
+- Character is NEVER inside/part of the product image
 
-1. KEEP PRODUCT LABEL EXACTLY AS SHOWN:
-   - DO NOT change any text on the product
-   - DO NOT add, remove, or modify logos
-   - DO NOT change label colors or design
-   - Text on packaging MUST remain readable and identical
+PRODUCT PRESERVATION RULES:
+1. Product label/text MUST remain unchanged and readable
+2. Product shape MUST NOT morph or transform
+3. Product colors MUST stay identical to reference
+4. Product packaging design MUST be preserved
 
-2. KEEP PRODUCT SHAPE EXACTLY AS SHOWN:
-   - Bottle shape MUST remain the same
-   - Container form MUST NOT transform
-   - Product size/proportions MUST be preserved
-   - Packaging design MUST NOT morph
+CHARACTER + PRODUCT INTERACTION:
+- Character picks up/holds the product
+- Character shows product to camera
+- Character demonstrates using the product
+- Product is a SEPARATE object the character interacts with
+- Character face/body is NOT in the reference image
 
-3. KEEP PRODUCT COLORS EXACTLY AS SHOWN:
-   - Packaging colors MUST NOT change
-   - Label colors MUST remain identical
-   - Product color (if visible) MUST stay the same
+PROMPT MUST INCLUDE:
+- "Character holds the product in hand"
+- "Product appearance matches reference image exactly"
+- "Character is separate from product, not generated from product image"
 
-4. MINIMAL TRANSFORMATION RULE:
-   - Product stays at 80-90% similarity to reference image
-   - Only allow subtle lighting changes
-   - Only allow subtle angle variations
-   - NO artistic interpretation of the product itself
+VIDEO TIMING FOR I2V (DIALOG MUST REACH CTA!):
+- 0-1s: Product comes alive from still image
+- 1-3s: Character appears and picks up product, starts speaking (AYAT 1)
+- 3-6s: Character shows product, explains benefits (AYAT 2-3)
+- 6-9s: Demo product usage (AYAT 4-5)
+- 9-12s: Share results (AYAT 6-7)
+- 12-15s: CTA - MUST reach this! (AYAT 8 + CTA text)
 
-5. SCENE/CHARACTER CAN CHANGE, PRODUCT CANNOT:
-   - Background can have motion
-   - Character can interact with product
-   - But the PRODUCT ITSELF must remain faithful to the image
-
-PROMPT INSTRUCTIONS FOR SORA:
-- "Maintain exact product appearance from reference image"
-- "Product label text must remain unchanged and readable"
-- "Product shape and packaging must not morph or transform"
-- "Product colors and design must stay identical to the still image"
-
-- Video takes 1-2 seconds to "come alive" from the image
-- Character should NOT speak in first 1-2 seconds
-- Dialog starts at ${dialogStartTime} seconds
-- The product in every frame must look like the reference image
+⚠️ DIALOG MUST BE COMPLETE AND REACH CTA BY 15 SECONDS!
 ` : ''}
 
 === CHARACTER REQUIREMENTS ===
@@ -230,26 +223,27 @@ ${isI2V ? '13-15' : '12-15'} SAAT (CTA - WAJIB!):
 === DIALOG RULES (SANGAT PENTING!) ===
 
 ⚠️ DIALOG MESTI PENDEK: Max 8 ayat sahaja!
-⚠️ SETIAP AYAT: 3-6 patah perkataan sahaja
-⚠️ MESTI SAMPAI CTA: Dialog wajib habis dengan ajakan beli
+⚠️ SETIAP AYAT: 3-5 patah perkataan sahaja (SANGAT PENDEK!)
+⚠️ MESTI SAMPAI CTA: Dialog WAJIB habis dengan ajakan beli
+⚠️ PACING: Satu ayat = 1.5-2 saat sahaja!
 
 LANGUAGE: Bahasa Melayu Malaysia CASUAL
 SPEAKING: Character TALKS to camera (bukan voiceover)
-PACE: Cepat tapi jelas - jangan lambat sangat
+PACE: LAJU tapi jelas - jangan lambat!
 
-CONTOH DIALOG LENGKAP (8 ayat):
-1. "Korang tau tak..." (opener)
-2. "Produk ni memang terbaik!" (claim)
-3. "Tengok ni..." (show product)
-4. "Senang gila nak guna" (demo)
-5. "Hasilnya? Memang wow!" (result)
-6. "Serious berbaloi!" (testimonial)
-7. "Jom grab sekarang!" (CTA)
-8. "${platformCta}" (final CTA)
+CONTOH DIALOG LENGKAP (8 ayat dalam 15 saat):
+1. [1-3s] "Korang tau tak..." (opener)
+2. [3-4s] "Produk ni terbaik!" (claim)
+3. [4-6s] "Tengok ni..." (show)
+4. [6-8s] "Senang nak guna" (demo)
+5. [8-10s] "Hasilnya wow!" (result)
+6. [10-11s] "Serious berbaloi!" (testimonial)
+7. [11-13s] "Jom grab sekarang!" (CTA)
+8. [13-15s] "${platformCta}" (final CTA)
 
 JANGAN:
-- Dialog panjang berjela (video habis sebelum CTA!)
-- Ayat lebih 8 patah perkataan
+- Ayat panjang (video habis sebelum CTA!)
+- Cakap lambat-lambat
 - Skip CTA di akhir
 
 === OUTPUT FORMAT ===
