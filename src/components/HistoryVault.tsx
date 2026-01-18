@@ -173,39 +173,53 @@ const HistoryVault: React.FC<HistoryVaultProps> = ({ userProfile }) => {
     initLoad();
   }, []);
 
-  // Subscribe to realtime updates
+  // Subscribe to realtime updates - ONLY for current user's videos
   useEffect(() => {
-    const channel = supabase
-      .channel('video-updates')
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'video_generations',
-        },
-        (payload) => {
-          console.log('Realtime update:', payload);
-          if (payload.eventType === 'INSERT') {
-            setVideos(prev => {
-              const exists = prev.some(v => v.id === payload.new.id);
-              if (exists) return prev;
-              return [payload.new as VideoGeneration, ...prev];
-            });
-          } else if (payload.eventType === 'UPDATE') {
-            setVideos(prev => prev.map(v =>
-              v.id === payload.new.id ? { ...v, ...payload.new } as VideoGeneration : v
-            ));
-          } else if (payload.eventType === 'DELETE') {
-            setVideos(prev => prev.filter(v => v.id !== payload.old.id));
-          }
-        }
-      )
-      .subscribe();
+    const setupRealtimeSubscription = async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) return;
 
-    return () => {
-      supabase.removeChannel(channel);
+      const currentUserId = session.user.id;
+
+      const channel = supabase
+        .channel('video-updates')
+        .on(
+          'postgres_changes',
+          {
+            event: '*',
+            schema: 'public',
+            table: 'video_generations',
+            filter: `user_id=eq.${currentUserId}`, // CRITICAL: Filter by current user
+          },
+          (payload) => {
+            console.log('Realtime update:', payload);
+            if (payload.eventType === 'INSERT') {
+              // Double-check user_id matches (extra safety)
+              const newVideo = payload.new as VideoGeneration & { user_id: string };
+              if (newVideo.user_id !== currentUserId) return; // Skip if not current user
+
+              setVideos(prev => {
+                const exists = prev.some(v => v.id === payload.new.id);
+                if (exists) return prev;
+                return [payload.new as VideoGeneration, ...prev];
+              });
+            } else if (payload.eventType === 'UPDATE') {
+              setVideos(prev => prev.map(v =>
+                v.id === payload.new.id ? { ...v, ...payload.new } as VideoGeneration : v
+              ));
+            } else if (payload.eventType === 'DELETE') {
+              setVideos(prev => prev.filter(v => v.id !== payload.old.id));
+            }
+          }
+        )
+        .subscribe();
+
+      return () => {
+        supabase.removeChannel(channel);
+      };
     };
+
+    setupRealtimeSubscription();
   }, []);
 
   // Poll for status updates every 6 seconds for processing videos only
