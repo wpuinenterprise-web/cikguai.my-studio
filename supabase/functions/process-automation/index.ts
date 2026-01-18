@@ -312,12 +312,16 @@ async function startVideoGeneration(
         body: formData,
     });
 
+    // Read response as text first to handle HTML error pages
+    const responseText = await response.text();
+
     let data: { uuid?: string; detail?: { message?: string } | string; message?: string; error?: string };
     try {
-        data = await response.json();
+        data = JSON.parse(responseText);
     } catch (_e) {
-        const textResponse = await response.text().catch(() => 'Unable to read response');
-        throw new Error(`Video generation failed: API returned status ${response.status} - ${textResponse.substring(0, 200)}`);
+        // Response is not JSON (e.g., HTML error page)
+        const preview = responseText.substring(0, 200).replace(/</g, '&lt;');
+        throw new Error(`GeminiGen API error (HTTP ${response.status}): Non-JSON response - ${preview}`);
     }
 
     if (!response.ok || !data.uuid) {
