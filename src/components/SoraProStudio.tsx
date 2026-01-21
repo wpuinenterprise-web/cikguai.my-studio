@@ -390,36 +390,63 @@ const SoraProStudio: React.FC<SoraProStudioProps> = ({ userProfile, onProfileRef
                                     ))}
                                 </div>
 
-                                {/* Actual slider for 2 blocks */}
-                                {blocks.length === 2 && (
-                                    <input
-                                        type="range"
-                                        min={5}
-                                        max={totalDuration - 5}
-                                        value={blocks[0].duration}
-                                        onChange={(e) => {
-                                            const d1 = parseInt(e.target.value);
-                                            setBlocks([
-                                                { ...blocks[0], duration: d1 },
-                                                { ...blocks[1], duration: totalDuration - d1 },
-                                            ]);
-                                            setActivePreset('equal');
-                                        }}
-                                        className="absolute top-0 left-0 w-full h-10 cursor-pointer appearance-none bg-transparent z-20"
-                                        style={{
-                                            // Custom styling for the range slider thumb
-                                            WebkitAppearance: 'none',
-                                        }}
-                                    />
-                                )}
+                                {/* Handles for each block boundary */}
+                                {blocks.length > 1 && blocks.slice(0, -1).map((_, handleIndex) => {
+                                    // Calculate cumulative duration up to this boundary
+                                    const cumulativeBefore = blocks.slice(0, handleIndex + 1).reduce((sum, b) => sum + b.duration, 0);
+                                    const leftPercent = (cumulativeBefore / totalDuration) * 100;
 
-                                {/* Custom handle indicator */}
-                                {blocks.length === 2 && (
-                                    <div
-                                        className="absolute top-1/2 -translate-y-1/2 w-5 h-5 bg-white rounded-full shadow-lg border-2 border-cyan-500 pointer-events-none z-10"
-                                        style={{ left: `calc(${(blocks[0].duration / totalDuration) * 100}% - 10px)` }}
-                                    />
-                                )}
+                                    // Min/max for this specific handle
+                                    const minValue = 5 * (handleIndex + 1); // Each preceding block needs at least 5s
+                                    const maxValue = totalDuration - 5 * (blocks.length - handleIndex - 1); // Each following block needs at least 5s
+
+                                    return (
+                                        <React.Fragment key={`handle-group-${handleIndex}`}>
+                                            {/* Invisible range input for dragging */}
+                                            <input
+                                                type="range"
+                                                min={minValue}
+                                                max={maxValue}
+                                                value={cumulativeBefore}
+                                                onChange={(e) => {
+                                                    const newCumulative = parseInt(e.target.value);
+                                                    const prevCumulative = blocks.slice(0, handleIndex).reduce((sum, b) => sum + b.duration, 0);
+
+                                                    // Calculate new duration for current block
+                                                    const newCurrentDuration = Math.max(5, newCumulative - prevCumulative);
+
+                                                    // Calculate how much time is left for remaining blocks
+                                                    const remainingTime = totalDuration - newCumulative;
+                                                    const remainingBlocks = blocks.length - handleIndex - 1;
+
+                                                    // Distribute remaining time to next block, keep others unchanged if possible
+                                                    const newBlocks = [...blocks];
+                                                    newBlocks[handleIndex].duration = newCurrentDuration;
+
+                                                    if (handleIndex + 1 < blocks.length) {
+                                                        // Adjust only the next block
+                                                        const otherBlocksTotal = blocks.slice(handleIndex + 2).reduce((sum, b) => sum + b.duration, 0);
+                                                        newBlocks[handleIndex + 1].duration = Math.max(5, remainingTime - otherBlocksTotal);
+                                                    }
+
+                                                    setBlocks(newBlocks);
+                                                    setActivePreset('equal');
+                                                }}
+                                                className="absolute top-0 h-10 cursor-ew-resize opacity-0 z-20"
+                                                style={{
+                                                    left: `${Math.max(0, leftPercent - 10)}%`,
+                                                    width: '20%',
+                                                }}
+                                            />
+
+                                            {/* Visible handle indicator */}
+                                            <div
+                                                className="absolute top-1/2 -translate-y-1/2 w-5 h-5 bg-white rounded-full shadow-lg border-2 border-cyan-500 cursor-ew-resize z-10 pointer-events-none"
+                                                style={{ left: `calc(${leftPercent}% - 10px)` }}
+                                            />
+                                        </React.Fragment>
+                                    );
+                                })}
                             </div>
 
                             {/* Block duration labels */}
