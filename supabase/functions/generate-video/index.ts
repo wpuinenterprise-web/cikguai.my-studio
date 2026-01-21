@@ -103,9 +103,22 @@ serve(async (req) => {
     const formData = new FormData();
     formData.append('prompt', prompt);
     formData.append('model', model);
-    formData.append('resolution', model.includes('pro') ? 'medium' : 'small');
+
+    // Resolution: Veo uses 720p/1080p, Sora uses small/medium
+    const isVeoModel = model.startsWith('veo');
+    if (isVeoModel) {
+      formData.append('resolution', model.includes('pro') ? '1080p' : '720p');
+    } else {
+      formData.append('resolution', model.includes('pro') ? 'medium' : 'small');
+    }
+
     formData.append('duration', duration.toString());
-    formData.append('aspect_ratio', aspect_ratio);
+
+    // Aspect ratio: Veo uses 16:9/9:16, others use landscape/portrait
+    const aspectRatioFormatted = isVeoModel
+      ? (aspect_ratio === 'landscape' ? '16:9' : '9:16')
+      : aspect_ratio;
+    formData.append('aspect_ratio', aspectRatioFormatted);
 
     // Send reference image URL for I2V (Image to Video)
     // Try multiple parameter names that GeminiGen API might accept
