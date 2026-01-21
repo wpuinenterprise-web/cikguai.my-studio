@@ -372,20 +372,73 @@ const SoraProStudio: React.FC<SoraProStudioProps> = ({ userProfile, onProfileRef
                                 <span className="text-[10px] text-muted-foreground">Total: {totalBlockDuration}s</span>
                             </div>
 
-                            {/* Visual Duration Bar */}
-                            <div className="flex rounded-xl overflow-hidden mb-2 h-10">
-                                {blocks.map((block, i) => (
-                                    <div
-                                        key={block.id}
-                                        style={{ width: `${(block.duration / totalDuration) * 100}%` }}
-                                        className={cn(
-                                            "flex items-center justify-center text-xs font-bold text-white transition-all",
-                                            i % 2 === 0 ? "bg-amber-500" : "bg-purple-500"
-                                        )}
-                                    >
-                                        {block.duration}s
-                                    </div>
-                                ))}
+                            {/* Visual Duration Bar with Draggable Handles */}
+                            <div className="relative mb-2">
+                                <div className="flex rounded-xl overflow-hidden h-10">
+                                    {blocks.map((block, i) => (
+                                        <div
+                                            key={block.id}
+                                            style={{ width: `${(block.duration / totalDuration) * 100}%` }}
+                                            className={cn(
+                                                "flex items-center justify-center text-xs font-bold text-white transition-all relative",
+                                                i % 2 === 0 ? "bg-amber-500" : "bg-purple-500"
+                                            )}
+                                        >
+                                            {block.duration}s
+                                        </div>
+                                    ))}
+                                </div>
+
+                                {/* Draggable Handle(s) between blocks */}
+                                {blocks.length > 1 && blocks.slice(0, -1).map((_, handleIndex) => {
+                                    // Calculate left position for handle
+                                    const leftPercent = blocks.slice(0, handleIndex + 1).reduce((sum, b) => sum + b.duration, 0) / totalDuration * 100;
+
+                                    return (
+                                        <input
+                                            key={`handle-${handleIndex}`}
+                                            type="range"
+                                            min={5}
+                                            max={totalDuration - 5 * (blocks.length - 1)}
+                                            value={blocks.slice(0, handleIndex + 1).reduce((sum, b) => sum + b.duration, 0)}
+                                            onChange={(e) => {
+                                                const newCumulativeDuration = parseInt(e.target.value);
+                                                const prevCumulative = blocks.slice(0, handleIndex).reduce((sum, b) => sum + b.duration, 0);
+                                                const newDuration = Math.max(5, newCumulativeDuration - prevCumulative);
+
+                                                const newBlocks = [...blocks];
+                                                const oldDuration = newBlocks[handleIndex].duration;
+                                                const diff = newDuration - oldDuration;
+
+                                                newBlocks[handleIndex].duration = newDuration;
+                                                // Adjust next block
+                                                if (handleIndex + 1 < blocks.length) {
+                                                    newBlocks[handleIndex + 1].duration = Math.max(5, newBlocks[handleIndex + 1].duration - diff);
+                                                }
+
+                                                setBlocks(newBlocks);
+                                                setActivePreset('equal');
+                                            }}
+                                            className="absolute top-0 w-full h-10 opacity-0 cursor-ew-resize"
+                                            style={{
+                                                left: 0,
+                                                pointerEvents: 'auto'
+                                            }}
+                                        />
+                                    );
+                                })}
+
+                                {/* Visual handle indicators */}
+                                {blocks.length > 1 && blocks.slice(0, -1).map((_, handleIndex) => {
+                                    const leftPercent = blocks.slice(0, handleIndex + 1).reduce((sum, b) => sum + b.duration, 0) / totalDuration * 100;
+                                    return (
+                                        <div
+                                            key={`indicator-${handleIndex}`}
+                                            className="absolute top-1/2 -translate-y-1/2 w-4 h-4 bg-white rounded-full shadow-lg border-2 border-primary cursor-ew-resize pointer-events-none z-10"
+                                            style={{ left: `calc(${leftPercent}% - 8px)` }}
+                                        />
+                                    );
+                                })}
                             </div>
 
                             {/* Block duration labels */}
