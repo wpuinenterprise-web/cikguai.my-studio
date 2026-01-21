@@ -10,7 +10,7 @@ const corsHeaders = {
 const MODEL_ENDPOINTS: Record<string, string> = {
   'sora-2': 'https://api.geminigen.ai/uapi/v1/video-gen/sora',
   'sora-2-pro': 'https://api.geminigen.ai/uapi/v1/video-gen/sora',
-  'veo-3': 'https://api.geminigen.ai/uapi/v1/video-gen/veo',
+  'veo-3.1-fast': 'https://api.geminigen.ai/uapi/v1/video-gen/veo',
   'grok': 'https://api.geminigen.ai/uapi/v1/video-gen/grok',
 };
 

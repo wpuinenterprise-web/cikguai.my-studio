@@ -42,9 +42,9 @@ const SoraStudio: React.FC<SoraStudioProps> = ({ userProfile, onProfileRefresh }
     const saved = sessionStorage.getItem('studio_aspectRatio');
     return saved === 'portrait' ? 'portrait' : 'landscape';
   });
-  const [videoModel, setVideoModel] = useState<'sora-2' | 'sora-2-pro' | 'veo-3'>(() => {
+  const [videoModel, setVideoModel] = useState<'sora-2' | 'sora-2-pro' | 'veo-3.1-fast'>(() => {
     const saved = sessionStorage.getItem('studio_videoModel');
-    return (saved as 'sora-2' | 'sora-2-pro' | 'veo-3') || 'sora-2';
+    return (saved as 'sora-2' | 'sora-2-pro' | 'veo-3.1-fast') || 'sora-2';
   });
   const [isGenerating, setIsGenerating] = useState(false);
   const [filePreview, setFilePreview] = useState<string | null>(null);
@@ -772,7 +772,7 @@ const SoraStudio: React.FC<SoraStudioProps> = ({ userProfile, onProfileRefresh }
                   {([
                     { id: 'sora-2', name: 'Sora 2', desc: 'Standard' },
                     { id: 'sora-2-pro', name: 'Sora Pro', desc: 'Cinematic ⭐' },
-                    { id: 'veo-3', name: 'Veo 3', desc: 'With Audio 🔊' },
+                    { id: 'veo-3.1-fast', name: 'Veo 3.1', desc: 'Fast + Audio 🔊' },
                   ] as const).map((m) => (
                     <button
                       key={m.id}
