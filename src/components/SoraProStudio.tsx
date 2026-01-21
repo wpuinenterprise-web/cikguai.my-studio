@@ -103,16 +103,16 @@ const SoraProStudio: React.FC<SoraProStudioProps> = ({ userProfile, onProfileRef
 
     // Add new block
     const addBlock = () => {
-        if (blocks.length >= 10) {
-            toast.error('Maksimum 10 block sahaja');
+        if (blocks.length >= totalDuration) {
+            toast.error(`Maksimum ${totalDuration} block sahaja (1s per block)`);
             return;
         }
         const newId = Date.now().toString();
         // Calculate new duration: split evenly
-        const newDuration = Math.max(2, Math.floor(totalDuration / (blocks.length + 1)));
+        const newDuration = Math.max(1, Math.floor(totalDuration / (blocks.length + 1)));
         const updatedBlocks = blocks.map(b => ({
             ...b,
-            duration: Math.max(2, Math.floor(b.duration * blocks.length / (blocks.length + 1)))
+            duration: Math.max(1, Math.floor(b.duration * blocks.length / (blocks.length + 1)))
         }));
         setBlocks([...updatedBlocks, { id: newId, prompt: '', duration: newDuration }]);
     };
@@ -413,13 +413,13 @@ const SoraProStudio: React.FC<SoraProStudioProps> = ({ userProfile, onProfileRef
                                             {/* Invisible slider for this handle */}
                                             <input
                                                 type="range"
-                                                min={2 * (handleIndex + 1)}
-                                                max={totalDuration - 2 * (blocks.length - handleIndex - 1)}
+                                                min={1 * (handleIndex + 1)}
+                                                max={totalDuration - 1 * (blocks.length - handleIndex - 1)}
                                                 value={cumulativeDuration}
                                                 onChange={(e) => {
                                                     const newCumulative = parseInt(e.target.value);
                                                     const prevCumulative = blocks.slice(0, handleIndex).reduce((sum, b) => sum + b.duration, 0);
-                                                    const newCurrentDuration = Math.max(2, newCumulative - prevCumulative);
+                                                    const newCurrentDuration = Math.max(1, newCumulative - prevCumulative);
 
                                                     const newBlocks = [...blocks];
                                                     const diff = newCurrentDuration - newBlocks[handleIndex].duration;
@@ -427,7 +427,7 @@ const SoraProStudio: React.FC<SoraProStudioProps> = ({ userProfile, onProfileRef
 
                                                     // Adjust next block
                                                     if (handleIndex + 1 < blocks.length) {
-                                                        newBlocks[handleIndex + 1].duration = Math.max(2, newBlocks[handleIndex + 1].duration - diff);
+                                                        newBlocks[handleIndex + 1].duration = Math.max(1, newBlocks[handleIndex + 1].duration - diff);
                                                     }
 
                                                     setBlocks(newBlocks);
