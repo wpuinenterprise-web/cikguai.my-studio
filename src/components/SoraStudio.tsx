@@ -32,7 +32,7 @@ const SoraStudio: React.FC<SoraStudioProps> = ({ userProfile, onProfileRefresh }
   // Check if feature should be locked - also check if limit reached
   const hasReachedLimit = userProfile && !userProfile.is_admin && userProfile.videos_used >= userProfile.video_limit;
   const isLocked = userProfile && !userProfile.is_admin && (!userProfile.is_approved || userProfile.video_limit <= 0);
-  // Load prompt, duration, aspectRatio from sessionStorage to persist across tab switches
+  // Load prompt, duration, aspectRatio, model from sessionStorage to persist across tab switches
   const [prompt, setPrompt] = useState(() => sessionStorage.getItem('studio_prompt') || '');
   const [duration, setDuration] = useState<10 | 15>(() => {
     const saved = sessionStorage.getItem('studio_duration');
@@ -41,6 +41,10 @@ const SoraStudio: React.FC<SoraStudioProps> = ({ userProfile, onProfileRefresh }
   const [aspectRatio, setAspectRatio] = useState<'landscape' | 'portrait'>(() => {
     const saved = sessionStorage.getItem('studio_aspectRatio');
     return saved === 'portrait' ? 'portrait' : 'landscape';
+  });
+  const [videoModel, setVideoModel] = useState<'sora-2' | 'sora-2-pro' | 'veo-3'>(() => {
+    const saved = sessionStorage.getItem('studio_videoModel');
+    return (saved as 'sora-2' | 'sora-2-pro' | 'veo-3') || 'sora-2';
   });
   const [isGenerating, setIsGenerating] = useState(false);
   const [filePreview, setFilePreview] = useState<string | null>(null);
@@ -90,6 +94,10 @@ const SoraStudio: React.FC<SoraStudioProps> = ({ userProfile, onProfileRefresh }
   useEffect(() => {
     sessionStorage.setItem('studio_aspectRatio', aspectRatio);
   }, [aspectRatio]);
+
+  useEffect(() => {
+    sessionStorage.setItem('studio_videoModel', videoModel);
+  }, [videoModel]);
 
   // Save UGC data to localStorage when changed
   const saveProductData = useCallback(() => {
@@ -324,6 +332,7 @@ const SoraStudio: React.FC<SoraStudioProps> = ({ userProfile, onProfileRefresh }
           duration,
           aspect_ratio: aspectRatio,
           reference_image_url: uploadedImageUrl,
+          model: videoModel,
         },
       });
 
@@ -752,6 +761,37 @@ const SoraStudio: React.FC<SoraStudioProps> = ({ userProfile, onProfileRefresh }
                 </div>
               </div>
             </div>
+
+            {/* Model Selector - Full width */}
+            {!hasReachedLimit && (
+              <div className="mb-6">
+                <label className="block text-[10px] font-black text-muted-foreground uppercase tracking-widest mb-3">
+                  Video Model
+                </label>
+                <div className="grid grid-cols-3 gap-2">
+                  {([
+                    { id: 'sora-2', name: 'Sora 2', desc: 'Standard' },
+                    { id: 'sora-2-pro', name: 'Sora Pro', desc: 'Cinematic ⭐' },
+                    { id: 'veo-3', name: 'Veo 3', desc: 'With Audio 🔊' },
+                  ] as const).map((m) => (
+                    <button
+                      key={m.id}
+                      onClick={() => setVideoModel(m.id)}
+                      disabled={isGenerating}
+                      className={cn(
+                        "py-3 px-3 rounded-xl text-xs font-bold transition-all duration-300 border flex flex-col items-center gap-1",
+                        videoModel === m.id
+                          ? "bg-primary/20 border-primary/50 text-primary"
+                          : "bg-secondary/50 border-border text-muted-foreground hover:border-primary/30"
+                      )}
+                    >
+                      <span>{m.name}</span>
+                      <span className="text-[10px] opacity-70">{m.desc}</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
 
             {/* Reference Image - hide if limit reached */}
             {!hasReachedLimit && (

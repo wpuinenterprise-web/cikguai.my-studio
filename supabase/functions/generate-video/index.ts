@@ -6,6 +6,16 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
+// Supported video models and their API endpoints
+const MODEL_ENDPOINTS: Record<string, string> = {
+  'sora-2': 'https://api.geminigen.ai/uapi/v1/video-gen/sora',
+  'sora-2-pro': 'https://api.geminigen.ai/uapi/v1/video-gen/sora',
+  'veo-3': 'https://api.geminigen.ai/uapi/v1/video-gen/veo',
+  'grok': 'https://api.geminigen.ai/uapi/v1/video-gen/grok',
+};
+
+const VALID_MODELS = Object.keys(MODEL_ENDPOINTS);
+
 serve(async (req) => {
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
@@ -37,12 +47,18 @@ serve(async (req) => {
       throw new Error('Unauthorized');
     }
 
-    const { prompt, duration, aspect_ratio, reference_image_url } = await req.json();
+    const { prompt, duration, aspect_ratio, reference_image_url, model = 'sora-2' } = await req.json();
+
+    // Validate model
+    if (!VALID_MODELS.includes(model)) {
+      throw new Error(`Invalid model: ${model}. Valid models: ${VALID_MODELS.join(', ')}`);
+    }
 
     console.log('Generating video for user:', user.id);
     console.log('Prompt:', prompt);
     console.log('Duration:', duration);
     console.log('Aspect ratio:', aspect_ratio);
+    console.log('Model:', model);
 
     // Check user's video limit
     const { data: profile, error: profileError } = await supabase
@@ -60,7 +76,7 @@ serve(async (req) => {
       throw new Error('Video generation limit reached');
     }
 
-    // Create video generation record
+    // Create video generation record with model
     const { data: videoRecord, error: insertError } = await supabase
       .from('video_generations')
       .insert({
@@ -69,6 +85,7 @@ serve(async (req) => {
         duration,
         aspect_ratio,
         reference_image_url,
+        model,
         status: 'processing',
         status_percentage: 1,
       })
@@ -82,11 +99,11 @@ serve(async (req) => {
 
     console.log('Video record created:', videoRecord.id);
 
-    // Call GeminiGen API
+    // Call GeminiGen API with selected model
     const formData = new FormData();
     formData.append('prompt', prompt);
-    formData.append('model', 'sora-2');
-    formData.append('resolution', 'small');
+    formData.append('model', model);
+    formData.append('resolution', model.includes('pro') ? 'medium' : 'small');
     formData.append('duration', duration.toString());
     formData.append('aspect_ratio', aspect_ratio);
 
@@ -102,15 +119,19 @@ serve(async (req) => {
       console.log('Invalid reference image URL format:', reference_image_url.substring(0, 50));
     }
 
+    // Get the appropriate API endpoint for the model
+    const apiEndpoint = MODEL_ENDPOINTS[model];
+
     console.log('Calling GeminiGen API with params:', {
       prompt: prompt.substring(0, 100) + '...',
-      model: 'sora-2',
+      model,
+      endpoint: apiEndpoint,
       duration,
       aspect_ratio,
       has_reference_image: !!reference_image_url,
     });
 
-    const geminigenResponse = await fetch('https://api.geminigen.ai/uapi/v1/video-gen/sora', {
+    const geminigenResponse = await fetch(apiEndpoint, {
       method: 'POST',
       headers: {
         'x-api-key': GEMINIGEN_API_KEY,

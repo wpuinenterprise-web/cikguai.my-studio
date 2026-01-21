@@ -9,6 +9,7 @@ import ImageStudio from '@/components/ImageStudio';
 import ImageHistory from '@/components/ImageHistory';
 import AdminDashboard from '@/components/AdminDashboard';
 import AutomationDashboard from '@/components/AutomationDashboard';
+import GrokStudio from '@/components/GrokStudio';
 import AuthView from '@/components/AuthView';
 import AnimatedBackground from '@/components/AnimatedBackground';
 import ImageGenerationStatus from '@/components/ImageGenerationStatus';
@@ -147,6 +148,8 @@ const Index = () => {
         return profile?.is_admin ? <AdminDashboard /> : <SoraStudio userProfile={profile!} onProfileRefresh={handleProfileRefresh} />;
       case AppView.AUTOMATION:
         return profile ? <AutomationDashboard userProfile={profile} /> : <SoraStudio userProfile={profile!} onProfileRefresh={handleProfileRefresh} />;
+      case AppView.GROK_STUDIO:
+        return <GrokStudio userProfile={profile} onProfileRefresh={handleProfileRefresh} />;
       default:
         return <SoraStudio userProfile={profile!} onProfileRefresh={handleProfileRefresh} />;
     }
