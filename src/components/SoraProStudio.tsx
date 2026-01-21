@@ -103,12 +103,18 @@ const SoraProStudio: React.FC<SoraProStudioProps> = ({ userProfile, onProfileRef
 
     // Add new block
     const addBlock = () => {
-        if (blocks.length >= 5) {
-            toast.error('Maksimum 5 block sahaja');
+        if (blocks.length >= 10) {
+            toast.error('Maksimum 10 block sahaja');
             return;
         }
         const newId = Date.now().toString();
-        setBlocks([...blocks, { id: newId, prompt: '', duration: 5 }]);
+        // Calculate new duration: split evenly
+        const newDuration = Math.max(2, Math.floor(totalDuration / (blocks.length + 1)));
+        const updatedBlocks = blocks.map(b => ({
+            ...b,
+            duration: Math.max(2, Math.floor(b.duration * blocks.length / (blocks.length + 1)))
+        }));
+        setBlocks([...updatedBlocks, { id: newId, prompt: '', duration: newDuration }]);
     };
 
     // Remove block
@@ -374,63 +380,89 @@ const SoraProStudio: React.FC<SoraProStudioProps> = ({ userProfile, onProfileRef
 
                             {/* Duration Bar with Slider */}
                             <div className="relative mb-4">
-                                {/* Colored bar showing block proportions */}
+                                {/* Colored bar showing block proportions - rainbow colors */}
                                 <div className="flex rounded-xl overflow-hidden h-10 relative">
-                                    {blocks.map((block, i) => (
-                                        <div
-                                            key={block.id}
-                                            style={{ width: `${(block.duration / totalDuration) * 100}%` }}
-                                            className={cn(
-                                                "flex items-center justify-center text-xs font-bold text-white transition-all",
-                                                i % 2 === 0 ? "bg-blue-500" : "bg-purple-400"
-                                            )}
-                                        >
-                                            {block.duration}s
-                                        </div>
-                                    ))}
+                                    {blocks.map((block, i) => {
+                                        const colors = [
+                                            'bg-pink-400', 'bg-orange-400', 'bg-yellow-400', 'bg-green-400',
+                                            'bg-cyan-400', 'bg-blue-400', 'bg-purple-400', 'bg-pink-500',
+                                            'bg-red-400', 'bg-indigo-400'
+                                        ];
+                                        return (
+                                            <div
+                                                key={block.id}
+                                                style={{ width: `${(block.duration / totalDuration) * 100}%` }}
+                                                className={cn(
+                                                    "flex items-center justify-center text-xs font-bold text-white transition-all",
+                                                    colors[i % colors.length]
+                                                )}
+                                            >
+                                                {block.duration >= 2 ? `${block.duration}s` : ''}
+                                            </div>
+                                        );
+                                    })}
                                 </div>
 
-                                {/* Full-width slider overlay */}
-                                {blocks.length >= 2 && (
-                                    <input
-                                        type="range"
-                                        min={5}
-                                        max={totalDuration - 5 * (blocks.length - 1)}
-                                        value={blocks[0].duration}
-                                        onChange={(e) => {
-                                            const newFirstDuration = parseInt(e.target.value);
-                                            const diff = newFirstDuration - blocks[0].duration;
+                                {/* Draggable handles at each block boundary */}
+                                {blocks.length > 1 && blocks.slice(0, -1).map((_, handleIndex) => {
+                                    const cumulativeDuration = blocks.slice(0, handleIndex + 1).reduce((sum, b) => sum + b.duration, 0);
+                                    const leftPercent = (cumulativeDuration / totalDuration) * 100;
 
-                                            const newBlocks = [...blocks];
-                                            newBlocks[0].duration = newFirstDuration;
+                                    return (
+                                        <React.Fragment key={`handle-${handleIndex}`}>
+                                            {/* Invisible slider for this handle */}
+                                            <input
+                                                type="range"
+                                                min={2 * (handleIndex + 1)}
+                                                max={totalDuration - 2 * (blocks.length - handleIndex - 1)}
+                                                value={cumulativeDuration}
+                                                onChange={(e) => {
+                                                    const newCumulative = parseInt(e.target.value);
+                                                    const prevCumulative = blocks.slice(0, handleIndex).reduce((sum, b) => sum + b.duration, 0);
+                                                    const newCurrentDuration = Math.max(2, newCumulative - prevCumulative);
 
-                                            // Take/give from second block
-                                            if (blocks.length >= 2) {
-                                                newBlocks[1].duration = Math.max(5, newBlocks[1].duration - diff);
-                                            }
+                                                    const newBlocks = [...blocks];
+                                                    const diff = newCurrentDuration - newBlocks[handleIndex].duration;
+                                                    newBlocks[handleIndex].duration = newCurrentDuration;
 
-                                            setBlocks(newBlocks);
-                                            setActivePreset('equal');
-                                        }}
-                                        className="absolute top-0 left-0 w-full h-10 cursor-pointer z-20"
-                                        style={{
-                                            appearance: 'none',
-                                            WebkitAppearance: 'none',
-                                            background: 'transparent',
-                                        }}
-                                    />
-                                )}
+                                                    // Adjust next block
+                                                    if (handleIndex + 1 < blocks.length) {
+                                                        newBlocks[handleIndex + 1].duration = Math.max(2, newBlocks[handleIndex + 1].duration - diff);
+                                                    }
 
-                                {/* Visible handle */}
-                                {blocks.length >= 2 && (
-                                    <div
-                                        className="absolute top-1/2 -translate-y-1/2 w-6 h-6 bg-white rounded-full shadow-lg border-3 border-cyan-400 pointer-events-none z-30"
-                                        style={{
-                                            left: `calc(${(blocks[0].duration / totalDuration) * 100}% - 12px)`,
-                                            boxShadow: '0 2px 8px rgba(0,0,0,0.3)'
-                                        }}
-                                    />
-                                )}
+                                                    setBlocks(newBlocks);
+                                                    setActivePreset('equal');
+                                                }}
+                                                className="absolute top-0 h-10 cursor-ew-resize opacity-0 z-20"
+                                                style={{
+                                                    left: `${Math.max(0, leftPercent - 8)}%`,
+                                                    width: '16%',
+                                                }}
+                                            />
+                                            {/* Visible handle */}
+                                            <div
+                                                className="absolute top-1/2 -translate-y-1/2 w-4 h-4 bg-white rounded-full shadow-md border-2 border-gray-400 cursor-ew-resize z-10 pointer-events-none"
+                                                style={{ left: `calc(${leftPercent}% - 8px)` }}
+                                            />
+                                        </React.Fragment>
+                                    );
+                                })}
+                            </div>
+
+                            {/* Block duration labels */}
+                            <div className="flex flex-wrap gap-2 text-[10px] text-muted-foreground mb-3">
+                                {blocks.map((block, i) => {
+                                    const colors = [
+                                        'text-pink-400', 'text-orange-400', 'text-yellow-500', 'text-green-400',
+                                        'text-cyan-400', 'text-blue-400', 'text-purple-400', 'text-pink-500',
+                                        'text-red-400', 'text-indigo-400'
+                                    ];
+                                    return (
+                                        <span key={block.id} className={cn("font-bold", colors[i % colors.length])}>
+                                            Block {i + 1}: {block.duration}s
+                                        </span>
+                                    );
+                                })}
                             </div>
 
                             {/* Individual block duration sliders for fine control */}
