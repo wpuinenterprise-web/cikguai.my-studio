@@ -454,17 +454,6 @@ const SoraProStudio: React.FC<SoraProStudioProps> = ({ userProfile, onProfileRef
                                 ☰ Basic
                             </button>
                             <button
-                                onClick={() => setPromptMode('advanced')}
-                                className={cn(
-                                    "px-3 py-1.5 text-[10px] font-bold rounded-md transition-all",
-                                    promptMode === 'advanced'
-                                        ? "bg-gradient-to-r from-orange-500 to-amber-500 text-white shadow-sm"
-                                        : "text-muted-foreground hover:text-foreground"
-                                )}
-                            >
-                                ⚙ Advanced
-                            </button>
-                            <button
                                 onClick={() => setPromptMode('story')}
                                 className={cn(
                                     "px-3 py-1.5 text-[10px] font-bold rounded-md transition-all flex items-center gap-1",
@@ -518,62 +507,6 @@ const SoraProStudio: React.FC<SoraProStudioProps> = ({ userProfile, onProfileRef
                                     >
                                         25s
                                         <span className="px-1.5 py-0.5 text-[8px] bg-orange-400 text-white rounded-full">New</span>
-                                    </button>
-                                </div>
-                            </div>
-                        </div>
-                    )}
-
-                    {/* Advanced Mode Panel */}
-                    {promptMode === 'advanced' && (
-                        <div className="p-4 rounded-xl bg-secondary/30 border border-border/50 mb-6">
-                            <Textarea
-                                value={basicPrompt}
-                                onChange={(e) => setBasicPrompt(e.target.value)}
-                                placeholder="Describe the video you want to generate with Sora..."
-                                className="min-h-[120px] bg-background/50 border-border/50 resize-none text-sm mb-4"
-                                disabled={isGenerating || hasReachedLimit}
-                            />
-
-                            <div className="grid grid-cols-2 gap-4">
-                                {/* Duration */}
-                                <div>
-                                    <label className="block text-[10px] font-black text-muted-foreground uppercase tracking-widest mb-2">
-                                        Duration
-                                    </label>
-                                    <div className="flex gap-2">
-                                        <button
-                                            onClick={() => setTotalDuration(15)}
-                                            className={cn(
-                                                "flex-1 px-3 py-2 rounded-lg text-xs font-bold transition-all border",
-                                                totalDuration === 15
-                                                    ? "bg-primary text-primary-foreground border-primary"
-                                                    : "bg-secondary/50 border-border text-muted-foreground hover:border-primary/50"
-                                            )}
-                                        >
-                                            15s
-                                        </button>
-                                        <button
-                                            onClick={() => setTotalDuration(25)}
-                                            className={cn(
-                                                "flex-1 px-3 py-2 rounded-lg text-xs font-bold transition-all border",
-                                                totalDuration === 25
-                                                    ? "bg-primary text-primary-foreground border-primary"
-                                                    : "bg-secondary/50 border-border text-muted-foreground hover:border-primary/50"
-                                            )}
-                                        >
-                                            25s
-                                        </button>
-                                    </div>
-                                </div>
-
-                                {/* Cameo Option */}
-                                <div>
-                                    <label className="block text-[10px] font-black text-muted-foreground uppercase tracking-widest mb-2">
-                                        Style
-                                    </label>
-                                    <button className="w-full flex items-center justify-center gap-2 px-3 py-2 rounded-lg text-xs font-bold bg-secondary/50 border border-border text-muted-foreground hover:border-primary/50 transition-all">
-                                        👤 Cameo
                                     </button>
                                 </div>
                             </div>
