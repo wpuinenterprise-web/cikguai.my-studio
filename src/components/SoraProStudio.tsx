@@ -565,10 +565,10 @@ const SoraProStudio: React.FC<SoraProStudioProps> = ({ userProfile, onProfileRef
                         {/* Add Block Button */}
                         <button
                             onClick={addBlock}
-                            disabled={blocks.length >= 5}
+                            disabled={blocks.length >= totalDuration}
                             className="w-full py-2 rounded-xl border-2 border-dashed border-border text-sm font-bold text-muted-foreground hover:border-primary/50 hover:text-primary transition-all disabled:opacity-50"
                         >
-                            + Add Block
+                            + Add Block ({blocks.length}/{totalDuration})
                         </button>
                     </div>
 
