@@ -23,6 +23,7 @@ interface StoryBlock {
 }
 
 type DurationPreset = 'equal' | 'ascending' | 'descending' | 'focus-middle' | 'first-heavy' | 'last-heavy';
+type PromptMode = 'basic' | 'advanced' | 'story';
 
 const SoraProStudio: React.FC<SoraProStudioProps> = ({ userProfile, onProfileRefresh }) => {
     const [totalDuration, setTotalDuration] = useState<15 | 25>(25);
@@ -38,6 +39,8 @@ const SoraProStudio: React.FC<SoraProStudioProps> = ({ userProfile, onProfileRef
     const fileInputRef = useRef<HTMLInputElement>(null);
     const sliderRef = useRef<HTMLDivElement>(null);
     const [draggingHandle, setDraggingHandle] = useState<number | null>(null);
+    const [promptMode, setPromptMode] = useState<PromptMode>('basic');
+    const [basicPrompt, setBasicPrompt] = useState('');
 
     // Recalculate block durations when totalDuration changes
     React.useEffect(() => {
@@ -247,12 +250,21 @@ const SoraProStudio: React.FC<SoraProStudioProps> = ({ userProfile, onProfileRef
         };
     }, [draggingHandle, handleDragMove, handleDragEnd]);
 
-    // Generate story video
+    // Generate video
     const handleGenerate = async () => {
-        const emptyBlocks = blocks.filter(b => !b.prompt.trim());
-        if (emptyBlocks.length > 0) {
-            toast.error('Sila isi semua prompt block');
-            return;
+        // Validate based on mode
+        if (promptMode === 'story') {
+            const emptyBlocks = blocks.filter(b => !b.prompt.trim());
+            if (emptyBlocks.length > 0) {
+                toast.error('Sila isi semua prompt block');
+                return;
+            }
+        } else {
+            // Basic or Advanced mode
+            if (!basicPrompt.trim()) {
+                toast.error('Sila masukkan prompt');
+                return;
+            }
         }
 
         if (hasReachedLimit) {
@@ -269,38 +281,61 @@ const SoraProStudio: React.FC<SoraProStudioProps> = ({ userProfile, onProfileRef
                 return;
             }
 
-            // Generate each block as separate video (for now)
-            // In future, this could use a storyboard API endpoint
-            for (let i = 0; i < blocks.length; i++) {
-                const block = blocks[i];
-                toast.info(`Menjana Block ${i + 1}/${blocks.length}...`);
+            if (promptMode === 'story') {
+                // Generate each block as separate video (Story mode)
+                for (let i = 0; i < blocks.length; i++) {
+                    const block = blocks[i];
+                    toast.info(`Menjana Block ${i + 1}/${blocks.length}...`);
+
+                    const response = await supabase.functions.invoke('generate-video', {
+                        body: {
+                            prompt: block.prompt,
+                            duration: block.duration,
+                            aspect_ratio: orientation,
+                            model: 'sora-2-pro',
+                        },
+                    });
+
+                    if (response.error) {
+                        throw new Error(`Block ${i + 1}: ${response.error.message}`);
+                    }
+
+                    if (!response.data?.success) {
+                        throw new Error(`Block ${i + 1}: ${response.data?.error || 'Gagal menjana'}`);
+                    }
+                }
+
+                toast.success('Semua block berjaya dimulakan!');
+            } else {
+                // Basic or Advanced mode - single video
+                toast.info('Menjana video...');
 
                 const response = await supabase.functions.invoke('generate-video', {
                     body: {
-                        prompt: block.prompt,
-                        duration: block.duration,
+                        prompt: basicPrompt,
+                        duration: totalDuration,
                         aspect_ratio: orientation,
                         model: 'sora-2-pro',
                     },
                 });
 
                 if (response.error) {
-                    throw new Error(`Block ${i + 1}: ${response.error.message}`);
+                    throw new Error(response.error.message);
                 }
 
                 if (!response.data?.success) {
-                    throw new Error(`Block ${i + 1}: ${response.data?.error || 'Gagal menjana'}`);
+                    throw new Error(response.data?.error || 'Gagal menjana video');
                 }
-            }
 
-            toast.success('Semua block berjaya dimulakan!');
+                toast.success('Video berjaya dimulakan!');
+            }
 
             if (onProfileRefresh) {
                 await onProfileRefresh();
             }
 
         } catch (error: any) {
-            console.error('Story generation error:', error);
+            console.error('Video generation error:', error);
             toast.error(error.message || 'Gagal menjana video');
         } finally {
             setIsGenerating(false);
@@ -401,235 +436,363 @@ const SoraProStudio: React.FC<SoraProStudioProps> = ({ userProfile, onProfileRef
                         </div>
                     </div>
 
-                    {/* Prompt Section Header */}
+                    {/* Prompt Section Header with Mode Tabs */}
                     <div className="flex items-center justify-between mb-4">
                         <label className="text-[10px] font-black text-muted-foreground uppercase tracking-widest">
                             Prompt
                         </label>
-                        <div className="flex items-center gap-2">
-                            <button className="px-3 py-1.5 text-[10px] font-bold rounded-lg bg-secondary/50 text-muted-foreground">
+                        <div className="flex items-center gap-1 bg-secondary/30 p-1 rounded-lg">
+                            <button
+                                onClick={() => setPromptMode('basic')}
+                                className={cn(
+                                    "px-3 py-1.5 text-[10px] font-bold rounded-md transition-all",
+                                    promptMode === 'basic'
+                                        ? "bg-gradient-to-r from-orange-500 to-amber-500 text-white shadow-sm"
+                                        : "text-muted-foreground hover:text-foreground"
+                                )}
+                            >
                                 ☰ Basic
                             </button>
-                            <button className="px-3 py-1.5 text-[10px] font-bold rounded-lg bg-secondary/50 text-muted-foreground">
+                            <button
+                                onClick={() => setPromptMode('advanced')}
+                                className={cn(
+                                    "px-3 py-1.5 text-[10px] font-bold rounded-md transition-all",
+                                    promptMode === 'advanced'
+                                        ? "bg-gradient-to-r from-orange-500 to-amber-500 text-white shadow-sm"
+                                        : "text-muted-foreground hover:text-foreground"
+                                )}
+                            >
                                 ⚙ Advanced
                             </button>
-                            <button className="px-3 py-1.5 text-[10px] font-bold rounded-lg bg-gradient-to-r from-orange-500 to-amber-500 text-white">
+                            <button
+                                onClick={() => setPromptMode('story')}
+                                className={cn(
+                                    "px-3 py-1.5 text-[10px] font-bold rounded-md transition-all flex items-center gap-1",
+                                    promptMode === 'story'
+                                        ? "bg-gradient-to-r from-orange-500 to-amber-500 text-white shadow-sm"
+                                        : "text-muted-foreground hover:text-foreground"
+                                )}
+                            >
                                 ▷ Story
+                                <span className="px-1.5 py-0.5 text-[8px] bg-orange-400 text-white rounded-full">New</span>
                             </button>
                         </div>
                     </div>
 
-                    {/* Story Mode Panel */}
-                    <div className="p-4 rounded-xl bg-secondary/30 border border-border/50 mb-6">
-                        {/* Video Duration */}
-                        <div className="mb-4">
-                            <label className="block text-[10px] font-black text-muted-foreground uppercase tracking-widest mb-2">
-                                Video Duration
-                            </label>
-                            <div className="flex gap-2">
-                                {([15, 25] as const).map((d) => (
+                    {/* Basic Mode Panel */}
+                    {promptMode === 'basic' && (
+                        <div className="p-4 rounded-xl bg-secondary/30 border border-border/50 mb-6">
+                            <Textarea
+                                value={basicPrompt}
+                                onChange={(e) => setBasicPrompt(e.target.value)}
+                                placeholder="Describe the video you want to generate with Sora..."
+                                className="min-h-[120px] bg-background/50 border-border/50 resize-none text-sm"
+                                disabled={isGenerating || hasReachedLimit}
+                            />
+
+                            {/* Duration selector for basic mode */}
+                            <div className="mt-4">
+                                <label className="block text-[10px] font-black text-muted-foreground uppercase tracking-widest mb-2">
+                                    Duration
+                                </label>
+                                <div className="flex gap-2">
                                     <button
-                                        key={d}
-                                        onClick={() => {
-                                            setTotalDuration(d);
-                                            setTimeout(() => applyPreset(activePreset), 0);
-                                        }}
+                                        onClick={() => setTotalDuration(15)}
                                         className={cn(
-                                            "px-4 py-2 rounded-lg text-sm font-bold border transition-all",
-                                            totalDuration === d
-                                                ? "bg-amber-500/20 border-amber-500/50 text-amber-500"
-                                                : "bg-secondary/50 border-border text-muted-foreground"
+                                            "flex-1 px-4 py-2 rounded-xl text-sm font-bold transition-all border",
+                                            totalDuration === 15
+                                                ? "bg-gradient-to-r from-orange-500 to-amber-500 text-white border-orange-500"
+                                                : "bg-secondary/50 border-border text-muted-foreground hover:border-primary/50"
                                         )}
                                     >
-                                        {d === 15 ? '○' : '●'} {d}s
+                                        15s
                                     </button>
-                                ))}
+                                    <button
+                                        onClick={() => setTotalDuration(25)}
+                                        className={cn(
+                                            "flex-1 px-4 py-2 rounded-xl text-sm font-bold transition-all border flex items-center justify-center gap-2",
+                                            totalDuration === 25
+                                                ? "bg-gradient-to-r from-orange-500 to-amber-500 text-white border-orange-500"
+                                                : "bg-secondary/50 border-border text-muted-foreground hover:border-primary/50"
+                                        )}
+                                    >
+                                        25s
+                                        <span className="px-1.5 py-0.5 text-[8px] bg-orange-400 text-white rounded-full">New</span>
+                                    </button>
+                                </div>
                             </div>
                         </div>
+                    )}
 
-                        {/* Duration Slider */}
-                        <div className="mb-4">
-                            <div className="flex items-center justify-between mb-2">
-                                <label className="text-[10px] font-black text-muted-foreground uppercase tracking-widest">
-                                    Duration For Each Block
+                    {/* Advanced Mode Panel */}
+                    {promptMode === 'advanced' && (
+                        <div className="p-4 rounded-xl bg-secondary/30 border border-border/50 mb-6">
+                            <Textarea
+                                value={basicPrompt}
+                                onChange={(e) => setBasicPrompt(e.target.value)}
+                                placeholder="Describe the video you want to generate with Sora..."
+                                className="min-h-[120px] bg-background/50 border-border/50 resize-none text-sm mb-4"
+                                disabled={isGenerating || hasReachedLimit}
+                            />
+
+                            <div className="grid grid-cols-2 gap-4">
+                                {/* Duration */}
+                                <div>
+                                    <label className="block text-[10px] font-black text-muted-foreground uppercase tracking-widest mb-2">
+                                        Duration
+                                    </label>
+                                    <div className="flex gap-2">
+                                        <button
+                                            onClick={() => setTotalDuration(15)}
+                                            className={cn(
+                                                "flex-1 px-3 py-2 rounded-lg text-xs font-bold transition-all border",
+                                                totalDuration === 15
+                                                    ? "bg-primary text-primary-foreground border-primary"
+                                                    : "bg-secondary/50 border-border text-muted-foreground hover:border-primary/50"
+                                            )}
+                                        >
+                                            15s
+                                        </button>
+                                        <button
+                                            onClick={() => setTotalDuration(25)}
+                                            className={cn(
+                                                "flex-1 px-3 py-2 rounded-lg text-xs font-bold transition-all border",
+                                                totalDuration === 25
+                                                    ? "bg-primary text-primary-foreground border-primary"
+                                                    : "bg-secondary/50 border-border text-muted-foreground hover:border-primary/50"
+                                            )}
+                                        >
+                                            25s
+                                        </button>
+                                    </div>
+                                </div>
+
+                                {/* Cameo Option */}
+                                <div>
+                                    <label className="block text-[10px] font-black text-muted-foreground uppercase tracking-widest mb-2">
+                                        Style
+                                    </label>
+                                    <button className="w-full flex items-center justify-center gap-2 px-3 py-2 rounded-lg text-xs font-bold bg-secondary/50 border border-border text-muted-foreground hover:border-primary/50 transition-all">
+                                        👤 Cameo
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    )}
+
+                    {/* Story Mode Panel */}
+                    {promptMode === 'story' && (
+                        <div className="p-4 rounded-xl bg-secondary/30 border border-border/50 mb-6">
+                            {/* Video Duration */}
+                            <div className="mb-4">
+                                <label className="block text-[10px] font-black text-muted-foreground uppercase tracking-widest mb-2">
+                                    Video Duration
                                 </label>
-                                <span className="text-[10px] text-muted-foreground">Total: {totalBlockDuration}s</span>
+                                <div className="flex gap-2">
+                                    {([15, 25] as const).map((d) => (
+                                        <button
+                                            key={d}
+                                            onClick={() => {
+                                                setTotalDuration(d);
+                                                setTimeout(() => applyPreset(activePreset), 0);
+                                            }}
+                                            className={cn(
+                                                "px-4 py-2 rounded-lg text-sm font-bold border transition-all",
+                                                totalDuration === d
+                                                    ? "bg-amber-500/20 border-amber-500/50 text-amber-500"
+                                                    : "bg-secondary/50 border-border text-muted-foreground"
+                                            )}
+                                        >
+                                            {d === 15 ? '○' : '●'} {d}s
+                                        </button>
+                                    ))}
+                                </div>
                             </div>
 
-                            {/* Duration Bar with Draggable Handles */}
-                            <div
-                                ref={sliderRef}
-                                className="relative mb-4 select-none"
-                            >
-                                {/* Colored bar showing block proportions - rainbow colors */}
-                                <div className="flex rounded-xl overflow-hidden h-10 relative">
-                                    {blocks.map((block, i) => {
-                                        const colors = [
-                                            'bg-pink-400', 'bg-orange-400', 'bg-yellow-400', 'bg-green-400',
-                                            'bg-cyan-400', 'bg-blue-400', 'bg-purple-400', 'bg-pink-500',
-                                            'bg-red-400', 'bg-indigo-400'
-                                        ];
+                            {/* Duration Slider */}
+                            <div className="mb-4">
+                                <div className="flex items-center justify-between mb-2">
+                                    <label className="text-[10px] font-black text-muted-foreground uppercase tracking-widest">
+                                        Duration For Each Block
+                                    </label>
+                                    <span className="text-[10px] text-muted-foreground">Total: {totalBlockDuration}s</span>
+                                </div>
+
+                                {/* Duration Bar with Draggable Handles */}
+                                <div
+                                    ref={sliderRef}
+                                    className="relative mb-4 select-none"
+                                >
+                                    {/* Colored bar showing block proportions - rainbow colors */}
+                                    <div className="flex rounded-xl overflow-hidden h-10 relative">
+                                        {blocks.map((block, i) => {
+                                            const colors = [
+                                                'bg-pink-400', 'bg-orange-400', 'bg-yellow-400', 'bg-green-400',
+                                                'bg-cyan-400', 'bg-blue-400', 'bg-purple-400', 'bg-pink-500',
+                                                'bg-red-400', 'bg-indigo-400'
+                                            ];
+                                            return (
+                                                <div
+                                                    key={block.id}
+                                                    style={{ width: `${(block.duration / totalDuration) * 100}%` }}
+                                                    className={cn(
+                                                        "flex items-center justify-center text-xs font-bold text-white transition-all min-w-[8px]",
+                                                        colors[i % colors.length]
+                                                    )}
+                                                >
+                                                    {block.duration >= 2 ? `${block.duration}s` : ''}
+                                                </div>
+                                            );
+                                        })}
+                                    </div>
+
+                                    {/* Draggable handle circles at boundaries */}
+                                    {blocks.length > 1 && blocks.slice(0, -1).map((_, i) => {
+                                        const cumulative = blocks.slice(0, i + 1).reduce((sum, b) => sum + b.duration, 0);
+                                        const leftPercent = (cumulative / totalDuration) * 100;
                                         return (
                                             <div
-                                                key={block.id}
-                                                style={{ width: `${(block.duration / totalDuration) * 100}%` }}
+                                                key={`handle-${i}`}
+                                                onMouseDown={handleDragStart(i)}
+                                                onTouchStart={handleDragStart(i)}
                                                 className={cn(
-                                                    "flex items-center justify-center text-xs font-bold text-white transition-all min-w-[8px]",
-                                                    colors[i % colors.length]
+                                                    "absolute top-1/2 -translate-y-1/2 w-6 h-6 bg-white rounded-full border-2 cursor-ew-resize z-30 transition-transform",
+                                                    draggingHandle === i ? "border-cyan-500 scale-110" : "border-gray-400 hover:border-gray-500 hover:scale-105"
                                                 )}
-                                            >
-                                                {block.duration >= 2 ? `${block.duration}s` : ''}
-                                            </div>
+                                                style={{
+                                                    left: `calc(${leftPercent}% - 12px)`,
+                                                    boxShadow: draggingHandle === i
+                                                        ? '0 0 0 4px rgba(6, 182, 212, 0.3), 0 2px 8px rgba(0,0,0,0.3)'
+                                                        : '0 2px 8px rgba(0,0,0,0.25)'
+                                                }}
+                                            />
                                         );
                                     })}
                                 </div>
 
-                                {/* Draggable handle circles at boundaries */}
-                                {blocks.length > 1 && blocks.slice(0, -1).map((_, i) => {
-                                    const cumulative = blocks.slice(0, i + 1).reduce((sum, b) => sum + b.duration, 0);
-                                    const leftPercent = (cumulative / totalDuration) * 100;
-                                    return (
-                                        <div
-                                            key={`handle-${i}`}
-                                            onMouseDown={handleDragStart(i)}
-                                            onTouchStart={handleDragStart(i)}
-                                            className={cn(
-                                                "absolute top-1/2 -translate-y-1/2 w-6 h-6 bg-white rounded-full border-2 cursor-ew-resize z-30 transition-transform",
-                                                draggingHandle === i ? "border-cyan-500 scale-110" : "border-gray-400 hover:border-gray-500 hover:scale-105"
-                                            )}
-                                            style={{
-                                                left: `calc(${leftPercent}% - 12px)`,
-                                                boxShadow: draggingHandle === i
-                                                    ? '0 0 0 4px rgba(6, 182, 212, 0.3), 0 2px 8px rgba(0,0,0,0.3)'
-                                                    : '0 2px 8px rgba(0,0,0,0.25)'
-                                            }}
-                                        />
-                                    );
-                                })}
-                            </div>
+                                {/* Block duration labels */}
+                                <div className="flex flex-wrap gap-2 text-[10px] text-muted-foreground mb-3">
+                                    {blocks.map((block, i) => {
+                                        const colors = [
+                                            'text-pink-400', 'text-orange-400', 'text-yellow-500', 'text-green-400',
+                                            'text-cyan-400', 'text-blue-400', 'text-purple-400', 'text-pink-500',
+                                            'text-red-400', 'text-indigo-400'
+                                        ];
+                                        return (
+                                            <span key={block.id} className={cn("font-bold", colors[i % colors.length])}>
+                                                Block {i + 1}: {block.duration}s
+                                            </span>
+                                        );
+                                    })}
+                                </div>
 
-                            {/* Block duration labels */}
-                            <div className="flex flex-wrap gap-2 text-[10px] text-muted-foreground mb-3">
-                                {blocks.map((block, i) => {
-                                    const colors = [
-                                        'text-pink-400', 'text-orange-400', 'text-yellow-500', 'text-green-400',
-                                        'text-cyan-400', 'text-blue-400', 'text-purple-400', 'text-pink-500',
-                                        'text-red-400', 'text-indigo-400'
-                                    ];
-                                    return (
-                                        <span key={block.id} className={cn("font-bold", colors[i % colors.length])}>
-                                            Block {i + 1}: {block.duration}s
-                                        </span>
-                                    );
-                                })}
-                            </div>
+                                {/* Individual block duration sliders for fine control */}
+                                <div className="space-y-2 mb-3">
+                                    {blocks.map((block, i) => (
+                                        <div key={block.id} className="flex items-center gap-3">
+                                            <span className="text-[10px] font-bold text-muted-foreground w-16">Block {i + 1}:</span>
+                                            <input
+                                                type="range"
+                                                min={5}
+                                                max={totalDuration - 5 * (blocks.length - 1)}
+                                                value={block.duration}
+                                                onChange={(e) => {
+                                                    const newDuration = parseInt(e.target.value);
+                                                    const diff = newDuration - block.duration;
 
-                            {/* Individual block duration sliders for fine control */}
-                            <div className="space-y-2 mb-3">
-                                {blocks.map((block, i) => (
-                                    <div key={block.id} className="flex items-center gap-3">
-                                        <span className="text-[10px] font-bold text-muted-foreground w-16">Block {i + 1}:</span>
-                                        <input
-                                            type="range"
-                                            min={5}
-                                            max={totalDuration - 5 * (blocks.length - 1)}
-                                            value={block.duration}
-                                            onChange={(e) => {
-                                                const newDuration = parseInt(e.target.value);
-                                                const diff = newDuration - block.duration;
+                                                    const newBlocks = [...blocks];
+                                                    newBlocks[i].duration = newDuration;
 
-                                                const newBlocks = [...blocks];
-                                                newBlocks[i].duration = newDuration;
+                                                    // Distribute difference to other blocks
+                                                    const othersCount = blocks.length - 1;
+                                                    if (othersCount > 0) {
+                                                        const diffPerBlock = Math.floor(diff / othersCount);
+                                                        let remaining = diff;
 
-                                                // Distribute difference to other blocks
-                                                const othersCount = blocks.length - 1;
-                                                if (othersCount > 0) {
-                                                    const diffPerBlock = Math.floor(diff / othersCount);
-                                                    let remaining = diff;
-
-                                                    for (let j = 0; j < blocks.length; j++) {
-                                                        if (j !== i) {
-                                                            const reduction = Math.min(remaining, newBlocks[j].duration - 5);
-                                                            newBlocks[j].duration = Math.max(5, newBlocks[j].duration - reduction);
-                                                            remaining -= reduction;
-                                                            if (remaining <= 0) break;
+                                                        for (let j = 0; j < blocks.length; j++) {
+                                                            if (j !== i) {
+                                                                const reduction = Math.min(remaining, newBlocks[j].duration - 5);
+                                                                newBlocks[j].duration = Math.max(5, newBlocks[j].duration - reduction);
+                                                                remaining -= reduction;
+                                                                if (remaining <= 0) break;
+                                                            }
                                                         }
                                                     }
-                                                }
 
-                                                setBlocks(newBlocks);
-                                                setActivePreset('equal');
-                                            }}
-                                            className="flex-1 h-2 rounded-full appearance-none cursor-pointer"
-                                            style={{
-                                                background: `linear-gradient(to right, ${i % 2 === 0 ? '#3b82f6' : '#a78bfa'} ${(block.duration / totalDuration) * 100}%, #374151 0%)`,
-                                            }}
-                                        />
-                                        <span className="text-xs font-bold text-foreground w-8">{block.duration}s</span>
-                                    </div>
-                                ))}
-                            </div>
-
-                            {/* Distribution Presets */}
-                            <div className="flex flex-wrap gap-2">
-                                {presets.map((preset) => (
-                                    <button
-                                        key={preset.id}
-                                        onClick={() => applyPreset(preset.id)}
-                                        className={cn(
-                                            "px-3 py-1.5 rounded-lg text-[10px] font-bold border transition-all flex items-center gap-1",
-                                            activePreset === preset.id
-                                                ? "bg-primary/20 border-primary/50 text-primary"
-                                                : "bg-secondary/50 border-border text-muted-foreground hover:border-primary/30"
-                                        )}
-                                    >
-                                        {preset.icon} {preset.label}
-                                    </button>
-                                ))}
-                            </div>
-                        </div>
-
-                        {/* Block Prompts */}
-                        {blocks.map((block, i) => (
-                            <div key={block.id} className="mb-4">
-                                <div className="flex items-center justify-between mb-2">
-                                    <div className="flex items-center gap-2">
-                                        <div className={cn(
-                                            "w-3 h-3 rounded-full",
-                                            i % 2 === 0 ? "bg-amber-500" : "bg-purple-500"
-                                        )} />
-                                        <span className="text-xs font-bold text-foreground">
-                                            Block {i + 1} ({block.duration}s)
-                                        </span>
-                                    </div>
-                                    {blocks.length > 1 && (
-                                        <button
-                                            onClick={() => removeBlock(block.id)}
-                                            className="text-xs text-destructive hover:text-destructive/80"
-                                        >
-                                            ✕ Remove
-                                        </button>
-                                    )}
+                                                    setBlocks(newBlocks);
+                                                    setActivePreset('equal');
+                                                }}
+                                                className="flex-1 h-2 rounded-full appearance-none cursor-pointer"
+                                                style={{
+                                                    background: `linear-gradient(to right, ${i % 2 === 0 ? '#3b82f6' : '#a78bfa'} ${(block.duration / totalDuration) * 100}%, #374151 0%)`,
+                                                }}
+                                            />
+                                            <span className="text-xs font-bold text-foreground w-8">{block.duration}s</span>
+                                        </div>
+                                    ))}
                                 </div>
-                                <Textarea
-                                    value={block.prompt}
-                                    onChange={(e) => updateBlockPrompt(block.id, e.target.value)}
-                                    placeholder={`Describe what you want to generate for Block ${i + 1}...`}
-                                    className="min-h-[80px]"
-                                    disabled={isGenerating || hasReachedLimit}
-                                />
-                            </div>
-                        ))}
 
-                        {/* Add Block Button */}
-                        <button
-                            onClick={addBlock}
-                            disabled={blocks.length >= totalDuration}
-                            className="w-full py-2 rounded-xl border-2 border-dashed border-border text-sm font-bold text-muted-foreground hover:border-primary/50 hover:text-primary transition-all disabled:opacity-50"
-                        >
-                            + Add Block ({blocks.length}/{totalDuration})
-                        </button>
-                    </div>
+                                {/* Distribution Presets */}
+                                <div className="flex flex-wrap gap-2">
+                                    {presets.map((preset) => (
+                                        <button
+                                            key={preset.id}
+                                            onClick={() => applyPreset(preset.id)}
+                                            className={cn(
+                                                "px-3 py-1.5 rounded-lg text-[10px] font-bold border transition-all flex items-center gap-1",
+                                                activePreset === preset.id
+                                                    ? "bg-primary/20 border-primary/50 text-primary"
+                                                    : "bg-secondary/50 border-border text-muted-foreground hover:border-primary/30"
+                                            )}
+                                        >
+                                            {preset.icon} {preset.label}
+                                        </button>
+                                    ))}
+                                </div>
+                            </div>
+
+                            {/* Block Prompts */}
+                            {blocks.map((block, i) => (
+                                <div key={block.id} className="mb-4">
+                                    <div className="flex items-center justify-between mb-2">
+                                        <div className="flex items-center gap-2">
+                                            <div className={cn(
+                                                "w-3 h-3 rounded-full",
+                                                i % 2 === 0 ? "bg-amber-500" : "bg-purple-500"
+                                            )} />
+                                            <span className="text-xs font-bold text-foreground">
+                                                Block {i + 1} ({block.duration}s)
+                                            </span>
+                                        </div>
+                                        {blocks.length > 1 && (
+                                            <button
+                                                onClick={() => removeBlock(block.id)}
+                                                className="text-xs text-destructive hover:text-destructive/80"
+                                            >
+                                                ✕ Remove
+                                            </button>
+                                        )}
+                                    </div>
+                                    <Textarea
+                                        value={block.prompt}
+                                        onChange={(e) => updateBlockPrompt(block.id, e.target.value)}
+                                        placeholder={`Describe what you want to generate for Block ${i + 1}...`}
+                                        className="min-h-[80px]"
+                                        disabled={isGenerating || hasReachedLimit}
+                                    />
+                                </div>
+                            ))}
+
+                            {/* Add Block Button */}
+                            <button
+                                onClick={addBlock}
+                                disabled={blocks.length >= totalDuration}
+                                className="w-full py-2 rounded-xl border-2 border-dashed border-border text-sm font-bold text-muted-foreground hover:border-primary/50 hover:text-primary transition-all disabled:opacity-50"
+                            >
+                                + Add Block ({blocks.length}/{totalDuration})
+                            </button>
+                        </div>
+                    )}
 
                     {/* Bottom Options */}
                     <div className="grid grid-cols-2 gap-4 mb-6">
@@ -724,8 +887,8 @@ const SoraProStudio: React.FC<SoraProStudioProps> = ({ userProfile, onProfileRef
                         )}
                     </Button>
                 </div>
-            </div>
-        </div>
+            </div >
+        </div >
     );
 };
 
