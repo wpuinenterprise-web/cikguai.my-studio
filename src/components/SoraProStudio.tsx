@@ -409,8 +409,15 @@ const SoraProStudio: React.FC<SoraProStudioProps> = ({ userProfile, onProfileRef
                                     const leftPercent = (cumulativeDuration / totalDuration) * 100;
 
                                     return (
-                                        <React.Fragment key={`handle-${handleIndex}`}>
-                                            {/* Invisible slider for this handle */}
+                                        <div
+                                            key={`handle-${handleIndex}`}
+                                            className="absolute top-0 h-10 z-20"
+                                            style={{
+                                                left: `${leftPercent}%`,
+                                                transform: 'translateX(-50%)',
+                                                width: '40px',
+                                            }}
+                                        >
                                             <input
                                                 type="range"
                                                 min={1 * (handleIndex + 1)}
@@ -425,7 +432,6 @@ const SoraProStudio: React.FC<SoraProStudioProps> = ({ userProfile, onProfileRef
                                                     const diff = newCurrentDuration - newBlocks[handleIndex].duration;
                                                     newBlocks[handleIndex].duration = newCurrentDuration;
 
-                                                    // Adjust next block
                                                     if (handleIndex + 1 < blocks.length) {
                                                         newBlocks[handleIndex + 1].duration = Math.max(1, newBlocks[handleIndex + 1].duration - diff);
                                                     }
@@ -433,18 +439,15 @@ const SoraProStudio: React.FC<SoraProStudioProps> = ({ userProfile, onProfileRef
                                                     setBlocks(newBlocks);
                                                     setActivePreset('equal');
                                                 }}
-                                                className="absolute top-0 h-10 cursor-ew-resize opacity-0 z-20"
-                                                style={{
-                                                    left: `${Math.max(0, leftPercent - 8)}%`,
-                                                    width: '16%',
-                                                }}
+                                                className="w-full h-10 cursor-ew-resize opacity-0"
+                                                style={{ position: 'absolute', left: '-20px', width: '40px' }}
                                             />
                                             {/* Visible handle */}
                                             <div
-                                                className="absolute top-1/2 -translate-y-1/2 w-4 h-4 bg-white rounded-full shadow-md border-2 border-gray-400 cursor-ew-resize z-10 pointer-events-none"
-                                                style={{ left: `calc(${leftPercent}% - 8px)` }}
+                                                className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-5 h-5 bg-white rounded-full shadow-lg border-2 border-gray-300 cursor-ew-resize pointer-events-none"
+                                                style={{ boxShadow: '0 2px 6px rgba(0,0,0,0.3)' }}
                                             />
-                                        </React.Fragment>
+                                        </div>
                                     );
                                 })}
                             </div>
