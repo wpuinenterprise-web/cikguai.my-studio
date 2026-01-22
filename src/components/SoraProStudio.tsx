@@ -36,6 +36,8 @@ const SoraProStudio: React.FC<SoraProStudioProps> = ({ userProfile, onProfileRef
     const [isGenerating, setIsGenerating] = useState(false);
     const [referenceImage, setReferenceImage] = useState<string | null>(null);
     const fileInputRef = useRef<HTMLInputElement>(null);
+    const sliderRef = useRef<HTMLDivElement>(null);
+    const [draggingHandle, setDraggingHandle] = useState<number | null>(null);
 
     // Check limits
     const videosUsed = userProfile?.videos_used || 0;
@@ -168,6 +170,61 @@ const SoraProStudio: React.FC<SoraProStudioProps> = ({ userProfile, onProfileRef
             toast.error('Gagal memuat imej');
         }
     };
+
+    // Handle drag start
+    const handleDragStart = (handleIndex: number) => (e: React.MouseEvent | React.TouchEvent) => {
+        e.preventDefault();
+        setDraggingHandle(handleIndex);
+    };
+
+    // Handle drag move
+    const handleDragMove = useCallback((e: MouseEvent | TouchEvent) => {
+        if (draggingHandle === null || !sliderRef.current) return;
+
+        const rect = sliderRef.current.getBoundingClientRect();
+        const clientX = 'touches' in e ? e.touches[0].clientX : e.clientX;
+        const percent = Math.max(0, Math.min(100, ((clientX - rect.left) / rect.width) * 100));
+        const newCumulative = Math.round((percent / 100) * totalDuration);
+
+        const prevCumulative = blocks.slice(0, draggingHandle).reduce((sum, b) => sum + b.duration, 0);
+        const minCumulative = prevCumulative + 1;
+        const maxCumulative = totalDuration - (blocks.length - draggingHandle - 1);
+
+        const clampedCumulative = Math.max(minCumulative, Math.min(maxCumulative, newCumulative));
+        const newDuration = clampedCumulative - prevCumulative;
+
+        const newBlocks = [...blocks];
+        const diff = newDuration - newBlocks[draggingHandle].duration;
+        newBlocks[draggingHandle].duration = newDuration;
+
+        if (draggingHandle + 1 < blocks.length) {
+            newBlocks[draggingHandle + 1].duration = Math.max(1, newBlocks[draggingHandle + 1].duration - diff);
+        }
+
+        setBlocks(newBlocks);
+        setActivePreset('equal');
+    }, [draggingHandle, blocks, totalDuration]);
+
+    // Handle drag end
+    const handleDragEnd = useCallback(() => {
+        setDraggingHandle(null);
+    }, []);
+
+    // Add/remove global mouse listeners when dragging
+    React.useEffect(() => {
+        if (draggingHandle !== null) {
+            window.addEventListener('mousemove', handleDragMove);
+            window.addEventListener('mouseup', handleDragEnd);
+            window.addEventListener('touchmove', handleDragMove);
+            window.addEventListener('touchend', handleDragEnd);
+        }
+        return () => {
+            window.removeEventListener('mousemove', handleDragMove);
+            window.removeEventListener('mouseup', handleDragEnd);
+            window.removeEventListener('touchmove', handleDragMove);
+            window.removeEventListener('touchend', handleDragEnd);
+        };
+    }, [draggingHandle, handleDragMove, handleDragEnd]);
 
     // Generate story video
     const handleGenerate = async () => {
@@ -378,8 +435,11 @@ const SoraProStudio: React.FC<SoraProStudioProps> = ({ userProfile, onProfileRef
                                 <span className="text-[10px] text-muted-foreground">Total: {totalBlockDuration}s</span>
                             </div>
 
-                            {/* Duration Bar with Slider */}
-                            <div className="relative mb-4">
+                            {/* Duration Bar with Draggable Handles */}
+                            <div
+                                ref={sliderRef}
+                                className="relative mb-4 select-none"
+                            >
                                 {/* Colored bar showing block proportions - rainbow colors */}
                                 <div className="flex rounded-xl overflow-hidden h-10 relative">
                                     {blocks.map((block, i) => {
@@ -393,7 +453,7 @@ const SoraProStudio: React.FC<SoraProStudioProps> = ({ userProfile, onProfileRef
                                                 key={block.id}
                                                 style={{ width: `${(block.duration / totalDuration) * 100}%` }}
                                                 className={cn(
-                                                    "flex items-center justify-center text-xs font-bold text-white transition-all min-w-[20px]",
+                                                    "flex items-center justify-center text-xs font-bold text-white transition-all min-w-[8px]",
                                                     colors[i % colors.length]
                                                 )}
                                             >
@@ -403,55 +463,24 @@ const SoraProStudio: React.FC<SoraProStudioProps> = ({ userProfile, onProfileRef
                                     })}
                                 </div>
 
-                                {/* Handle circles at boundaries */}
+                                {/* Draggable handle circles at boundaries */}
                                 {blocks.length > 1 && blocks.slice(0, -1).map((_, i) => {
                                     const cumulative = blocks.slice(0, i + 1).reduce((sum, b) => sum + b.duration, 0);
                                     const leftPercent = (cumulative / totalDuration) * 100;
                                     return (
                                         <div
-                                            key={`handle-circle-${i}`}
-                                            className="absolute top-1/2 -translate-y-1/2 w-5 h-5 bg-white rounded-full border-2 border-gray-300 pointer-events-none z-30"
+                                            key={`handle-${i}`}
+                                            onMouseDown={handleDragStart(i)}
+                                            onTouchStart={handleDragStart(i)}
+                                            className={cn(
+                                                "absolute top-1/2 -translate-y-1/2 w-6 h-6 bg-white rounded-full border-2 cursor-ew-resize z-30 transition-transform",
+                                                draggingHandle === i ? "border-cyan-500 scale-110" : "border-gray-400 hover:border-gray-500 hover:scale-105"
+                                            )}
                                             style={{
-                                                left: `calc(${leftPercent}% - 10px)`,
-                                                boxShadow: '0 2px 8px rgba(0,0,0,0.25)'
-                                            }}
-                                        />
-                                    );
-                                })}
-
-                                {/* Full-width transparent slider overlay for each boundary */}
-                                {blocks.length > 1 && blocks.slice(0, -1).map((_, handleIndex) => {
-                                    const cumulative = blocks.slice(0, handleIndex + 1).reduce((sum, b) => sum + b.duration, 0);
-
-                                    return (
-                                        <input
-                                            key={`slider-${handleIndex}`}
-                                            type="range"
-                                            min={handleIndex + 1}
-                                            max={totalDuration - (blocks.length - handleIndex - 1)}
-                                            value={cumulative}
-                                            onChange={(e) => {
-                                                const newCumulative = parseInt(e.target.value);
-                                                const prevCumulative = blocks.slice(0, handleIndex).reduce((sum, b) => sum + b.duration, 0);
-                                                const newDuration = Math.max(1, newCumulative - prevCumulative);
-
-                                                const newBlocks = [...blocks];
-                                                const diff = newDuration - newBlocks[handleIndex].duration;
-                                                newBlocks[handleIndex].duration = newDuration;
-
-                                                if (handleIndex + 1 < blocks.length) {
-                                                    newBlocks[handleIndex + 1].duration = Math.max(1, newBlocks[handleIndex + 1].duration - diff);
-                                                }
-
-                                                setBlocks(newBlocks);
-                                                setActivePreset('equal');
-                                            }}
-                                            className="absolute top-0 left-0 w-full h-10 cursor-ew-resize z-20"
-                                            style={{
-                                                appearance: 'none',
-                                                WebkitAppearance: 'none',
-                                                background: 'transparent',
-                                                pointerEvents: 'auto',
+                                                left: `calc(${leftPercent}% - 12px)`,
+                                                boxShadow: draggingHandle === i
+                                                    ? '0 0 0 4px rgba(6, 182, 212, 0.3), 0 2px 8px rgba(0,0,0,0.3)'
+                                                    : '0 2px 8px rgba(0,0,0,0.25)'
                                             }}
                                         />
                                     );
