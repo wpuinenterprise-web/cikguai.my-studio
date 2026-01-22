@@ -39,6 +39,27 @@ const SoraProStudio: React.FC<SoraProStudioProps> = ({ userProfile, onProfileRef
     const sliderRef = useRef<HTMLDivElement>(null);
     const [draggingHandle, setDraggingHandle] = useState<number | null>(null);
 
+    // Recalculate block durations when totalDuration changes
+    React.useEffect(() => {
+        const currentTotal = blocks.reduce((sum, b) => sum + b.duration, 0);
+        if (currentTotal !== totalDuration) {
+            // Redistribute durations proportionally
+            const ratio = totalDuration / currentTotal;
+            let newBlocks = blocks.map(b => ({
+                ...b,
+                duration: Math.max(1, Math.round(b.duration * ratio))
+            }));
+
+            // Adjust to exactly match totalDuration
+            const newTotal = newBlocks.reduce((sum, b) => sum + b.duration, 0);
+            if (newTotal !== totalDuration && newBlocks.length > 0) {
+                newBlocks[0].duration += totalDuration - newTotal;
+            }
+
+            setBlocks(newBlocks);
+        }
+    }, [totalDuration]);
+
     // Check limits
     const videosUsed = userProfile?.videos_used || 0;
     const videoLimit = userProfile?.video_limit || 0;
