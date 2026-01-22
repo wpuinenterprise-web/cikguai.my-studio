@@ -52,7 +52,7 @@
     --neon-blue: 215 60% 55%;
     --neon-purple: 260 50% 60%;
     --neon-emerald: 160 55% 50%;
-    
+
     /* Softer gradients */
     --gradient-neon: linear-gradient(135deg, hsl(185 60% 50%), hsl(215 55% 55%));
     --gradient-surface: linear-gradient(145deg, hsl(220 20% 11%), hsl(220 20% 7%));
@@ -85,6 +85,53 @@
   }
 }
 
+/* Duration slider styling */
+input[type="range"] {
+  -webkit-appearance: none;
+  appearance: none;
+  background: transparent;
+  cursor: ew-resize;
+}
+
+input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: white;
+  border: 2px solid #9ca3af;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+  cursor: ew-resize;
+  margin-top: -8px;
+}
+
+input[type="range"]::-webkit-slider-thumb:hover {
+  background: #f3f4f6;
+  border-color: #6b7280;
+  transform: scale(1.1);
+}
+
+input[type="range"]::-moz-range-thumb {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: white;
+  border: 2px solid #9ca3af;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+  cursor: ew-resize;
+}
+
+input[type="range"]::-webkit-slider-runnable-track {
+  height: 4px;
+  background: transparent;
+}
+
+input[type="range"]::-moz-range-track {
+  height: 4px;
+  background: transparent;
+}
+
 @layer base {
   * {
     @apply border-border;
@@ -108,16 +155,16 @@
   .custom-scrollbar::-webkit-scrollbar {
     width: 6px;
   }
-  
+
   .custom-scrollbar::-webkit-scrollbar-track {
     background: transparent;
   }
-  
+
   .custom-scrollbar::-webkit-scrollbar-thumb {
     background: hsl(220 15% 20%);
     border-radius: 10px;
   }
-  
+
   .custom-scrollbar::-webkit-scrollbar-thumb:hover {
     background: hsl(220 15% 28%);
   }
@@ -125,7 +172,7 @@
   .no-scrollbar::-webkit-scrollbar {
     display: none;
   }
-  
+
   .no-scrollbar {
     -ms-overflow-style: none;
     scrollbar-width: none;
@@ -137,7 +184,7 @@
     @apply bg-card/60 backdrop-blur-xl border border-border/40 rounded-2xl;
     box-shadow: var(--shadow-card);
   }
-  
+
   .glass-panel-elevated {
     @apply bg-card/80 backdrop-blur-2xl border border-border/50 rounded-2xl;
     box-shadow: var(--shadow-card), inset 0 1px 0 hsl(var(--foreground) / 0.03);
@@ -168,7 +215,7 @@
     position: relative;
     background: hsl(var(--card));
   }
-  
+
   .gradient-border::before {
     content: '';
     position: absolute;
@@ -190,13 +237,13 @@
   .btn-neon {
     @apply relative overflow-hidden transition-all duration-300;
   }
-  
+
   .btn-neon::before {
     content: '';
     @apply absolute inset-0 opacity-0 transition-opacity duration-300;
     background: var(--gradient-neon);
   }
-  
+
   .btn-neon:hover::before {
     @apply opacity-15;
   }
@@ -274,10 +321,13 @@
 
 /* Futuristic Logo Animation - softer */
 @keyframes logo-float {
-  0%, 100% {
+
+  0%,
+  100% {
     transform: translateY(0) scale(1);
     filter: drop-shadow(0 0 8px hsl(185 60% 50% / 0.3));
   }
+
   50% {
     transform: translateY(-3px) scale(1.03);
     filter: drop-shadow(0 0 20px hsl(185 60% 50% / 0.5));
@@ -289,10 +339,13 @@
 }
 
 @keyframes pulse-glow {
-  0%, 100% {
+
+  0%,
+  100% {
     opacity: 1;
     filter: brightness(1);
   }
+
   50% {
     opacity: 0.85;
     filter: brightness(1.1);
@@ -300,9 +353,12 @@
 }
 
 @keyframes float {
-  0%, 100% {
+
+  0%,
+  100% {
     transform: translateY(0);
   }
+
   50% {
     transform: translateY(-8px);
   }
@@ -312,9 +368,11 @@
   0% {
     background-position: 0% 50%;
   }
+
   50% {
     background-position: 100% 50%;
   }
+
   100% {
     background-position: 0% 50%;
   }
@@ -324,6 +382,7 @@
   0% {
     transform: translateX(-100%);
   }
+
   100% {
     transform: translateX(100%);
   }
@@ -334,6 +393,7 @@
     opacity: 0;
     transform: translateY(8px);
   }
+
   to {
     opacity: 1;
     transform: translateY(0);
@@ -345,6 +405,7 @@
     opacity: 0;
     transform: translateY(16px);
   }
+
   to {
     opacity: 1;
     transform: translateY(0);
@@ -356,6 +417,7 @@
     opacity: 0;
     transform: scale(0.96);
   }
+
   to {
     opacity: 1;
     transform: scale(1);
@@ -384,12 +446,10 @@
   content: '';
   position: absolute;
   inset: 0;
-  background: linear-gradient(
-    90deg,
-    transparent,
-    hsl(var(--primary) / 0.08),
-    transparent
-  );
+  background: linear-gradient(90deg,
+      transparent,
+      hsl(var(--primary) / 0.08),
+      transparent);
   animation: shimmer 2.5s infinite;
 }
 
@@ -398,6 +458,7 @@
   -ms-overflow-style: none;
   scrollbar-width: none;
 }
+
 .scrollbar-hide::-webkit-scrollbar {
   display: none;
 }
@@ -420,7 +481,12 @@
 
 /* Touch-friendly tap targets */
 @media (pointer: coarse) {
-  button, a, input, select, textarea {
+
+  button,
+  a,
+  input,
+  select,
+  textarea {
     min-height: 44px;
   }
 }
@@ -429,10 +495,13 @@
 
 /* Twinkling stars */
 @keyframes twinkle {
-  0%, 100% {
+
+  0%,
+  100% {
     opacity: 0.3;
     transform: scale(1);
   }
+
   50% {
     opacity: 1;
     transform: scale(1.2);
@@ -449,9 +518,11 @@
     transform: translateX(0) translateY(0) rotate(215deg);
     opacity: 1;
   }
+
   70% {
     opacity: 1;
   }
+
   100% {
     transform: translateX(-500px) translateY(500px) rotate(215deg);
     opacity: 0;
@@ -482,14 +553,18 @@
 
 /* Aurora/Galaxy floating glow */
 @keyframes aurora-1 {
-  0%, 100% {
+
+  0%,
+  100% {
     transform: translate(0, 0) scale(1);
     opacity: 0.3;
   }
+
   33% {
     transform: translate(30px, -20px) scale(1.1);
     opacity: 0.4;
   }
+
   66% {
     transform: translate(-20px, 20px) scale(0.9);
     opacity: 0.25;
@@ -497,10 +572,13 @@
 }
 
 @keyframes aurora-2 {
-  0%, 100% {
+
+  0%,
+  100% {
     transform: translate(0, 0) scale(1);
     opacity: 0.25;
   }
+
   50% {
     transform: translate(-40px, 30px) scale(1.15);
     opacity: 0.35;
@@ -508,14 +586,18 @@
 }
 
 @keyframes aurora-3 {
-  0%, 100% {
+
+  0%,
+  100% {
     transform: translate(0, 0) scale(1);
     opacity: 0.2;
   }
+
   40% {
     transform: translate(25px, -15px) scale(1.05);
     opacity: 0.3;
   }
+
   70% {
     transform: translate(-15px, 25px) scale(0.95);
     opacity: 0.2;

@@ -393,7 +393,7 @@ const SoraProStudio: React.FC<SoraProStudioProps> = ({ userProfile, onProfileRef
                                                 key={block.id}
                                                 style={{ width: `${(block.duration / totalDuration) * 100}%` }}
                                                 className={cn(
-                                                    "flex items-center justify-center text-xs font-bold text-white transition-all",
+                                                    "flex items-center justify-center text-xs font-bold text-white transition-all min-w-[20px]",
                                                     colors[i % colors.length]
                                                 )}
                                             >
@@ -403,51 +403,57 @@ const SoraProStudio: React.FC<SoraProStudioProps> = ({ userProfile, onProfileRef
                                     })}
                                 </div>
 
-                                {/* Draggable handles at each block boundary */}
-                                {blocks.length > 1 && blocks.slice(0, -1).map((_, handleIndex) => {
-                                    const cumulativeDuration = blocks.slice(0, handleIndex + 1).reduce((sum, b) => sum + b.duration, 0);
-                                    const leftPercent = (cumulativeDuration / totalDuration) * 100;
-
+                                {/* Handle circles at boundaries */}
+                                {blocks.length > 1 && blocks.slice(0, -1).map((_, i) => {
+                                    const cumulative = blocks.slice(0, i + 1).reduce((sum, b) => sum + b.duration, 0);
+                                    const leftPercent = (cumulative / totalDuration) * 100;
                                     return (
                                         <div
-                                            key={`handle-${handleIndex}`}
-                                            className="absolute top-0 h-10 z-20"
+                                            key={`handle-circle-${i}`}
+                                            className="absolute top-1/2 -translate-y-1/2 w-5 h-5 bg-white rounded-full border-2 border-gray-300 pointer-events-none z-30"
                                             style={{
-                                                left: `${leftPercent}%`,
-                                                transform: 'translateX(-50%)',
-                                                width: '40px',
+                                                left: `calc(${leftPercent}% - 10px)`,
+                                                boxShadow: '0 2px 8px rgba(0,0,0,0.25)'
                                             }}
-                                        >
-                                            <input
-                                                type="range"
-                                                min={1 * (handleIndex + 1)}
-                                                max={totalDuration - 1 * (blocks.length - handleIndex - 1)}
-                                                value={cumulativeDuration}
-                                                onChange={(e) => {
-                                                    const newCumulative = parseInt(e.target.value);
-                                                    const prevCumulative = blocks.slice(0, handleIndex).reduce((sum, b) => sum + b.duration, 0);
-                                                    const newCurrentDuration = Math.max(1, newCumulative - prevCumulative);
+                                        />
+                                    );
+                                })}
 
-                                                    const newBlocks = [...blocks];
-                                                    const diff = newCurrentDuration - newBlocks[handleIndex].duration;
-                                                    newBlocks[handleIndex].duration = newCurrentDuration;
+                                {/* Full-width transparent slider overlay for each boundary */}
+                                {blocks.length > 1 && blocks.slice(0, -1).map((_, handleIndex) => {
+                                    const cumulative = blocks.slice(0, handleIndex + 1).reduce((sum, b) => sum + b.duration, 0);
 
-                                                    if (handleIndex + 1 < blocks.length) {
-                                                        newBlocks[handleIndex + 1].duration = Math.max(1, newBlocks[handleIndex + 1].duration - diff);
-                                                    }
+                                    return (
+                                        <input
+                                            key={`slider-${handleIndex}`}
+                                            type="range"
+                                            min={handleIndex + 1}
+                                            max={totalDuration - (blocks.length - handleIndex - 1)}
+                                            value={cumulative}
+                                            onChange={(e) => {
+                                                const newCumulative = parseInt(e.target.value);
+                                                const prevCumulative = blocks.slice(0, handleIndex).reduce((sum, b) => sum + b.duration, 0);
+                                                const newDuration = Math.max(1, newCumulative - prevCumulative);
 
-                                                    setBlocks(newBlocks);
-                                                    setActivePreset('equal');
-                                                }}
-                                                className="w-full h-10 cursor-ew-resize opacity-0"
-                                                style={{ position: 'absolute', left: '-20px', width: '40px' }}
-                                            />
-                                            {/* Visible handle */}
-                                            <div
-                                                className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-5 h-5 bg-white rounded-full shadow-lg border-2 border-gray-300 cursor-ew-resize pointer-events-none"
-                                                style={{ boxShadow: '0 2px 6px rgba(0,0,0,0.3)' }}
-                                            />
-                                        </div>
+                                                const newBlocks = [...blocks];
+                                                const diff = newDuration - newBlocks[handleIndex].duration;
+                                                newBlocks[handleIndex].duration = newDuration;
+
+                                                if (handleIndex + 1 < blocks.length) {
+                                                    newBlocks[handleIndex + 1].duration = Math.max(1, newBlocks[handleIndex + 1].duration - diff);
+                                                }
+
+                                                setBlocks(newBlocks);
+                                                setActivePreset('equal');
+                                            }}
+                                            className="absolute top-0 left-0 w-full h-10 cursor-ew-resize z-20"
+                                            style={{
+                                                appearance: 'none',
+                                                WebkitAppearance: 'none',
+                                                background: 'transparent',
+                                                pointerEvents: 'auto',
+                                            }}
+                                        />
                                     );
                                 })}
                             </div>
