@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect, useCallback } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { cn } from '@/lib/utils';
@@ -25,18 +25,27 @@ interface ActiveGeneration {
     video_url: string | null;
 }
 
+type PromptMode = 'basic' | 'advanced';
+type Orientation = 'landscape' | 'portrait' | 'square';
+
 const GrokStudio: React.FC<GrokStudioProps> = ({ userProfile, onProfileRefresh }) => {
     const [prompt, setPrompt] = useState('');
-    const [duration, setDuration] = useState<10 | 15>(10);
-    const [aspectRatio, setAspectRatio] = useState<'landscape' | 'portrait'>('landscape');
+    const [promptMode, setPromptMode] = useState<PromptMode>('basic');
+    const [orientation, setOrientation] = useState<Orientation>('landscape');
+    const [resolution, setResolution] = useState<'720p' | '1080p'>('720p');
+    const [duration, setDuration] = useState<6>(6);
     const [isGenerating, setIsGenerating] = useState(false);
     const lastGenerateTimeRef = useRef<number>(0);
+
+    // Image reference
+    const [imageReference, setImageReference] = useState<string | null>(null);
+    const [isUploadingImage, setIsUploadingImage] = useState(false);
+    const imageInputRef = useRef<HTMLInputElement>(null);
 
     // Active generations
     const [activeGenerations, setActiveGenerations] = useState<ActiveGeneration[]>([]);
     const [completedGenerations, setCompletedGenerations] = useState<ActiveGeneration[]>([]);
     const [selectedGenerationId, setSelectedGenerationId] = useState<string | null>(null);
-    const [previewVideoUrl, setPreviewVideoUrl] = useState<string | null>(null);
 
     // Check limits
     const videosUsed = userProfile?.videos_used || 0;
@@ -128,6 +137,36 @@ const GrokStudio: React.FC<GrokStudioProps> = ({ userProfile, onProfileRefresh }
         return () => clearInterval(pollInterval);
     }, [activeGenerations]);
 
+    // Handle image upload
+    const handleImageUpload = async (file: File) => {
+        setIsUploadingImage(true);
+
+        try {
+            const { data: { session } } = await supabase.auth.getSession();
+            if (!session) throw new Error('Not authenticated');
+
+            const fileExt = file.name.split('.').pop();
+            const fileName = `${session.user.id}/${Date.now()}.${fileExt}`;
+
+            const { error: uploadError } = await supabase.storage
+                .from('reference-images')
+                .upload(fileName, file);
+
+            if (uploadError) throw uploadError;
+
+            const { data: { publicUrl } } = supabase.storage
+                .from('reference-images')
+                .getPublicUrl(fileName);
+
+            setImageReference(publicUrl);
+            toast.success('Image uploaded!');
+        } catch (error: any) {
+            toast.error(error.message || 'Upload failed');
+        } finally {
+            setIsUploadingImage(false);
+        }
+    };
+
     const handleGenerate = async () => {
         if (!prompt.trim()) {
             toast.error('Sila masukkan prompt');
@@ -153,12 +192,21 @@ const GrokStudio: React.FC<GrokStudioProps> = ({ userProfile, onProfileRefresh }
                 return;
             }
 
+            // Map orientation to aspect_ratio
+            const aspectRatioMap = {
+                landscape: 'landscape',
+                portrait: 'portrait',
+                square: 'square'
+            };
+
             const response = await supabase.functions.invoke('generate-video', {
                 body: {
                     prompt,
                     duration,
-                    aspect_ratio: aspectRatio,
+                    aspect_ratio: aspectRatioMap[orientation],
                     model: 'grok',
+                    resolution,
+                    image_url: imageReference,
                 },
             });
 
@@ -225,14 +273,14 @@ const GrokStudio: React.FC<GrokStudioProps> = ({ userProfile, onProfileRefresh }
 
     return (
         <div className="min-h-screen pt-16 pb-24 px-3 sm:px-6 lg:px-8 overflow-y-auto">
-            <div className="max-w-7xl mx-auto">
+            <div className="max-w-4xl mx-auto">
                 {/* Header */}
                 <div className="mb-6 animate-fade-in">
                     <h2 className="text-2xl sm:text-4xl font-black tracking-tight text-foreground mb-2">
-                        GROK <span className="text-primary neon-text">VIDEO</span> ✨
+                        GROK <span className="text-primary neon-text">AI</span> ✨
                     </h2>
                     <p className="text-muted-foreground text-xs sm:text-sm max-w-xl">
-                        Grok Imagine video generation - Create cinematic videos with coherent motion and synchronized audio.
+                        xAI Grok 3 - Cinematic video generation with coherent motion and synchronized audio.
                     </p>
                 </div>
 
@@ -296,89 +344,252 @@ const GrokStudio: React.FC<GrokStudioProps> = ({ userProfile, onProfileRefresh }
 
                 <div className="grid lg:grid-cols-2 gap-4 sm:gap-6">
                     {/* Left Panel - Input */}
-                    <div className="glass-panel-elevated p-6 animate-fade-in">
+                    <div className="glass-panel-elevated p-6 animate-fade-in space-y-6">
+                        {/* Model & Image Reference */}
+                        <div className="grid grid-cols-2 gap-4">
+                            {/* Model */}
+                            <div>
+                                <label className="block text-xs font-bold text-foreground mb-2">Model</label>
+                                <div className="flex items-center gap-2 px-4 py-3 rounded-xl bg-secondary/50 border border-border">
+                                    <svg className="w-4 h-4 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+                                    </svg>
+                                    <span className="text-sm font-medium text-foreground">Grok 3</span>
+                                    <span className="px-1.5 py-0.5 text-[10px] font-bold bg-green-500/20 text-green-500 rounded">Free</span>
+                                </div>
+                            </div>
+
+                            {/* Image Reference */}
+                            <div>
+                                <label className="block text-xs font-bold text-foreground mb-2">Image Reference</label>
+                                <button
+                                    onClick={() => imageInputRef.current?.click()}
+                                    disabled={isUploadingImage}
+                                    className={cn(
+                                        "w-full flex items-center justify-center gap-2 px-4 py-3 rounded-xl border transition-colors",
+                                        imageReference
+                                            ? "bg-primary/10 border-primary/50 text-primary"
+                                            : "bg-secondary/50 border-border text-muted-foreground hover:border-primary/30"
+                                    )}
+                                >
+                                    {isUploadingImage ? (
+                                        <div className="w-4 h-4 border-2 border-primary/30 border-t-primary rounded-full animate-spin" />
+                                    ) : (
+                                        <>
+                                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                                            </svg>
+                                            <span className="text-sm font-medium">{imageReference ? 'Image Selected' : 'Select Image'}</span>
+                                        </>
+                                    )}
+                                </button>
+                                <input
+                                    ref={imageInputRef}
+                                    type="file"
+                                    accept="image/*"
+                                    className="hidden"
+                                    onChange={(e) => e.target.files?.[0] && handleImageUpload(e.target.files[0])}
+                                />
+                            </div>
+                        </div>
+
+                        {/* Generation Mode */}
+                        <div>
+                            <label className="block text-xs font-bold text-foreground mb-2">Generation Mode</label>
+                            <div className="flex items-center gap-2 px-4 py-3 rounded-xl bg-secondary/50 border border-border">
+                                <span className="text-sm font-medium text-foreground">Custom</span>
+                                <svg className="w-4 h-4 text-muted-foreground ml-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                                </svg>
+                            </div>
+                        </div>
+
                         {/* Prompt Section */}
-                        <div className="mb-6">
-                            <label className="block text-[10px] font-black text-muted-foreground uppercase tracking-widest mb-3">
-                                Video Prompt
-                            </label>
+                        <div>
+                            <div className="flex items-center justify-between mb-3">
+                                <label className="text-xs font-bold text-foreground">Prompt</label>
+                                <div className="flex rounded-lg border border-border overflow-hidden">
+                                    <button
+                                        onClick={() => setPromptMode('basic')}
+                                        className={cn(
+                                            "px-3 py-1.5 text-xs font-medium flex items-center gap-1.5 transition-colors",
+                                            promptMode === 'basic'
+                                                ? "bg-primary text-primary-foreground"
+                                                : "bg-transparent text-muted-foreground hover:bg-secondary/50"
+                                        )}
+                                    >
+                                        <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+                                        </svg>
+                                        Basic
+                                    </button>
+                                    <button
+                                        onClick={() => setPromptMode('advanced')}
+                                        className={cn(
+                                            "px-3 py-1.5 text-xs font-medium flex items-center gap-1.5 transition-colors",
+                                            promptMode === 'advanced'
+                                                ? "bg-primary text-primary-foreground"
+                                                : "bg-transparent text-muted-foreground hover:bg-secondary/50"
+                                        )}
+                                    >
+                                        <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4" />
+                                        </svg>
+                                        Advanced
+                                    </button>
+                                </div>
+                            </div>
                             <Textarea
                                 value={prompt}
                                 onChange={(e) => setPrompt(e.target.value)}
-                                placeholder="Describe your video scene... Grok excels at cinematic and creative content."
-                                className="min-h-[120px]"
+                                placeholder="Describe the video you want to generate with Grok..."
+                                className="min-h-[100px] resize-none"
                                 disabled={isGenerating || hasReachedLimit}
                             />
                         </div>
 
-                        {/* Duration & Aspect Ratio */}
-                        <div className="grid grid-cols-2 gap-4 mb-6">
-                            <div>
-                                <label className="block text-[10px] font-black text-muted-foreground uppercase tracking-widest mb-3">
-                                    Duration
-                                </label>
-                                <div className="flex gap-2">
-                                    {([10, 15] as const).map((d) => (
-                                        <button
-                                            key={d}
-                                            onClick={() => setDuration(d)}
-                                            disabled={isGenerating || hasReachedLimit}
-                                            className={cn(
-                                                "flex-1 py-3 px-4 rounded-xl text-sm font-bold transition-all duration-300 border",
-                                                duration === d
-                                                    ? "bg-primary/20 border-primary/50 text-primary"
-                                                    : "bg-secondary/50 border-border text-muted-foreground hover:border-primary/30"
-                                            )}
-                                        >
-                                            {d}s
-                                        </button>
-                                    ))}
-                                </div>
-                            </div>
+                        {/* Orientation */}
+                        <div>
+                            <label className="block text-xs font-bold text-foreground mb-3">Orientation</label>
+                            <div className="flex gap-3">
+                                {/* Landscape */}
+                                <button
+                                    onClick={() => setOrientation('landscape')}
+                                    disabled={isGenerating}
+                                    className={cn(
+                                        "flex-1 py-4 rounded-xl transition-all duration-300 border flex flex-col items-center gap-2",
+                                        orientation === 'landscape'
+                                            ? "bg-primary/10 border-primary/50"
+                                            : "bg-secondary/30 border-border hover:border-primary/30"
+                                    )}
+                                >
+                                    <div className={cn(
+                                        "w-14 h-9 rounded-md flex items-center justify-center",
+                                        orientation === 'landscape' ? "bg-primary/20" : "bg-secondary"
+                                    )}>
+                                        <svg className={cn("w-5 h-5", orientation === 'landscape' ? "text-primary" : "text-muted-foreground")} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                                        </svg>
+                                    </div>
+                                    <span className={cn("text-xs font-medium", orientation === 'landscape' ? "text-foreground" : "text-muted-foreground")}>Landscape (16:9)</span>
+                                </button>
 
-                            <div>
-                                <label className="block text-[10px] font-black text-muted-foreground uppercase tracking-widest mb-3">
-                                    Aspect Ratio
-                                </label>
-                                <div className="flex gap-2">
-                                    {(['landscape', 'portrait'] as const).map((ar) => (
-                                        <button
-                                            key={ar}
-                                            onClick={() => setAspectRatio(ar)}
-                                            disabled={isGenerating || hasReachedLimit}
-                                            className={cn(
-                                                "flex-1 py-3 px-4 rounded-xl text-sm font-bold transition-all duration-300 border flex items-center justify-center",
-                                                aspectRatio === ar
-                                                    ? "bg-primary/20 border-primary/50 text-primary"
-                                                    : "bg-secondary/50 border-border text-muted-foreground hover:border-primary/30"
-                                            )}
-                                        >
-                                            <div className={cn(
-                                                "border-2 border-current rounded-sm",
-                                                ar === 'landscape' ? "w-5 h-3" : "w-3 h-5"
-                                            )} />
-                                        </button>
-                                    ))}
-                                </div>
+                                {/* Portrait */}
+                                <button
+                                    onClick={() => setOrientation('portrait')}
+                                    disabled={isGenerating}
+                                    className={cn(
+                                        "flex-1 py-4 rounded-xl transition-all duration-300 border flex flex-col items-center gap-2",
+                                        orientation === 'portrait'
+                                            ? "bg-primary/10 border-primary/50"
+                                            : "bg-secondary/30 border-border hover:border-primary/30"
+                                    )}
+                                >
+                                    <div className={cn(
+                                        "w-9 h-12 rounded-md flex items-center justify-center",
+                                        orientation === 'portrait' ? "bg-primary/20" : "bg-secondary"
+                                    )}>
+                                        <svg className={cn("w-4 h-4", orientation === 'portrait' ? "text-primary" : "text-muted-foreground")} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                                        </svg>
+                                    </div>
+                                    <span className={cn("text-xs font-medium", orientation === 'portrait' ? "text-foreground" : "text-muted-foreground")}>Portrait (9:16)</span>
+                                </button>
+
+                                {/* Square */}
+                                <button
+                                    onClick={() => setOrientation('square')}
+                                    disabled={isGenerating}
+                                    className={cn(
+                                        "flex-1 py-4 rounded-xl transition-all duration-300 border flex flex-col items-center gap-2",
+                                        orientation === 'square'
+                                            ? "bg-primary/10 border-primary/50"
+                                            : "bg-secondary/30 border-border hover:border-primary/30"
+                                    )}
+                                >
+                                    <div className={cn(
+                                        "w-10 h-10 rounded-md flex items-center justify-center",
+                                        orientation === 'square' ? "bg-primary/20" : "bg-secondary"
+                                    )}>
+                                        <svg className={cn("w-4 h-4", orientation === 'square' ? "text-primary" : "text-muted-foreground")} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                                        </svg>
+                                    </div>
+                                    <span className={cn("text-xs font-medium", orientation === 'square' ? "text-foreground" : "text-muted-foreground")}>Square (1:1)</span>
+                                </button>
                             </div>
                         </div>
 
-                        {/* Model Info */}
-                        <div className="mb-6 p-4 rounded-xl bg-secondary/30 border border-border/50">
-                            <div className="flex items-center gap-3 mb-2">
-                                <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center">
-                                    <span className="text-lg">✨</span>
-                                </div>
-                                <div>
-                                    <h4 className="text-sm font-bold text-foreground">Grok Imagine</h4>
-                                    <p className="text-[10px] text-muted-foreground">by xAI via GeminiGen</p>
+                        {/* Resolution & Duration */}
+                        <div className="grid grid-cols-2 gap-4">
+                            {/* Resolution */}
+                            <div>
+                                <label className="block text-xs font-bold text-foreground mb-3">Resolution</label>
+                                <div className="flex gap-2">
+                                    <button
+                                        onClick={() => setResolution('720p')}
+                                        disabled={isGenerating}
+                                        className={cn(
+                                            "flex-1 py-3 rounded-xl transition-all duration-300 border flex items-center justify-center gap-2",
+                                            resolution === '720p'
+                                                ? "bg-primary/10 border-primary/50"
+                                                : "bg-secondary/30 border-border hover:border-primary/30"
+                                        )}
+                                    >
+                                        <div className={cn(
+                                            "w-4 h-4 rounded-full border-2 flex items-center justify-center",
+                                            resolution === '720p' ? "border-primary bg-primary" : "border-muted-foreground"
+                                        )}>
+                                            {resolution === '720p' && (
+                                                <div className="w-1.5 h-1.5 rounded-full bg-white" />
+                                            )}
+                                        </div>
+                                        <div className="text-left">
+                                            <div className={cn("text-xs font-bold", resolution === '720p' ? "text-foreground" : "text-muted-foreground")}>Standard</div>
+                                            <div className="text-[10px] text-muted-foreground">720p (HD)</div>
+                                        </div>
+                                    </button>
+                                    <button
+                                        onClick={() => setResolution('1080p')}
+                                        disabled={isGenerating}
+                                        className={cn(
+                                            "flex-1 py-3 rounded-xl transition-all duration-300 border flex items-center justify-center gap-2",
+                                            resolution === '1080p'
+                                                ? "bg-primary/10 border-primary/50"
+                                                : "bg-secondary/30 border-border hover:border-primary/30"
+                                        )}
+                                    >
+                                        <div className={cn(
+                                            "w-4 h-4 rounded-full border-2 flex items-center justify-center",
+                                            resolution === '1080p' ? "border-primary bg-primary" : "border-muted-foreground"
+                                        )}>
+                                            {resolution === '1080p' && (
+                                                <div className="w-1.5 h-1.5 rounded-full bg-white" />
+                                            )}
+                                        </div>
+                                        <div className="text-left">
+                                            <div className={cn("text-xs font-bold", resolution === '1080p' ? "text-foreground" : "text-muted-foreground")}>High</div>
+                                            <div className="text-[10px] text-muted-foreground">1080p (Full HD)</div>
+                                        </div>
+                                    </button>
                                 </div>
                             </div>
-                            <ul className="text-[10px] text-muted-foreground space-y-1">
-                                <li>✓ Coherent motion</li>
-                                <li>✓ Synchronized audio</li>
-                                <li>✓ Creative & cinematic style</li>
-                            </ul>
+
+                            {/* Duration */}
+                            <div>
+                                <label className="block text-xs font-bold text-foreground mb-3">Duration</label>
+                                <div className="flex gap-2">
+                                    <button
+                                        disabled={true}
+                                        className="flex-1 py-3 rounded-xl bg-primary/10 border border-primary/50 flex items-center justify-center gap-2"
+                                    >
+                                        <div className="w-4 h-4 rounded-full border-2 border-primary bg-primary flex items-center justify-center">
+                                            <div className="w-1.5 h-1.5 rounded-full bg-white" />
+                                        </div>
+                                        <span className="text-sm font-bold text-foreground">6s</span>
+                                    </button>
+                                </div>
+                            </div>
                         </div>
 
                         {/* Generate Button */}
@@ -430,6 +641,25 @@ const GrokStudio: React.FC<GrokStudioProps> = ({ userProfile, onProfileRefresh }
                                 </div>
                             </div>
                         )}
+
+                        {/* Info Card */}
+                        <div className="mt-4 p-4 rounded-xl bg-secondary/30 border border-border/50">
+                            <div className="flex items-center gap-3 mb-2">
+                                <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center">
+                                    <span className="text-lg">✨</span>
+                                </div>
+                                <div>
+                                    <h4 className="text-sm font-bold text-foreground">Grok 3</h4>
+                                    <p className="text-[10px] text-muted-foreground">by xAI</p>
+                                </div>
+                            </div>
+                            <ul className="text-[10px] text-muted-foreground space-y-1">
+                                <li>✓ Coherent motion</li>
+                                <li>✓ Synchronized audio</li>
+                                <li>✓ Creative & cinematic style</li>
+                                <li>✓ Image to video support</li>
+                            </ul>
+                        </div>
                     </div>
                 </div>
             </div>
