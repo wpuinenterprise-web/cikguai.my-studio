@@ -42,10 +42,7 @@ const SoraStudio: React.FC<SoraStudioProps> = ({ userProfile, onProfileRefresh }
     const saved = sessionStorage.getItem('studio_aspectRatio');
     return saved === 'portrait' ? 'portrait' : 'landscape';
   });
-  const [videoModel, setVideoModel] = useState<'sora-2' | 'veo-3.1-fast'>(() => {
-    const saved = sessionStorage.getItem('studio_videoModel');
-    return (saved as 'sora-2' | 'veo-3.1-fast') || 'sora-2';
-  });
+  const [videoModel] = useState<'sora-2'>('sora-2');
   const [isGenerating, setIsGenerating] = useState(false);
   const [filePreview, setFilePreview] = useState<string | null>(null);
   const [isUploadingImage, setIsUploadingImage] = useState(false);
@@ -761,36 +758,6 @@ const SoraStudio: React.FC<SoraStudioProps> = ({ userProfile, onProfileRefresh }
                 </div>
               </div>
             </div>
-
-            {/* Model Selector - Full width */}
-            {!hasReachedLimit && (
-              <div className="mb-6">
-                <label className="block text-[10px] font-black text-muted-foreground uppercase tracking-widest mb-3">
-                  Video Model
-                </label>
-                <div className="grid grid-cols-2 gap-2">
-                  {([
-                    { id: 'sora-2', name: 'Sora 2', desc: 'Standard' },
-                    { id: 'veo-3.1-fast', name: 'Veo 3.1', desc: 'Fast + Audio 🔊' },
-                  ] as const).map((m) => (
-                    <button
-                      key={m.id}
-                      onClick={() => setVideoModel(m.id)}
-                      disabled={isGenerating}
-                      className={cn(
-                        "py-3 px-3 rounded-xl text-xs font-bold transition-all duration-300 border flex flex-col items-center gap-1",
-                        videoModel === m.id
-                          ? "bg-primary/20 border-primary/50 text-primary"
-                          : "bg-secondary/50 border-border text-muted-foreground hover:border-primary/30"
-                      )}
-                    >
-                      <span>{m.name}</span>
-                      <span className="text-[10px] opacity-70">{m.desc}</span>
-                    </button>
-                  ))}
-                </div>
-              </div>
-            )}
 
             {/* Reference Image - hide if limit reached */}
             {!hasReachedLimit && (

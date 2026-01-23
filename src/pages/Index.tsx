@@ -11,6 +11,7 @@ import AdminDashboard from '@/components/AdminDashboard';
 import AutomationDashboard from '@/components/AutomationDashboard';
 import GrokStudio from '@/components/GrokStudio';
 import SoraProStudio from '@/components/SoraProStudio';
+import VeoStudio from '@/components/VeoStudio';
 import AuthView from '@/components/AuthView';
 import AnimatedBackground from '@/components/AnimatedBackground';
 import ImageGenerationStatus from '@/components/ImageGenerationStatus';
@@ -153,6 +154,8 @@ const Index = () => {
         return <GrokStudio userProfile={profile} onProfileRefresh={handleProfileRefresh} />;
       case AppView.SORA_PRO_STUDIO:
         return <SoraProStudio userProfile={profile} onProfileRefresh={handleProfileRefresh} />;
+      case AppView.VEO_STUDIO:
+        return <VeoStudio userProfile={profile} onProfileRefresh={handleProfileRefresh} />;
       default:
         return <SoraStudio userProfile={profile!} onProfileRefresh={handleProfileRefresh} />;
     }
