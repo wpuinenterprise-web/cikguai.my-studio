@@ -669,6 +669,15 @@ const HistoryVault: React.FC<HistoryVaultProps> = ({ userProfile }) => {
                   alt="Thumbnail"
                   className="w-full h-full object-cover"
                 />
+              ) : video.video_url ? (
+                // Use video with preload metadata to show first frame as thumbnail
+                <video
+                  src={video.video_url + '#t=0.1'}
+                  preload="metadata"
+                  muted
+                  playsInline
+                  className="w-full h-full object-cover"
+                />
               ) : (
                 <div className="absolute inset-0 flex items-center justify-center bg-gradient-to-br from-primary/10 to-neon-blue/10">
                   <Play className="w-8 h-8 text-primary/40" />
