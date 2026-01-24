@@ -88,6 +88,8 @@ const Index = () => {
       const isAdmin = !!roleData;
 
       if (profileData) {
+        // Cast to any for per-model fields that may not exist in generated types
+        const profile = profileData as any;
         setProfile({
           id: profileData.id,
           username: profileData.username || '',
@@ -98,6 +100,13 @@ const Index = () => {
           images_used: profileData.images_used,
           video_limit: profileData.video_limit,
           image_limit: profileData.image_limit,
+          // Per-model limits (cast as any since Supabase types may be outdated)
+          sora2_limit: profile.sora2_limit ?? 0,
+          sora2_used: profile.sora2_used ?? 0,
+          sora2pro_limit: profile.sora2pro_limit ?? 0,
+          sora2pro_used: profile.sora2pro_used ?? 0,
+          veo3_limit: profile.veo3_limit ?? 0,
+          veo3_used: profile.veo3_used ?? 0,
           referral_code: profileData.referral_code,
           referred_by: profileData.referred_by,
         });
