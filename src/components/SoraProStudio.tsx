@@ -42,49 +42,41 @@ const SoraProStudio: React.FC<SoraProStudioProps> = ({ userProfile, onProfileRef
     const [promptMode, setPromptMode] = useState<PromptMode>('basic');
     const [basicPrompt, setBasicPrompt] = useState('');
 
-    // Track previous totalDuration to detect changes
-    const prevTotalDurationRef = useRef(totalDuration);
+    // Handler for changing total duration - directly updates blocks
+    const handleDurationChange = (newDuration: 15 | 25) => {
+        if (newDuration === totalDuration) return;
 
-    // Recalculate block durations when totalDuration changes
-    React.useEffect(() => {
-        // Skip if totalDuration hasn't actually changed
-        if (prevTotalDurationRef.current === totalDuration) return;
-        prevTotalDurationRef.current = totalDuration;
+        const currentTotal = blocks.reduce((sum, b) => sum + b.duration, 0);
+        const ratio = newDuration / currentTotal;
 
-        // Force recalculate all blocks proportionally
-        setBlocks(prevBlocks => {
-            if (prevBlocks.length === 0) return prevBlocks;
+        // Calculate new block durations
+        let newBlocks = blocks.map(b => ({
+            ...b,
+            duration: Math.max(1, Math.round(b.duration * ratio))
+        }));
 
-            const currentTotal = prevBlocks.reduce((sum, b) => sum + b.duration, 0);
+        // Ensure exact match to newDuration
+        let newTotal = newBlocks.reduce((sum, b) => sum + b.duration, 0);
+        let diff = newDuration - newTotal;
 
-            // Calculate proportional durations
-            const ratio = totalDuration / currentTotal;
-            let newBlocks = prevBlocks.map(b => ({
-                ...b,
-                duration: Math.max(1, Math.round(b.duration * ratio))
-            }));
-
-            // Ensure exact match to totalDuration
-            let newTotal = newBlocks.reduce((sum, b) => sum + b.duration, 0);
-            let diff = totalDuration - newTotal;
-
-            // Distribute the difference one second at a time
-            let idx = 0;
-            while (diff !== 0 && idx < 100) { // Safety limit
-                const blockIdx = idx % newBlocks.length;
-                if (diff > 0) {
-                    newBlocks[blockIdx].duration += 1;
-                    diff -= 1;
-                } else if (diff < 0 && newBlocks[blockIdx].duration > 1) {
-                    newBlocks[blockIdx].duration -= 1;
-                    diff += 1;
-                }
-                idx++;
+        // Distribute the difference
+        let idx = 0;
+        while (diff !== 0 && idx < 100) {
+            const blockIdx = idx % newBlocks.length;
+            if (diff > 0) {
+                newBlocks[blockIdx].duration += 1;
+                diff -= 1;
+            } else if (diff < 0 && newBlocks[blockIdx].duration > 1) {
+                newBlocks[blockIdx].duration -= 1;
+                diff += 1;
             }
+            idx++;
+        }
 
-            return newBlocks;
-        });
-    }, [totalDuration]);
+        // Update both states together
+        setTotalDuration(newDuration);
+        setBlocks(newBlocks);
+    };
 
     // Check limits
     const videosUsed = userProfile?.videos_used || 0;
@@ -570,7 +562,7 @@ const SoraProStudio: React.FC<SoraProStudioProps> = ({ userProfile, onProfileRef
                                 </label>
                                 <div className="flex gap-2">
                                     <button
-                                        onClick={() => setTotalDuration(15)}
+                                        onClick={() => handleDurationChange(15)}
                                         className={cn(
                                             "flex-1 px-4 py-2 rounded-xl text-sm font-bold transition-all border",
                                             totalDuration === 15
@@ -581,7 +573,7 @@ const SoraProStudio: React.FC<SoraProStudioProps> = ({ userProfile, onProfileRef
                                         15s
                                     </button>
                                     <button
-                                        onClick={() => setTotalDuration(25)}
+                                        onClick={() => handleDurationChange(25)}
                                         className={cn(
                                             "flex-1 px-4 py-2 rounded-xl text-sm font-bold transition-all border flex items-center justify-center gap-2",
                                             totalDuration === 25
@@ -609,10 +601,7 @@ const SoraProStudio: React.FC<SoraProStudioProps> = ({ userProfile, onProfileRef
                                     {([15, 25] as const).map((d) => (
                                         <button
                                             key={d}
-                                            onClick={() => {
-                                                setTotalDuration(d);
-                                                setTimeout(() => applyPreset(activePreset), 0);
-                                            }}
+                                            onClick={() => handleDurationChange(d)}
                                             className={cn(
                                                 "px-4 py-2 rounded-lg text-sm font-bold border transition-all",
                                                 totalDuration === d
