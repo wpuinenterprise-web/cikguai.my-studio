@@ -916,9 +916,40 @@ const AdminDashboard: React.FC = () => {
                           <p className="text-[10px] text-muted-foreground">dijana semasa</p>
                         </div>
 
-                        {/* Video Limit - Desktop (display only, edit via per-model) */}
+                        {/* Video Limit - Desktop with Edit button */}
                         <div>
-                          <span className="text-lg font-bold text-foreground">{user.video_limit}</span>
+                          {editingUser === user.id ? (
+                            <div className="flex items-center gap-2">
+                              <span className="text-lg font-bold text-foreground">{user.video_limit}</span>
+                              <Button
+                                size="sm"
+                                onClick={() => handleSaveLimits(user.id)}
+                                className="h-9 w-9 p-0 bg-success hover:bg-success/90"
+                              >
+                                <Save className="w-4 h-4" />
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                onClick={() => setEditingUser(null)}
+                                className="h-9 w-9 p-0 text-muted-foreground hover:text-foreground"
+                              >
+                                <X className="w-4 h-4" />
+                              </Button>
+                            </div>
+                          ) : (
+                            <div className="flex items-center gap-2">
+                              <span className="text-lg font-bold text-foreground">{user.video_limit}</span>
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                onClick={() => handleEditLimits(user)}
+                                className="h-9 w-9 p-0 text-muted-foreground hover:text-primary"
+                              >
+                                <Edit2 className="w-4 h-4" />
+                              </Button>
+                            </div>
+                          )}
                         </div>
 
                         {/* Image Stats Column */}
