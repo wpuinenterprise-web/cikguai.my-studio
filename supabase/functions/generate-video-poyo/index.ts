@@ -54,10 +54,10 @@ serve(async (req) => {
         console.log('Aspect ratio:', aspect_ratio);
         console.log('Style:', style || 'none');
 
-        // Check user's video limit
+        // Check user's Sora 2 Pro video limit
         const { data: profile, error: profileError } = await supabase
             .from('profiles')
-            .select('videos_used, video_limit, total_videos_generated')
+            .select('sora2pro_used, sora2pro_limit, videos_used, video_limit, total_videos_generated')
             .eq('id', user.id)
             .single();
 
@@ -66,8 +66,12 @@ serve(async (req) => {
             throw new Error('Failed to fetch user profile');
         }
 
-        if (profile.videos_used >= profile.video_limit) {
-            throw new Error('Video generation limit reached');
+        // Check Sora 2 Pro specific limit
+        const sora2proUsed = profile.sora2pro_used ?? 0;
+        const sora2proLimit = profile.sora2pro_limit ?? 0;
+
+        if (sora2proUsed >= sora2proLimit) {
+            throw new Error('Sora 2 Pro limit reached. Hubungi admin untuk tambahan.');
         }
 
         // Create video generation record
@@ -154,11 +158,12 @@ serve(async (req) => {
             console.log('Updated video with poyo_task_id:', taskId);
         }
 
-        // Update user's video count
+        // Update user's video counts (both sora2pro_used and total videos_used)
         await supabase
             .from('profiles')
             .update({
-                videos_used: profile.videos_used + 1,
+                sora2pro_used: sora2proUsed + 1,
+                videos_used: (profile.videos_used ?? 0) + 1,
                 total_videos_generated: (profile.total_videos_generated || 0) + 1,
             })
             .eq('id', user.id);

@@ -24,6 +24,13 @@ interface UserData {
   images_used: number;
   video_limit: number;
   image_limit: number;
+  // Per-model limits
+  sora2_limit: number;
+  sora2pro_limit: number;
+  veo3_limit: number;
+  sora2_used: number;
+  sora2pro_used: number;
+  veo3_used: number;
   total_videos_generated: number;
   referral_code: string | null;
   referred_by: string | null;
@@ -51,7 +58,13 @@ const AdminDashboard: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [editingUser, setEditingUser] = useState<string | null>(null);
-  const [editLimits, setEditLimits] = useState({ video_limit: 0, image_limit: 0 });
+  const [editLimits, setEditLimits] = useState({
+    video_limit: 0,
+    image_limit: 0,
+    sora2_limit: 0,
+    sora2pro_limit: 0,
+    veo3_limit: 0,
+  });
   const [resetVideos, setResetVideos] = useState(false);
   const [resetImages, setResetImages] = useState(false);
   const [deleteDialog, setDeleteDialog] = useState<{ open: boolean; user: UserData | null }>({
@@ -71,7 +84,17 @@ const AdminDashboard: React.FC = () => {
         .order('created_at', { ascending: false });
 
       if (error) throw error;
-      setUsers(data || []);
+      // Map data with default values for new fields (for existing users without these columns)
+      const mappedData = (data || []).map((user: any) => ({
+        ...user,
+        sora2_limit: user.sora2_limit ?? 0,
+        sora2pro_limit: user.sora2pro_limit ?? 0,
+        veo3_limit: user.veo3_limit ?? 0,
+        sora2_used: user.sora2_used ?? 0,
+        sora2pro_used: user.sora2pro_used ?? 0,
+        veo3_used: user.veo3_used ?? 0,
+      })) as UserData[];
+      setUsers(mappedData);
     } catch (error: any) {
       toast.error('Gagal memuatkan senarai pengguna');
       console.error('Error fetching users:', error);
@@ -168,21 +191,44 @@ const AdminDashboard: React.FC = () => {
 
   const handleEditLimits = (user: UserData) => {
     setEditingUser(user.id);
-    setEditLimits({ video_limit: user.video_limit, image_limit: user.image_limit });
+    setEditLimits({
+      video_limit: user.video_limit,
+      image_limit: user.image_limit,
+      sora2_limit: user.sora2_limit,
+      sora2pro_limit: user.sora2pro_limit,
+      veo3_limit: user.veo3_limit,
+    });
     setResetVideos(false);
     setResetImages(false);
   };
 
   const handleSaveLimits = async (userId: string) => {
     try {
-      const updateData: { video_limit: number; image_limit: number; videos_used?: number; images_used?: number } = {
+      const updateData: {
+        video_limit: number;
+        image_limit: number;
+        sora2_limit: number;
+        sora2pro_limit: number;
+        veo3_limit: number;
+        videos_used?: number;
+        images_used?: number;
+        sora2_used?: number;
+        sora2pro_used?: number;
+        veo3_used?: number;
+      } = {
         video_limit: editLimits.video_limit,
-        image_limit: editLimits.image_limit
+        image_limit: editLimits.image_limit,
+        sora2_limit: editLimits.sora2_limit,
+        sora2pro_limit: editLimits.sora2pro_limit,
+        veo3_limit: editLimits.veo3_limit,
       };
 
-      // If reset checkbox is checked, reset videos_used to 0
+      // If reset checkbox is checked, reset all usage counters to 0
       if (resetVideos) {
         updateData.videos_used = 0;
+        updateData.sora2_used = 0;
+        updateData.sora2pro_used = 0;
+        updateData.veo3_used = 0;
       }
 
       // If reset images checkbox is checked, reset images_used to 0
@@ -643,6 +689,51 @@ const AdminDashboard: React.FC = () => {
                             <label htmlFor={`reset-img-${user.id}`} className="text-xs text-purple-400">
                               Reset imej dijana ke 0
                             </label>
+                          </div>
+                        )}
+
+                        {/* Per-Model Limits - Mobile (Only when editing) */}
+                        {editingUser === user.id && (
+                          <div className="pt-3 border-t border-border/30 mt-2">
+                            <p className="text-[9px] font-bold text-cyan-400 uppercase mb-2">Had Setiap Model</p>
+                            <div className="grid grid-cols-3 gap-2">
+                              <div className="flex flex-col">
+                                <span className="text-[9px] text-muted-foreground">Sora 2</span>
+                                <div className="flex items-center gap-1">
+                                  <Input
+                                    type="number"
+                                    value={editLimits.sora2_limit}
+                                    onChange={(e) => setEditLimits({ ...editLimits, sora2_limit: parseInt(e.target.value) || 0 })}
+                                    className="w-12 h-6 text-xs bg-secondary border-cyan-500/30 p-1"
+                                  />
+                                  <span className="text-[8px] text-muted-foreground">({user.sora2_used})</span>
+                                </div>
+                              </div>
+                              <div className="flex flex-col">
+                                <span className="text-[9px] text-amber-400">Sora Pro</span>
+                                <div className="flex items-center gap-1">
+                                  <Input
+                                    type="number"
+                                    value={editLimits.sora2pro_limit}
+                                    onChange={(e) => setEditLimits({ ...editLimits, sora2pro_limit: parseInt(e.target.value) || 0 })}
+                                    className="w-12 h-6 text-xs bg-secondary border-amber-500/30 p-1"
+                                  />
+                                  <span className="text-[8px] text-muted-foreground">({user.sora2pro_used})</span>
+                                </div>
+                              </div>
+                              <div className="flex flex-col">
+                                <span className="text-[9px] text-violet-400">Veo 3</span>
+                                <div className="flex items-center gap-1">
+                                  <Input
+                                    type="number"
+                                    value={editLimits.veo3_limit}
+                                    onChange={(e) => setEditLimits({ ...editLimits, veo3_limit: parseInt(e.target.value) || 0 })}
+                                    className="w-12 h-6 text-xs bg-secondary border-violet-500/30 p-1"
+                                  />
+                                  <span className="text-[8px] text-muted-foreground">({user.veo3_used})</span>
+                                </div>
+                              </div>
+                            </div>
                           </div>
                         )}
 

@@ -21,6 +21,13 @@ export interface UserProfile {
   images_used: number;
   video_limit: number;
   image_limit: number;
+  // Per-model limits
+  sora2_limit: number;
+  sora2pro_limit: number;
+  veo3_limit: number;
+  sora2_used: number;
+  sora2pro_used: number;
+  veo3_used: number;
   referral_code?: string;
   referred_by?: string;
   created_at?: string;
