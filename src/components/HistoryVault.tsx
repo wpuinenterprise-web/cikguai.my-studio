@@ -71,8 +71,9 @@ const VideoDurationBadge: React.FC<{ videoUrl: string | null; fallbackDuration: 
 };
 
 const HistoryVault: React.FC<HistoryVaultProps> = ({ userProfile }) => {
-  // Check if feature should be locked
-  const isLocked = userProfile && !userProfile.is_admin && (!userProfile.is_approved || userProfile.video_limit <= 0);
+  // Check if feature should be locked - ONLY for unapproved users, NOT for limit=0
+  // Gallery should always be accessible so users can view their past videos
+  const isLocked = userProfile && !userProfile.is_admin && !userProfile.is_approved;
 
   const [videos, setVideos] = useState<VideoGeneration[]>([]);
   const [loading, setLoading] = useState(true);
@@ -828,20 +829,17 @@ const HistoryVault: React.FC<HistoryVaultProps> = ({ userProfile }) => {
               </svg>
             </div>
             <h2 className="text-2xl font-black text-foreground mb-3">
-              {!userProfile?.is_approved ? 'Akaun Belum Diluluskan' : 'Had Video: 0'}
+              Akaun Belum Diluluskan
             </h2>
             <p className="text-muted-foreground text-sm mb-6 max-w-md mx-auto">
-              {!userProfile?.is_approved
-                ? 'Akaun anda sedang menunggu kelulusan dari admin. Sila hubungi admin untuk mempercepatkan proses kelulusan.'
-                : 'Anda belum mempunyai had video. Sila hubungi admin untuk mendapatkan had video.'
-              }
+              Akaun anda sedang menunggu kelulusan dari admin. Sila hubungi admin untuk mempercepatkan proses kelulusan.
             </p>
 
             <div className="flex flex-col gap-3 items-center">
               <div className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-amber-500/10 border border-amber-500/30">
                 <div className="w-2 h-2 bg-amber-500 rounded-full animate-pulse" />
                 <span className="text-xs font-bold text-amber-500 uppercase tracking-wider">
-                  {!userProfile?.is_approved ? 'Menunggu Kelulusan' : 'Limit: 0 Video'}
+                  Menunggu Kelulusan
                 </span>
               </div>
 
