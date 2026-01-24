@@ -26,6 +26,8 @@ interface VideoGeneration {
   aspect_ratio: string;
   created_at: string;
   geminigen_uuid: string | null;
+  poyo_task_id: string | null;
+  api_provider: string | null;
   model: string | null;
 }
 
@@ -117,16 +119,25 @@ const HistoryVault: React.FC<HistoryVaultProps> = ({ userProfile }) => {
         .order('created_at', { ascending: false });
 
       if (!error && cachedVideos) {
-        // Deduplicate by geminigen_uuid and map to VideoGeneration type
+        // Deduplicate by geminigen_uuid OR poyo_task_id and map to VideoGeneration type
         const seen = new Set<string>();
         const unique = cachedVideos.filter(v => {
-          if (!v.geminigen_uuid) return true;
-          if (seen.has(v.geminigen_uuid)) return false;
-          seen.add(v.geminigen_uuid);
+          // Skip duplicates by geminigen_uuid
+          if (v.geminigen_uuid) {
+            if (seen.has(`geminigen:${v.geminigen_uuid}`)) return false;
+            seen.add(`geminigen:${v.geminigen_uuid}`);
+          }
+          // Skip duplicates by poyo_task_id
+          if ((v as any).poyo_task_id) {
+            if (seen.has(`poyo:${(v as any).poyo_task_id}`)) return false;
+            seen.add(`poyo:${(v as any).poyo_task_id}`);
+          }
           return true;
         }).map(v => ({
           ...v,
-          model: (v as any).model || null, // Ensure model is included (may not exist in old records)
+          model: (v as any).model || null,
+          poyo_task_id: (v as any).poyo_task_id || null,
+          api_provider: (v as any).api_provider || 'geminigen',
         })) as VideoGeneration[];
         setVideos(unique);
       }
@@ -167,7 +178,54 @@ const HistoryVault: React.FC<HistoryVaultProps> = ({ userProfile }) => {
     }
   };
 
-  // Initial load: cache first, then sync
+  // Poll Poyo.ai processing videos for status updates
+  const syncPoyoVideos = async () => {
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) return;
+
+      // Find processing Poyo videos
+      const processingPoyoVideos = videos.filter(
+        v => v.api_provider === 'poyo' && v.status === 'processing' && v.poyo_task_id
+      );
+
+      if (processingPoyoVideos.length === 0) return;
+
+      console.log(`Checking status for ${processingPoyoVideos.length} Poyo.ai videos`);
+
+      for (const video of processingPoyoVideos) {
+        try {
+          const response = await supabase.functions.invoke('check-video-status-poyo', {
+            body: {
+              poyo_task_id: video.poyo_task_id,
+              video_id: video.id,
+            },
+          });
+
+          if (response.data?.success) {
+            // Update local state
+            setVideos(prev => prev.map(v =>
+              v.id === video.id
+                ? {
+                  ...v,
+                  status: response.data.status,
+                  status_percentage: response.data.status_percentage,
+                  video_url: response.data.video_url || v.video_url,
+                  thumbnail_url: response.data.thumbnail_url || v.thumbnail_url,
+                }
+                : v
+            ));
+          }
+        } catch (err) {
+          console.error(`Error checking Poyo video ${video.id}:`, err);
+        }
+      }
+    } catch (error) {
+      console.error('Poyo sync error:', error);
+    }
+  };
+
+  // Initial load: cache first, then sync both providers
   useEffect(() => {
     const initLoad = async () => {
       await loadFromCache();
@@ -176,6 +234,20 @@ const HistoryVault: React.FC<HistoryVaultProps> = ({ userProfile }) => {
     };
     initLoad();
   }, []);
+
+  // Poll Poyo.ai processing videos periodically
+  useEffect(() => {
+    const interval = setInterval(() => {
+      const hasPoyoProcessing = videos.some(
+        v => v.api_provider === 'poyo' && v.status === 'processing'
+      );
+      if (hasPoyoProcessing) {
+        syncPoyoVideos();
+      }
+    }, 10000); // Check every 10 seconds
+
+    return () => clearInterval(interval);
+  }, [videos]);
 
   // Subscribe to realtime updates - ONLY for current user's videos
   useEffect(() => {
