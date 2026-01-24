@@ -910,57 +910,37 @@ const AdminDashboard: React.FC = () => {
                           )}
                         </div>
 
+                        {/* Video Stats - Desktop: Dijana Keseluruhan only */}
                         <div>
-                          <div className="flex items-center gap-2">
-                            <div>
-                              <p className="text-lg font-bold text-foreground">{user.videos_used}</p>
-                              <p className="text-[10px] text-muted-foreground">dijana</p>
-                            </div>
-                            <span className="text-muted-foreground">/</span>
-                            <div>
-                              <p className={`text-lg font-bold ${user.video_limit - user.videos_used <= 0 ? 'text-destructive' : 'text-green-500'}`}>
-                                {Math.max(0, user.video_limit - user.videos_used)}
-                              </p>
-                              <p className="text-[10px] text-muted-foreground">baki</p>
-                            </div>
-                          </div>
+                          <p className="text-lg font-bold text-cyan-400">{user.total_videos_generated || 0}</p>
+                          <p className="text-[10px] text-muted-foreground">dijana keseluruhan</p>
                         </div>
 
+                        {/* Video Limit - Desktop */}
                         <div>
                           {editingUser === user.id ? (
-                            <div className="flex flex-col gap-2">
-                              <div className="flex items-center gap-2">
-                                <Input
-                                  type="number"
-                                  value={editLimits.video_limit}
-                                  onChange={(e) => setEditLimits({ ...editLimits, video_limit: parseInt(e.target.value) || 0 })}
-                                  className="w-20 h-9 bg-secondary border-border text-sm"
-                                />
-                                <Button
-                                  size="sm"
-                                  onClick={() => handleSaveLimits(user.id)}
-                                  className="h-9 w-9 p-0 bg-success hover:bg-success/90"
-                                >
-                                  <Save className="w-4 h-4" />
-                                </Button>
-                                <Button
-                                  size="sm"
-                                  variant="ghost"
-                                  onClick={() => setEditingUser(null)}
-                                  className="h-9 w-9 p-0 text-muted-foreground hover:text-foreground"
-                                >
-                                  <X className="w-4 h-4" />
-                                </Button>
-                              </div>
-                              <label className="flex items-center gap-2 cursor-pointer">
-                                <input
-                                  type="checkbox"
-                                  checked={resetVideos}
-                                  onChange={(e) => setResetVideos(e.target.checked)}
-                                  className="w-3.5 h-3.5 rounded border-border bg-secondary accent-primary"
-                                />
-                                <span className="text-[10px] text-muted-foreground">Reset dijana ke 0</span>
-                              </label>
+                            <div className="flex items-center gap-2">
+                              <Input
+                                type="number"
+                                value={editLimits.video_limit}
+                                onChange={(e) => setEditLimits({ ...editLimits, video_limit: parseInt(e.target.value) || 0 })}
+                                className="w-20 h-9 bg-secondary border-border text-sm"
+                              />
+                              <Button
+                                size="sm"
+                                onClick={() => handleSaveLimits(user.id)}
+                                className="h-9 w-9 p-0 bg-success hover:bg-success/90"
+                              >
+                                <Save className="w-4 h-4" />
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                onClick={() => setEditingUser(null)}
+                                className="h-9 w-9 p-0 text-muted-foreground hover:text-foreground"
+                              >
+                                <X className="w-4 h-4" />
+                              </Button>
                             </div>
                           ) : (
                             <div className="flex items-center gap-2">
