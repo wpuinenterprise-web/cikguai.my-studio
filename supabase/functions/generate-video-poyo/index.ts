@@ -54,14 +54,13 @@ serve(async (req) => {
         console.log('Style:', style || 'none');
         console.log('Has reference image:', !!reference_image);
 
-        // If reference image provided, upload to Poyo storage first
+        // If reference image provided, upload to Poyo.ai storage first
         let imageUrl: string | null = null;
         if (reference_image) {
             try {
                 console.log('Uploading reference image to Poyo.ai storage...');
 
-                // Convert base64 to URL format for upload
-                // First, we need to host it somewhere accessible - use Supabase storage
+                // First upload to Supabase storage to get a public URL
                 const base64Data = reference_image.replace(/^data:image\/\w+;base64,/, '');
                 const imageBuffer = Uint8Array.from(atob(base64Data), c => c.charCodeAt(0));
                 const fileName = `sora-ref-${Date.now()}.jpg`;
@@ -76,15 +75,38 @@ serve(async (req) => {
 
                 if (uploadError) {
                     console.error('Supabase upload error:', uploadError);
-                    // Continue without image if upload fails
                 } else {
-                    // Get public URL
+                    // Get public URL from Supabase
                     const { data: { publicUrl } } = supabase.storage
                         .from('video-references')
                         .getPublicUrl(fileName);
 
-                    imageUrl = publicUrl;
-                    console.log('Image uploaded to:', imageUrl);
+                    console.log('Supabase public URL:', publicUrl);
+
+                    // Now upload this URL to Poyo.ai storage
+                    const poyoUploadResponse = await fetch('https://api.poyo.ai/api/common/upload/url', {
+                        method: 'POST',
+                        headers: {
+                            'Authorization': `Bearer ${POYO_API_KEY}`,
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify({
+                            file_url: publicUrl,
+                        }),
+                    });
+
+                    const poyoUploadData = await poyoUploadResponse.json();
+                    console.log('Poyo.ai upload response:', JSON.stringify(poyoUploadData));
+
+                    if (poyoUploadData.success && poyoUploadData.data?.file_url) {
+                        imageUrl = poyoUploadData.data.file_url;
+                        console.log('Image uploaded to Poyo.ai:', imageUrl);
+                    } else {
+                        console.error('Poyo.ai upload failed:', poyoUploadData);
+                        // Fallback: try using Supabase URL directly
+                        imageUrl = publicUrl;
+                        console.log('Fallback to Supabase URL:', imageUrl);
+                    }
                 }
             } catch (uploadErr) {
                 console.error('Image upload error:', uploadErr);
