@@ -57,7 +57,7 @@ serve(async (req) => {
         // Check user's Sora 2 Pro video limit
         const { data: profile, error: profileError } = await supabase
             .from('profiles')
-            .select('sora2pro_used, sora2pro_limit, videos_used, video_limit, total_videos_generated')
+            .select('sora2pro_used, sora2pro_limit, videos_used, video_limit, total_videos_generated, is_admin')
             .eq('id', user.id)
             .single();
 
@@ -66,11 +66,12 @@ serve(async (req) => {
             throw new Error('Failed to fetch user profile');
         }
 
-        // Check Sora 2 Pro specific limit
+        // Check Sora 2 Pro specific limit (admins bypass limit)
         const sora2proUsed = profile.sora2pro_used ?? 0;
         const sora2proLimit = profile.sora2pro_limit ?? 0;
+        const isAdmin = profile.is_admin ?? false;
 
-        if (sora2proUsed >= sora2proLimit) {
+        if (!isAdmin && sora2proUsed >= sora2proLimit) {
             throw new Error('Sora 2 Pro limit reached. Hubungi admin untuk tambahan.');
         }
 
