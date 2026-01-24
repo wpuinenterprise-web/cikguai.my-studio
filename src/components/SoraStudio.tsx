@@ -36,9 +36,11 @@ const SoraStudio: React.FC<SoraStudioProps> = ({ userProfile, onProfileRefresh }
   const modelLimit = userProfile?.sora2_limit ?? 0;
   const modelUsed = userProfile?.sora2_used ?? 0;
 
-  // Check if feature should be locked - use per-model limit
-  const hasReachedLimit = userProfile && !userProfile.is_admin && modelUsed >= modelLimit;
-  const isLocked = userProfile && !userProfile.is_admin && (!userProfile.is_approved || modelLimit <= 0);
+  // Only lock entire screen if user not approved - allow preview even with 0 limit
+  const isLocked = userProfile && !userProfile.is_admin && !userProfile.is_approved;
+
+  // Disable generate button if limit reached OR limit is 0
+  const hasReachedLimit = userProfile && !userProfile.is_admin && (modelUsed >= modelLimit || modelLimit <= 0);
   // Load prompt, duration, aspectRatio, model from sessionStorage to persist across tab switches
   const [prompt, setPrompt] = useState(() => sessionStorage.getItem('studio_prompt') || '');
   const [duration, setDuration] = useState<10 | 15>(() => {
@@ -609,10 +611,10 @@ const SoraStudio: React.FC<SoraStudioProps> = ({ userProfile, onProfileRefresh }
             </h2>
             {/* Limit Badge */}
             <div className={`px-3 py-1 rounded-full text-xs font-bold ${modelUsed >= modelLimit
-                ? 'bg-red-500/20 text-red-500 border border-red-500/30'
-                : modelUsed >= modelLimit * 0.8
-                  ? 'bg-amber-500/20 text-amber-500 border border-amber-500/30'
-                  : 'bg-primary/20 text-primary border border-primary/30'
+              ? 'bg-red-500/20 text-red-500 border border-red-500/30'
+              : modelUsed >= modelLimit * 0.8
+                ? 'bg-amber-500/20 text-amber-500 border border-amber-500/30'
+                : 'bg-primary/20 text-primary border border-primary/30'
               }`}>
               Had: {modelUsed}/{modelLimit}
             </div>
