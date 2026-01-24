@@ -67,6 +67,10 @@ const AdminDashboard: React.FC = () => {
   });
   const [resetVideos, setResetVideos] = useState(false);
   const [resetImages, setResetImages] = useState(false);
+  // Per-model reset checkboxes
+  const [resetSora2, setResetSora2] = useState(false);
+  const [resetSora2Pro, setResetSora2Pro] = useState(false);
+  const [resetVeo3, setResetVeo3] = useState(false);
   const [deleteDialog, setDeleteDialog] = useState<{ open: boolean; user: UserData | null }>({
     open: false,
     user: null,
@@ -200,6 +204,9 @@ const AdminDashboard: React.FC = () => {
     });
     setResetVideos(false);
     setResetImages(false);
+    setResetSora2(false);
+    setResetSora2Pro(false);
+    setResetVeo3(false);
   };
 
   const handleSaveLimits = async (userId: string) => {
@@ -223,12 +230,17 @@ const AdminDashboard: React.FC = () => {
         veo3_limit: editLimits.veo3_limit,
       };
 
-      // If reset checkbox is checked, reset all usage counters to 0
+      // If reset all videos checkbox is checked, reset all usage counters to 0
       if (resetVideos) {
         updateData.videos_used = 0;
         updateData.sora2_used = 0;
         updateData.sora2pro_used = 0;
         updateData.veo3_used = 0;
+      } else {
+        // Individual per-model resets
+        if (resetSora2) updateData.sora2_used = 0;
+        if (resetSora2Pro) updateData.sora2pro_used = 0;
+        if (resetVeo3) updateData.veo3_used = 0;
       }
 
       // If reset images checkbox is checked, reset images_used to 0
@@ -244,15 +256,23 @@ const AdminDashboard: React.FC = () => {
       if (error) throw error;
 
       const resetMsg = [];
-      if (resetVideos) resetMsg.push('video');
+      if (resetVideos) resetMsg.push('semua video');
+      else {
+        if (resetSora2) resetMsg.push('Sora 2');
+        if (resetSora2Pro) resetMsg.push('Sora Pro');
+        if (resetVeo3) resetMsg.push('Veo 3');
+      }
       if (resetImages) resetMsg.push('imej');
 
       toast.success(resetMsg.length > 0
-        ? `Had dikemaskini dan ${resetMsg.join(' & ')} dijana direset`
+        ? `Had dikemaskini dan ${resetMsg.join(', ')} direset`
         : 'Had pengguna telah dikemaskini');
       setEditingUser(null);
       setResetVideos(false);
       setResetImages(false);
+      setResetSora2(false);
+      setResetSora2Pro(false);
+      setResetVeo3(false);
       fetchUsers();
     } catch (error: any) {
       toast.error('Gagal mengemaskini had');
@@ -697,41 +717,77 @@ const AdminDashboard: React.FC = () => {
                           <div className="pt-3 border-t border-border/30 mt-2">
                             <p className="text-[9px] font-bold text-cyan-400 uppercase mb-2">Had Setiap Model</p>
                             <div className="grid grid-cols-3 gap-2">
+                              {/* Sora 2 */}
                               <div className="flex flex-col">
-                                <span className="text-[9px] text-muted-foreground">Sora 2</span>
+                                <span className="text-[9px] text-cyan-400 font-medium">Sora 2</span>
                                 <div className="flex items-center gap-1">
                                   <Input
                                     type="number"
                                     value={editLimits.sora2_limit}
                                     onChange={(e) => setEditLimits({ ...editLimits, sora2_limit: parseInt(e.target.value) || 0 })}
-                                    className="w-12 h-6 text-xs bg-secondary border-cyan-500/30 p-1"
+                                    className="w-14 h-6 text-xs bg-secondary border-cyan-500/30 p-1"
                                   />
-                                  <span className="text-[8px] text-muted-foreground">({user.sora2_used})</span>
                                 </div>
+                                <span className="text-[8px] text-muted-foreground">
+                                  Guna: {user.sora2_used} | Baki: {Math.max(0, user.sora2_limit - user.sora2_used)}
+                                </span>
+                                <label className="flex items-center gap-1 mt-1">
+                                  <input
+                                    type="checkbox"
+                                    checked={resetSora2}
+                                    onChange={(e) => setResetSora2(e.target.checked)}
+                                    className="w-3 h-3 rounded border-cyan-500/30 bg-secondary accent-cyan-500"
+                                  />
+                                  <span className="text-[8px] text-cyan-400">Reset ke 0</span>
+                                </label>
                               </div>
+                              {/* Sora Pro */}
                               <div className="flex flex-col">
-                                <span className="text-[9px] text-amber-400">Sora Pro</span>
+                                <span className="text-[9px] text-amber-400 font-medium">Sora Pro</span>
                                 <div className="flex items-center gap-1">
                                   <Input
                                     type="number"
                                     value={editLimits.sora2pro_limit}
                                     onChange={(e) => setEditLimits({ ...editLimits, sora2pro_limit: parseInt(e.target.value) || 0 })}
-                                    className="w-12 h-6 text-xs bg-secondary border-amber-500/30 p-1"
+                                    className="w-14 h-6 text-xs bg-secondary border-amber-500/30 p-1"
                                   />
-                                  <span className="text-[8px] text-muted-foreground">({user.sora2pro_used})</span>
                                 </div>
+                                <span className="text-[8px] text-muted-foreground">
+                                  Guna: {user.sora2pro_used} | Baki: {Math.max(0, user.sora2pro_limit - user.sora2pro_used)}
+                                </span>
+                                <label className="flex items-center gap-1 mt-1">
+                                  <input
+                                    type="checkbox"
+                                    checked={resetSora2Pro}
+                                    onChange={(e) => setResetSora2Pro(e.target.checked)}
+                                    className="w-3 h-3 rounded border-amber-500/30 bg-secondary accent-amber-500"
+                                  />
+                                  <span className="text-[8px] text-amber-400">Reset ke 0</span>
+                                </label>
                               </div>
+                              {/* Veo 3 */}
                               <div className="flex flex-col">
-                                <span className="text-[9px] text-violet-400">Veo 3</span>
+                                <span className="text-[9px] text-violet-400 font-medium">Veo 3</span>
                                 <div className="flex items-center gap-1">
                                   <Input
                                     type="number"
                                     value={editLimits.veo3_limit}
                                     onChange={(e) => setEditLimits({ ...editLimits, veo3_limit: parseInt(e.target.value) || 0 })}
-                                    className="w-12 h-6 text-xs bg-secondary border-violet-500/30 p-1"
+                                    className="w-14 h-6 text-xs bg-secondary border-violet-500/30 p-1"
                                   />
-                                  <span className="text-[8px] text-muted-foreground">({user.veo3_used})</span>
                                 </div>
+                                <span className="text-[8px] text-muted-foreground">
+                                  Guna: {user.veo3_used} | Baki: {Math.max(0, user.veo3_limit - user.veo3_used)}
+                                </span>
+                                <label className="flex items-center gap-1 mt-1">
+                                  <input
+                                    type="checkbox"
+                                    checked={resetVeo3}
+                                    onChange={(e) => setResetVeo3(e.target.checked)}
+                                    className="w-3 h-3 rounded border-violet-500/30 bg-secondary accent-violet-500"
+                                  />
+                                  <span className="text-[8px] text-violet-400">Reset ke 0</span>
+                                </label>
                               </div>
                             </div>
                           </div>
