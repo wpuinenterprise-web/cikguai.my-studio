@@ -28,8 +28,8 @@ type PromptMode = 'basic' | 'advanced' | 'story';
 const SoraProStudio: React.FC<SoraProStudioProps> = ({ userProfile, onProfileRefresh }) => {
     const [totalDuration, setTotalDuration] = useState<15 | 25>(25);
     const [blocks, setBlocks] = useState<StoryBlock[]>([
-        { id: '1', prompt: '', duration: 15 },
-        { id: '2', prompt: '', duration: 10 },
+        { id: '1', prompt: '', duration: 13 },
+        { id: '2', prompt: '', duration: 12 },
     ]);
     const [activePreset, setActivePreset] = useState<DurationPreset>('equal');
     const [orientation, setOrientation] = useState<'landscape' | 'portrait'>('landscape');
@@ -42,14 +42,20 @@ const SoraProStudio: React.FC<SoraProStudioProps> = ({ userProfile, onProfileRef
     const [promptMode, setPromptMode] = useState<PromptMode>('basic');
     const [basicPrompt, setBasicPrompt] = useState('');
 
+    // Track previous totalDuration to detect changes
+    const prevTotalDurationRef = useRef(totalDuration);
+
     // Recalculate block durations when totalDuration changes
     React.useEffect(() => {
-        setBlocks(prevBlocks => {
-            const currentTotal = prevBlocks.reduce((sum, b) => sum + b.duration, 0);
+        // Skip if totalDuration hasn't actually changed
+        if (prevTotalDurationRef.current === totalDuration) return;
+        prevTotalDurationRef.current = totalDuration;
 
-            // Only recalculate if totals don't match
-            if (currentTotal === totalDuration) return prevBlocks;
+        // Force recalculate all blocks proportionally
+        setBlocks(prevBlocks => {
             if (prevBlocks.length === 0) return prevBlocks;
+
+            const currentTotal = prevBlocks.reduce((sum, b) => sum + b.duration, 0);
 
             // Calculate proportional durations
             const ratio = totalDuration / currentTotal;
@@ -871,12 +877,6 @@ const SoraProStudio: React.FC<SoraProStudioProps> = ({ userProfile, onProfileRef
                                 ))}
                             </div>
                         </div>
-                    </div>
-
-                    {/* Credits Info */}
-                    <div className="flex items-center justify-between mb-4 text-xs text-muted-foreground">
-                        <span>Credits: {userProfile?.is_admin ? '∞' : (videoLimit - videosUsed)} remaining</span>
-                        <span className="text-amber-500">This generation will cost: {blocks.length * 20} Credits per video</span>
                     </div>
 
                     {/* Generate Button */}
