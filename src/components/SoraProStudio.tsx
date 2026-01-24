@@ -24,6 +24,7 @@ interface StoryBlock {
 
 type DurationPreset = 'equal' | 'ascending' | 'descending' | 'focus-middle' | 'first-heavy' | 'last-heavy';
 type PromptMode = 'basic' | 'advanced' | 'story';
+type ApiProvider = 'geminigen' | 'poyo';
 
 const SoraProStudio: React.FC<SoraProStudioProps> = ({ userProfile, onProfileRefresh }) => {
     const [totalDuration, setTotalDuration] = useState<15 | 25>(25);
@@ -41,6 +42,7 @@ const SoraProStudio: React.FC<SoraProStudioProps> = ({ userProfile, onProfileRef
     const [draggingHandle, setDraggingHandle] = useState<number | null>(null);
     const [promptMode, setPromptMode] = useState<PromptMode>('basic');
     const [basicPrompt, setBasicPrompt] = useState('');
+    const [apiProvider, setApiProvider] = useState<ApiProvider>('poyo');
 
     // Recalculate block durations when totalDuration changes
     React.useEffect(() => {
@@ -287,11 +289,13 @@ const SoraProStudio: React.FC<SoraProStudioProps> = ({ userProfile, onProfileRef
                     const block = blocks[i];
                     toast.info(`Menjana Block ${i + 1}/${blocks.length}...`);
 
-                    const response = await supabase.functions.invoke('generate-video', {
+                    // Choose edge function based on provider
+                    const functionName = apiProvider === 'poyo' ? 'generate-video-poyo' : 'generate-video';
+                    const response = await supabase.functions.invoke(functionName, {
                         body: {
                             prompt: block.prompt,
                             duration: block.duration,
-                            aspect_ratio: orientation,
+                            aspect_ratio: apiProvider === 'poyo' ? '16:9' : orientation,
                             model: 'sora-2-pro',
                         },
                     });
@@ -308,13 +312,15 @@ const SoraProStudio: React.FC<SoraProStudioProps> = ({ userProfile, onProfileRef
                 toast.success('Semua block berjaya dimulakan!');
             } else {
                 // Basic or Advanced mode - single video
-                toast.info('Menjana video...');
+                toast.info(`Menjana video via ${apiProvider === 'poyo' ? 'Poyo.ai' : 'GeminiGen'}...`);
 
-                const response = await supabase.functions.invoke('generate-video', {
+                // Choose edge function based on provider
+                const functionName = apiProvider === 'poyo' ? 'generate-video-poyo' : 'generate-video';
+                const response = await supabase.functions.invoke(functionName, {
                     body: {
                         prompt: basicPrompt,
                         duration: totalDuration,
-                        aspect_ratio: orientation,
+                        aspect_ratio: apiProvider === 'poyo' ? '16:9' : orientation,
                         model: 'sora-2-pro',
                     },
                 });
@@ -404,8 +410,8 @@ const SoraProStudio: React.FC<SoraProStudioProps> = ({ userProfile, onProfileRef
                 )}
 
                 <div className="glass-panel-elevated p-6 animate-fade-in">
-                    {/* Top Row: Model & Reference Image */}
-                    <div className="grid grid-cols-2 gap-4 mb-6">
+                    {/* Top Row: Model, API Provider & Reference Image */}
+                    <div className="grid grid-cols-3 gap-4 mb-6">
                         <div>
                             <label className="block text-[10px] font-black text-muted-foreground uppercase tracking-widest mb-2">
                                 Model
@@ -413,9 +419,36 @@ const SoraProStudio: React.FC<SoraProStudioProps> = ({ userProfile, onProfileRef
                             <div className="flex items-center gap-2 px-4 py-3 rounded-xl bg-secondary/50 border border-border">
                                 <span className="text-amber-500">✨</span>
                                 <span className="text-sm font-bold">Sora 2 Pro</span>
-                                <span className="ml-auto text-[10px] font-bold text-amber-500 bg-amber-500/10 px-2 py-0.5 rounded-full">
-                                    Story Mode
-                                </span>
+                            </div>
+                        </div>
+
+                        <div>
+                            <label className="block text-[10px] font-black text-muted-foreground uppercase tracking-widest mb-2">
+                                API Provider
+                            </label>
+                            <div className="flex gap-1">
+                                <button
+                                    onClick={() => setApiProvider('poyo')}
+                                    className={cn(
+                                        "flex-1 px-3 py-3 rounded-xl text-xs font-bold border transition-all",
+                                        apiProvider === 'poyo'
+                                            ? "bg-gradient-to-r from-violet-500 to-purple-500 text-white border-violet-500"
+                                            : "bg-secondary/50 border-border text-muted-foreground hover:border-violet-500/50"
+                                    )}
+                                >
+                                    🚀 Poyo.ai
+                                </button>
+                                <button
+                                    onClick={() => setApiProvider('geminigen')}
+                                    className={cn(
+                                        "flex-1 px-3 py-3 rounded-xl text-xs font-bold border transition-all",
+                                        apiProvider === 'geminigen'
+                                            ? "bg-gradient-to-r from-cyan-500 to-blue-500 text-white border-cyan-500"
+                                            : "bg-secondary/50 border-border text-muted-foreground hover:border-cyan-500/50"
+                                    )}
+                                >
+                                    ⚡ GeminiGen
+                                </button>
                             </div>
                         </div>
 
@@ -430,7 +463,7 @@ const SoraProStudio: React.FC<SoraProStudioProps> = ({ userProfile, onProfileRef
                                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
                                 </svg>
-                                <span className="text-sm font-medium">{referenceImage ? 'Change Image' : 'Select Image'}</span>
+                                <span className="text-sm font-medium">{referenceImage ? 'Change' : 'Select'}</span>
                             </button>
                             <input ref={fileInputRef} type="file" accept="image/*" className="hidden" onChange={handleImageSelect} />
                         </div>
