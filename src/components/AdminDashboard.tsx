@@ -712,6 +712,74 @@ const AdminDashboard: React.FC = () => {
                           </div>
                         )}
 
+                        {/* Per-Model Stats - Always Visible */}
+                        <div className="pt-3 border-t border-border/30 mt-2">
+                          <p className="text-[9px] font-bold text-cyan-400 uppercase mb-2">Statistik Model Video</p>
+                          <div className="grid grid-cols-3 gap-2 text-[10px]">
+                            {/* Sora 2 Stats */}
+                            <div className="bg-cyan-500/10 rounded-lg p-2 border border-cyan-500/20">
+                              <span className="text-cyan-400 font-bold block">Sora 2</span>
+                              <div className="flex justify-between mt-1">
+                                <span className="text-muted-foreground">Guna:</span>
+                                <span className="font-medium">{user.sora2_used}</span>
+                              </div>
+                              <div className="flex justify-between">
+                                <span className="text-muted-foreground">Baki:</span>
+                                <span className={`font-medium ${user.sora2_limit - user.sora2_used <= 0 ? 'text-red-400' : 'text-green-400'}`}>
+                                  {Math.max(0, user.sora2_limit - user.sora2_used)}
+                                </span>
+                              </div>
+                              <div className="flex justify-between">
+                                <span className="text-muted-foreground">Had:</span>
+                                <span className="font-bold text-cyan-400">{user.sora2_limit}</span>
+                              </div>
+                            </div>
+                            {/* Sora Pro Stats */}
+                            <div className="bg-amber-500/10 rounded-lg p-2 border border-amber-500/20">
+                              <span className="text-amber-400 font-bold block">Sora Pro</span>
+                              <div className="flex justify-between mt-1">
+                                <span className="text-muted-foreground">Guna:</span>
+                                <span className="font-medium">{user.sora2pro_used}</span>
+                              </div>
+                              <div className="flex justify-between">
+                                <span className="text-muted-foreground">Baki:</span>
+                                <span className={`font-medium ${user.sora2pro_limit - user.sora2pro_used <= 0 ? 'text-red-400' : 'text-green-400'}`}>
+                                  {Math.max(0, user.sora2pro_limit - user.sora2pro_used)}
+                                </span>
+                              </div>
+                              <div className="flex justify-between">
+                                <span className="text-muted-foreground">Had:</span>
+                                <span className="font-bold text-amber-400">{user.sora2pro_limit}</span>
+                              </div>
+                            </div>
+                            {/* Veo 3 Stats */}
+                            <div className="bg-violet-500/10 rounded-lg p-2 border border-violet-500/20">
+                              <span className="text-violet-400 font-bold block">Veo 3</span>
+                              <div className="flex justify-between mt-1">
+                                <span className="text-muted-foreground">Guna:</span>
+                                <span className="font-medium">{user.veo3_used}</span>
+                              </div>
+                              <div className="flex justify-between">
+                                <span className="text-muted-foreground">Baki:</span>
+                                <span className={`font-medium ${user.veo3_limit - user.veo3_used <= 0 ? 'text-red-400' : 'text-green-400'}`}>
+                                  {Math.max(0, user.veo3_limit - user.veo3_used)}
+                                </span>
+                              </div>
+                              <div className="flex justify-between">
+                                <span className="text-muted-foreground">Had:</span>
+                                <span className="font-bold text-violet-400">{user.veo3_limit}</span>
+                              </div>
+                            </div>
+                          </div>
+                          {/* Lifetime Total */}
+                          <div className="mt-2 p-2 bg-gradient-to-r from-primary/10 to-transparent rounded-lg border border-primary/20">
+                            <div className="flex items-center justify-between">
+                              <span className="text-[9px] text-muted-foreground uppercase">Jumlah Keseluruhan (Tak Boleh Reset)</span>
+                              <span className="text-sm font-black text-primary">{user.total_videos_generated || 0} video</span>
+                            </div>
+                          </div>
+                        </div>
+
                         {/* Per-Model Limits - Mobile (Only when editing) */}
                         {editingUser === user.id && (
                           <div className="pt-3 border-t border-border/30 mt-2">
