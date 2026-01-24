@@ -917,6 +917,50 @@ const AdminDashboard: React.FC = () => {
                             <span className="text-sm font-bold text-foreground">{user.image_limit}</span>
                           )}
                         </div>
+                        {/* Per-Model Limits - Desktop (Only when editing) */}
+                        {editingUser === user.id && (
+                          <div className="col-span-7 mt-3 pt-3 border-t border-border/30">
+                            <p className="text-[10px] font-bold text-cyan-400 uppercase mb-2">Had Setiap Model</p>
+                            <div className="grid grid-cols-3 gap-4">
+                              <div className="flex flex-col gap-1">
+                                <span className="text-[10px] text-muted-foreground">Sora 2</span>
+                                <div className="flex items-center gap-2">
+                                  <Input
+                                    type="number"
+                                    value={editLimits.sora2_limit}
+                                    onChange={(e) => setEditLimits({ ...editLimits, sora2_limit: parseInt(e.target.value) || 0 })}
+                                    className="w-16 h-8 bg-secondary border-cyan-500/30 text-sm"
+                                  />
+                                  <span className="text-xs text-muted-foreground">digunakan: {user.sora2_used}</span>
+                                </div>
+                              </div>
+                              <div className="flex flex-col gap-1">
+                                <span className="text-[10px] text-amber-400 font-semibold">Sora 2 Pro</span>
+                                <div className="flex items-center gap-2">
+                                  <Input
+                                    type="number"
+                                    value={editLimits.sora2pro_limit}
+                                    onChange={(e) => setEditLimits({ ...editLimits, sora2pro_limit: parseInt(e.target.value) || 0 })}
+                                    className="w-16 h-8 bg-secondary border-amber-500/30 text-sm"
+                                  />
+                                  <span className="text-xs text-muted-foreground">digunakan: {user.sora2pro_used}</span>
+                                </div>
+                              </div>
+                              <div className="flex flex-col gap-1">
+                                <span className="text-[10px] text-violet-400 font-semibold">Veo 3</span>
+                                <div className="flex items-center gap-2">
+                                  <Input
+                                    type="number"
+                                    value={editLimits.veo3_limit}
+                                    onChange={(e) => setEditLimits({ ...editLimits, veo3_limit: parseInt(e.target.value) || 0 })}
+                                    className="w-16 h-8 bg-secondary border-violet-500/30 text-sm"
+                                  />
+                                  <span className="text-xs text-muted-foreground">digunakan: {user.veo3_used}</span>
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        )}
 
                         <div className="flex items-center gap-2">
                           {!user.is_approved && (
