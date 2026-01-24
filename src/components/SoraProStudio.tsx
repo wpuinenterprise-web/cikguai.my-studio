@@ -320,32 +320,47 @@ const SoraProStudio: React.FC<SoraProStudioProps> = ({ userProfile, onProfileRef
             }
 
             if (promptMode === 'story') {
-                // Generate each block as separate video (Story mode)
+                // Story mode - combine all blocks into ONE video with timed segments
+                // Build combined prompt with timing for each segment
+                let combinedPrompt = '';
+                let currentTime = 0;
+
                 for (let i = 0; i < blocks.length; i++) {
                     const block = blocks[i];
-                    toast.info(`Menjana Block ${i + 1}/${blocks.length}...`);
+                    const startTime = currentTime;
+                    const endTime = currentTime + block.duration;
 
-                    const response = await supabase.functions.invoke('generate-video-poyo', {
-                        body: {
-                            prompt: block.prompt,
-                            duration: block.duration,
-                            aspect_ratio: '16:9',
-                            model: 'sora-2-pro',
-                        },
-                    });
-
-                    if (response.error) {
-                        throw new Error(`Block ${i + 1}: ${response.error.message}`);
-                    }
-
-                    if (!response.data?.success) {
-                        throw new Error(`Block ${i + 1}: ${response.data?.error || 'Gagal menjana'}`);
-                    }
+                    // Add timing segment to prompt
+                    combinedPrompt += `[${startTime}s - ${endTime}s]: ${block.prompt}\n`;
+                    currentTime = endTime;
                 }
 
-                toast.success('Semua block berjaya dimulakan!');
+                // Clean up prompt
+                combinedPrompt = combinedPrompt.trim();
+
+                console.log('Combined storyboard prompt:', combinedPrompt);
+                toast.info('Menjana video storyboard...');
+
+                const response = await supabase.functions.invoke('generate-video-poyo', {
+                    body: {
+                        prompt: combinedPrompt,
+                        duration: totalDuration,
+                        aspect_ratio: '16:9',
+                        model: 'sora-2-pro',
+                    },
+                });
+
+                if (response.error) {
+                    throw new Error(response.error.message);
+                }
+
+                if (!response.data?.success) {
+                    throw new Error(response.data?.error || 'Gagal menjana video');
+                }
+
+                toast.success('Video storyboard berjaya dimulakan!');
             } else {
-                // Basic or Advanced mode - single video
+                // Basic mode - single video
                 toast.info('Menjana video...');
 
                 const response = await supabase.functions.invoke('generate-video-poyo', {
