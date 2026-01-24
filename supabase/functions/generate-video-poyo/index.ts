@@ -52,25 +52,29 @@ serve(async (req) => {
         console.log('Aspect ratio:', aspect_ratio);
         console.log('Style:', style || 'none');
 
-        // Check user's Sora 2 Pro video limit
+        // Check user's video limit
         const { data: profile, error: profileError } = await supabase
             .from('profiles')
-            .select('sora2pro_used, sora2pro_limit, videos_used, video_limit, total_videos_generated, is_admin')
+            .select('videos_used, video_limit, total_videos_generated, is_admin')
             .eq('id', user.id)
             .single();
 
         if (profileError) {
             console.error('Profile fetch error:', profileError);
-            throw new Error('Failed to fetch user profile');
+            throw new Error('Failed to fetch user profile: ' + profileError.message);
         }
 
-        // Check Sora 2 Pro specific limit (admins bypass limit)
-        const sora2proUsed = profile.sora2pro_used ?? 0;
-        const sora2proLimit = profile.sora2pro_limit ?? 0;
+        console.log('Profile data:', JSON.stringify(profile));
+
+        // Check video limit (admins bypass limit)
+        const videosUsed = profile.videos_used ?? 0;
+        const videoLimit = profile.video_limit ?? 0;
         const isAdmin = profile.is_admin ?? false;
 
-        if (!isAdmin && sora2proUsed >= sora2proLimit) {
-            throw new Error('Sora 2 Pro limit reached. Hubungi admin untuk tambahan.');
+        console.log('Limit check:', { isAdmin, videosUsed, videoLimit });
+
+        if (!isAdmin && videosUsed >= videoLimit) {
+            throw new Error('Video limit reached. Hubungi admin untuk tambahan.');
         }
 
         // Create video generation record
@@ -157,12 +161,11 @@ serve(async (req) => {
             console.log('Updated video with poyo_task_id:', taskId);
         }
 
-        // Update user's video counts (both sora2pro_used and total videos_used)
+        // Update user's video count
         await supabase
             .from('profiles')
             .update({
-                sora2pro_used: sora2proUsed + 1,
-                videos_used: (profile.videos_used ?? 0) + 1,
+                videos_used: videosUsed + 1,
                 total_videos_generated: (profile.total_videos_generated || 0) + 1,
             })
             .eq('id', user.id);
