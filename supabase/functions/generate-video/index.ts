@@ -88,10 +88,10 @@ serve(async (req) => {
     // Determine the image URL to use for I2V
     const imageForI2V = first_frame || image_url || reference_image_url;
 
-    // Check user's video limit
+    // Check user's per-model video limit
     const { data: profile, error: profileError } = await supabase
       .from('profiles')
-      .select('videos_used, video_limit, total_videos_generated, is_admin')
+      .select('videos_used, video_limit, total_videos_generated, is_admin, sora2_limit, sora2_used, veo3_limit, veo3_used')
       .eq('id', user.id)
       .single();
 
@@ -100,15 +100,38 @@ serve(async (req) => {
       throw new Error('Failed to fetch user profile');
     }
 
-    // Check video limit (admins bypass limit)
-    const videosUsed = profile.videos_used ?? 0;
-    const videoLimit = profile.video_limit ?? 0;
     const isAdmin = profile.is_admin ?? false;
 
-    console.log('Limit check:', { isAdmin, videosUsed, videoLimit, model });
+    // Determine which limit/used columns to check based on model
+    let modelLimit = 0;
+    let modelUsed = 0;
+    let limitColumn = '';
+    let usedColumn = '';
 
-    if (!isAdmin && videosUsed >= videoLimit) {
-      throw new Error('Video limit reached. Hubungi admin untuk tambahan.');
+    if (model.startsWith('sora')) {
+      // Sora 2 model
+      modelLimit = profile.sora2_limit ?? 0;
+      modelUsed = profile.sora2_used ?? 0;
+      limitColumn = 'sora2_limit';
+      usedColumn = 'sora2_used';
+    } else if (model.startsWith('veo')) {
+      // Veo 3 model
+      modelLimit = profile.veo3_limit ?? 0;
+      modelUsed = profile.veo3_used ?? 0;
+      limitColumn = 'veo3_limit';
+      usedColumn = 'veo3_used';
+    } else {
+      // Fallback to generic limit for other models (grok)
+      modelLimit = profile.video_limit ?? 0;
+      modelUsed = profile.videos_used ?? 0;
+      limitColumn = 'video_limit';
+      usedColumn = 'videos_used';
+    }
+
+    console.log('Per-model limit check:', { isAdmin, model, modelUsed, modelLimit, limitColumn, usedColumn });
+
+    if (!isAdmin && modelUsed >= modelLimit) {
+      throw new Error(`Had ${model} telah dicapai (${modelUsed}/${modelLimit}). Hubungi admin untuk tambahan.`);
     }
 
     // Create video generation record
@@ -133,6 +156,19 @@ serve(async (req) => {
     }
 
     console.log('Video record created:', videoRecord.id);
+
+    // Increment per-model usage count
+    const updateData: any = {
+      total_videos_generated: (profile.total_videos_generated || 0) + 1,
+    };
+    updateData[usedColumn] = modelUsed + 1;
+
+    await supabase
+      .from('profiles')
+      .update(updateData)
+      .eq('id', user.id);
+
+    console.log('Updated usage:', usedColumn, '=', modelUsed + 1);
 
     // Build FormData for GeminiGen API
     const formData = new FormData();

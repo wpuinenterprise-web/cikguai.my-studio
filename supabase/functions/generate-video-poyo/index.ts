@@ -114,10 +114,10 @@ serve(async (req) => {
             }
         }
 
-        // Check user's video limit
+        // Check user's Sora 2 Pro limit
         const { data: profile, error: profileError } = await supabase
             .from('profiles')
-            .select('videos_used, video_limit, total_videos_generated, is_admin')
+            .select('videos_used, video_limit, total_videos_generated, is_admin, sora2pro_limit, sora2pro_used')
             .eq('id', user.id)
             .single();
 
@@ -128,15 +128,15 @@ serve(async (req) => {
 
         console.log('Profile data:', JSON.stringify(profile));
 
-        // Check video limit (admins bypass limit)
-        const videosUsed = profile.videos_used ?? 0;
-        const videoLimit = profile.video_limit ?? 0;
+        // Check Sora 2 Pro limit (admins bypass limit)
+        const sora2proUsed = profile.sora2pro_used ?? 0;
+        const sora2proLimit = profile.sora2pro_limit ?? 0;
         const isAdmin = profile.is_admin ?? false;
 
-        console.log('Limit check:', { isAdmin, videosUsed, videoLimit });
+        console.log('Sora 2 Pro limit check:', { isAdmin, sora2proUsed, sora2proLimit });
 
-        if (!isAdmin && videosUsed >= videoLimit) {
-            throw new Error('Video limit reached. Hubungi admin untuk tambahan.');
+        if (!isAdmin && sora2proUsed >= sora2proLimit) {
+            throw new Error(`Had Sora 2 Pro telah dicapai (${sora2proUsed}/${sora2proLimit}). Hubungi admin untuk tambahan.`);
         }
 
         // Create video generation record
@@ -237,14 +237,16 @@ serve(async (req) => {
             console.log('Updated video with poyo_task_id:', taskId);
         }
 
-        // Update user's video count
+        // Update user's Sora 2 Pro usage count
         await supabase
             .from('profiles')
             .update({
-                videos_used: videosUsed + 1,
+                sora2pro_used: sora2proUsed + 1,
                 total_videos_generated: (profile.total_videos_generated || 0) + 1,
             })
             .eq('id', user.id);
+
+        console.log('Updated sora2pro_used:', sora2proUsed + 1);
 
         console.log('Video generation initiated successfully');
 
