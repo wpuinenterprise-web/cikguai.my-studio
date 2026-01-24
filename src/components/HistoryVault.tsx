@@ -35,6 +35,41 @@ interface HistoryVaultProps {
   userProfile: UserProfile;
 }
 
+// Component to get actual video duration from metadata
+const VideoDurationBadge: React.FC<{ videoUrl: string | null; fallbackDuration: number }> = ({
+  videoUrl,
+  fallbackDuration
+}) => {
+  const [actualDuration, setActualDuration] = useState<number | null>(null);
+
+  useEffect(() => {
+    if (!videoUrl) return;
+
+    const video = document.createElement('video');
+    video.preload = 'metadata';
+    video.onloadedmetadata = () => {
+      setActualDuration(Math.round(video.duration));
+    };
+    video.onerror = () => {
+      // Fallback to stored duration if can't load metadata
+      setActualDuration(null);
+    };
+    video.src = videoUrl;
+
+    return () => {
+      video.src = '';
+    };
+  }, [videoUrl]);
+
+  const displayDuration = actualDuration !== null ? actualDuration : fallbackDuration;
+
+  return (
+    <div className="absolute bottom-2 right-2 px-1.5 py-0.5 rounded bg-background/80 backdrop-blur-sm text-[10px] font-mono text-foreground">
+      {displayDuration ? `${displayDuration}s` : '?s'}
+    </div>
+  );
+};
+
 const HistoryVault: React.FC<HistoryVaultProps> = ({ userProfile }) => {
   // Check if feature should be locked
   const isLocked = userProfile && !userProfile.is_admin && (!userProfile.is_approved || userProfile.video_limit <= 0);
@@ -730,10 +765,8 @@ const HistoryVault: React.FC<HistoryVaultProps> = ({ userProfile }) => {
             </div>
           )}
 
-          {/* Duration - Bottom Right */}
-          <div className="absolute bottom-2 right-2 px-1.5 py-0.5 rounded bg-background/80 backdrop-blur-sm text-[10px] font-mono text-foreground">
-            {video.duration ? `${video.duration}s` : '?s'}
-          </div>
+          {/* Duration - Bottom Right (using actual video duration) */}
+          <VideoDurationBadge videoUrl={video.video_url} fallbackDuration={video.duration} />
         </div>
 
         {/* Content */}
