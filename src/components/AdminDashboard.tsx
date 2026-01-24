@@ -1107,6 +1107,80 @@ const AdminDashboard: React.FC = () => {
                           </Button>
                         </div>
                       </div>
+
+                      {/* Per-Model Stats - Always Visible (All Screens) */}
+                      <div className="pt-3 border-t border-border/30 mt-3">
+                        <p className="text-[10px] font-bold text-cyan-400 uppercase mb-2">📊 Statistik Penggunaan Setiap Model</p>
+                        <div className="grid grid-cols-3 gap-3 text-xs">
+                          {/* Sora 2 */}
+                          <div className="bg-cyan-500/10 rounded-lg p-2.5 border border-cyan-500/20">
+                            <span className="text-cyan-400 font-bold text-sm block mb-1">Sora 2</span>
+                            <div className="space-y-0.5">
+                              <div className="flex justify-between">
+                                <span className="text-muted-foreground">Dijana:</span>
+                                <span className="font-bold">{user.sora2_used}</span>
+                              </div>
+                              <div className="flex justify-between">
+                                <span className="text-muted-foreground">Baki:</span>
+                                <span className={`font-bold ${user.sora2_limit - user.sora2_used <= 0 ? 'text-red-400' : 'text-green-400'}`}>
+                                  {Math.max(0, user.sora2_limit - user.sora2_used)}
+                                </span>
+                              </div>
+                              <div className="flex justify-between">
+                                <span className="text-muted-foreground">Had:</span>
+                                <span className="font-bold text-cyan-400">{user.sora2_limit}</span>
+                              </div>
+                            </div>
+                          </div>
+                          {/* Sora Pro */}
+                          <div className="bg-amber-500/10 rounded-lg p-2.5 border border-amber-500/20">
+                            <span className="text-amber-400 font-bold text-sm block mb-1">Sora Pro</span>
+                            <div className="space-y-0.5">
+                              <div className="flex justify-between">
+                                <span className="text-muted-foreground">Dijana:</span>
+                                <span className="font-bold">{user.sora2pro_used}</span>
+                              </div>
+                              <div className="flex justify-between">
+                                <span className="text-muted-foreground">Baki:</span>
+                                <span className={`font-bold ${user.sora2pro_limit - user.sora2pro_used <= 0 ? 'text-red-400' : 'text-green-400'}`}>
+                                  {Math.max(0, user.sora2pro_limit - user.sora2pro_used)}
+                                </span>
+                              </div>
+                              <div className="flex justify-between">
+                                <span className="text-muted-foreground">Had:</span>
+                                <span className="font-bold text-amber-400">{user.sora2pro_limit}</span>
+                              </div>
+                            </div>
+                          </div>
+                          {/* Veo 3 */}
+                          <div className="bg-violet-500/10 rounded-lg p-2.5 border border-violet-500/20">
+                            <span className="text-violet-400 font-bold text-sm block mb-1">Veo 3</span>
+                            <div className="space-y-0.5">
+                              <div className="flex justify-between">
+                                <span className="text-muted-foreground">Dijana:</span>
+                                <span className="font-bold">{user.veo3_used}</span>
+                              </div>
+                              <div className="flex justify-between">
+                                <span className="text-muted-foreground">Baki:</span>
+                                <span className={`font-bold ${user.veo3_limit - user.veo3_used <= 0 ? 'text-red-400' : 'text-green-400'}`}>
+                                  {Math.max(0, user.veo3_limit - user.veo3_used)}
+                                </span>
+                              </div>
+                              <div className="flex justify-between">
+                                <span className="text-muted-foreground">Had:</span>
+                                <span className="font-bold text-violet-400">{user.veo3_limit}</span>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                        {/* Lifetime Total */}
+                        <div className="mt-2 p-2.5 bg-gradient-to-r from-primary/10 to-transparent rounded-lg border border-primary/20">
+                          <div className="flex items-center justify-between">
+                            <span className="text-xs text-muted-foreground">🔒 Jumlah Keseluruhan (Tak Boleh Reset)</span>
+                            <span className="text-lg font-black text-primary">{user.total_videos_generated || 0} video</span>
+                          </div>
+                        </div>
+                      </div>
                     </div>
                   ))
                 )}
