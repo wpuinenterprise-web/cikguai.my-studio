@@ -203,9 +203,7 @@ const VeoStudio: React.FC<VeoStudioProps> = ({ userProfile, onProfileRefresh }) 
                     duration: 10,
                     aspect_ratio: aspectRatio === '16:9' ? 'landscape' : 'portrait',
                     model: 'veo-3.1-fast',
-                    resolution,
-                    first_frame: firstFrame,
-                    last_frame: lastFrame,
+                    reference_image_url: firstFrame,
                 },
             });
 
