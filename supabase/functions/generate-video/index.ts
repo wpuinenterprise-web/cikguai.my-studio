@@ -17,8 +17,9 @@ const MODEL_ENDPOINTS: Record<string, string> = {
   'veo-2': 'https://api.geminigen.ai/uapi/v1/video-gen/veo',
   'veo-3.1': 'https://api.geminigen.ai/uapi/v1/video-gen/veo',
   'veo-3.1-fast': 'https://api.geminigen.ai/uapi/v1/video-gen/veo',
-  // Grok model
+  // Grok model - API requires 'grok-3' 
   'grok-3': 'https://api.geminigen.ai/uapi/v1/video-gen/grok',
+  'grok': 'https://api.geminigen.ai/uapi/v1/video-gen/grok', // Alias for backward compatibility
 };
 
 const VALID_MODELS = Object.keys(MODEL_ENDPOINTS);
@@ -129,12 +130,18 @@ serve(async (req) => {
     // Build FormData for GeminiGen API
     const formData = new FormData();
     formData.append('prompt', prompt);
-    formData.append('model', model);
 
     // Determine model type
     const isSoraModel = model.startsWith('sora');
     const isVeoModel = model.startsWith('veo');
-    const isGrokModel = model.startsWith('grok');
+    const isGrokModel = model.startsWith('grok') || model === 'grok';
+
+    // Convert model name for API - GeminiGen API requires 'grok-3' not 'grok'
+    let apiModelName = model;
+    if (model === 'grok') {
+      apiModelName = 'grok-3';
+    }
+    formData.append('model', apiModelName);
 
     // === RESOLUTION ===
     // Sora: uses 'small' (720p) or 'large' (1080p)
