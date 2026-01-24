@@ -91,7 +91,7 @@ serve(async (req) => {
     // Check user's video limit
     const { data: profile, error: profileError } = await supabase
       .from('profiles')
-      .select('videos_used, video_limit, total_videos_generated')
+      .select('videos_used, video_limit, total_videos_generated, is_admin')
       .eq('id', user.id)
       .single();
 
@@ -100,8 +100,15 @@ serve(async (req) => {
       throw new Error('Failed to fetch user profile');
     }
 
-    if (profile.videos_used >= profile.video_limit) {
-      throw new Error('Video generation limit reached');
+    // Check video limit (admins bypass limit)
+    const videosUsed = profile.videos_used ?? 0;
+    const videoLimit = profile.video_limit ?? 0;
+    const isAdmin = profile.is_admin ?? false;
+
+    console.log('Limit check:', { isAdmin, videosUsed, videoLimit, model });
+
+    if (!isAdmin && videosUsed >= videoLimit) {
+      throw new Error('Video limit reached. Hubungi admin untuk tambahan.');
     }
 
     // Create video generation record
