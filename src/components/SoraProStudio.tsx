@@ -423,15 +423,53 @@ const SoraProStudio: React.FC<SoraProStudioProps> = ({ userProfile, onProfileRef
                             <label className="block text-[10px] font-black text-muted-foreground uppercase tracking-widest mb-2">
                                 Image Reference
                             </label>
-                            <button
-                                onClick={() => fileInputRef.current?.click()}
-                                className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-xl bg-secondary/50 border border-border hover:border-primary/50 transition-all"
-                            >
-                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                                </svg>
-                                <span className="text-sm font-medium">{referenceImage ? 'Change Image' : 'Select Image'}</span>
-                            </button>
+                            {referenceImage ? (
+                                <div className="relative">
+                                    <div className="relative rounded-xl overflow-hidden border-2 border-primary/50 bg-secondary/50">
+                                        <img
+                                            src={referenceImage}
+                                            alt="Reference"
+                                            className="w-full h-24 object-cover"
+                                        />
+                                        <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" />
+                                        <div className="absolute bottom-2 left-2 right-2 flex items-center justify-between">
+                                            <span className="text-[10px] font-bold text-white/90 bg-black/40 px-2 py-1 rounded-md">
+                                                ✓ Image Selected
+                                            </span>
+                                            <div className="flex gap-1">
+                                                <button
+                                                    onClick={() => fileInputRef.current?.click()}
+                                                    className="p-1.5 rounded-lg bg-white/20 hover:bg-white/30 text-white transition-all"
+                                                    title="Change Image"
+                                                >
+                                                    <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                                                    </svg>
+                                                </button>
+                                                <button
+                                                    onClick={() => setReferenceImage(null)}
+                                                    className="p-1.5 rounded-lg bg-red-500/70 hover:bg-red-500 text-white transition-all"
+                                                    title="Remove Image"
+                                                >
+                                                    <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                                                    </svg>
+                                                </button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            ) : (
+                                <button
+                                    onClick={() => fileInputRef.current?.click()}
+                                    className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-xl bg-secondary/50 border border-border hover:border-primary/50 transition-all"
+                                >
+                                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                                    </svg>
+                                    <span className="text-sm font-medium">Select Image</span>
+                                </button>
+                            )}
                             <input ref={fileInputRef} type="file" accept="image/*" className="hidden" onChange={handleImageSelect} />
                         </div>
                     </div>
