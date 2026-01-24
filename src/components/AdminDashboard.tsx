@@ -910,51 +910,15 @@ const AdminDashboard: React.FC = () => {
                           )}
                         </div>
 
-                        {/* Video Stats - Desktop: Dijana Keseluruhan only */}
+                        {/* Video Stats - Desktop: Dijana Semasa (resets when limit updated) */}
                         <div>
-                          <p className="text-lg font-bold text-cyan-400">{user.total_videos_generated || 0}</p>
-                          <p className="text-[10px] text-muted-foreground">dijana keseluruhan</p>
+                          <p className="text-lg font-bold text-foreground">{user.videos_used}</p>
+                          <p className="text-[10px] text-muted-foreground">dijana semasa</p>
                         </div>
 
-                        {/* Video Limit - Desktop */}
+                        {/* Video Limit - Desktop (display only, edit via per-model) */}
                         <div>
-                          {editingUser === user.id ? (
-                            <div className="flex items-center gap-2">
-                              <Input
-                                type="number"
-                                value={editLimits.video_limit}
-                                onChange={(e) => setEditLimits({ ...editLimits, video_limit: parseInt(e.target.value) || 0 })}
-                                className="w-20 h-9 bg-secondary border-border text-sm"
-                              />
-                              <Button
-                                size="sm"
-                                onClick={() => handleSaveLimits(user.id)}
-                                className="h-9 w-9 p-0 bg-success hover:bg-success/90"
-                              >
-                                <Save className="w-4 h-4" />
-                              </Button>
-                              <Button
-                                size="sm"
-                                variant="ghost"
-                                onClick={() => setEditingUser(null)}
-                                className="h-9 w-9 p-0 text-muted-foreground hover:text-foreground"
-                              >
-                                <X className="w-4 h-4" />
-                              </Button>
-                            </div>
-                          ) : (
-                            <div className="flex items-center gap-2">
-                              <span className="text-lg font-bold text-foreground">{user.video_limit}</span>
-                              <Button
-                                size="sm"
-                                variant="ghost"
-                                onClick={() => handleEditLimits(user)}
-                                className="h-9 w-9 p-0 text-muted-foreground hover:text-primary"
-                              >
-                                <Edit2 className="w-4 h-4" />
-                              </Button>
-                            </div>
-                          )}
+                          <span className="text-lg font-bold text-foreground">{user.video_limit}</span>
                         </div>
 
                         {/* Image Stats Column */}
