@@ -44,23 +44,40 @@ const SoraProStudio: React.FC<SoraProStudioProps> = ({ userProfile, onProfileRef
 
     // Recalculate block durations when totalDuration changes
     React.useEffect(() => {
-        const currentTotal = blocks.reduce((sum, b) => sum + b.duration, 0);
-        if (currentTotal !== totalDuration) {
-            // Redistribute durations proportionally
+        setBlocks(prevBlocks => {
+            const currentTotal = prevBlocks.reduce((sum, b) => sum + b.duration, 0);
+
+            // Only recalculate if totals don't match
+            if (currentTotal === totalDuration) return prevBlocks;
+            if (prevBlocks.length === 0) return prevBlocks;
+
+            // Calculate proportional durations
             const ratio = totalDuration / currentTotal;
-            let newBlocks = blocks.map(b => ({
+            let newBlocks = prevBlocks.map(b => ({
                 ...b,
                 duration: Math.max(1, Math.round(b.duration * ratio))
             }));
 
-            // Adjust to exactly match totalDuration
-            const newTotal = newBlocks.reduce((sum, b) => sum + b.duration, 0);
-            if (newTotal !== totalDuration && newBlocks.length > 0) {
-                newBlocks[0].duration += totalDuration - newTotal;
+            // Ensure exact match to totalDuration
+            let newTotal = newBlocks.reduce((sum, b) => sum + b.duration, 0);
+            let diff = totalDuration - newTotal;
+
+            // Distribute the difference one second at a time
+            let idx = 0;
+            while (diff !== 0 && idx < 100) { // Safety limit
+                const blockIdx = idx % newBlocks.length;
+                if (diff > 0) {
+                    newBlocks[blockIdx].duration += 1;
+                    diff -= 1;
+                } else if (diff < 0 && newBlocks[blockIdx].duration > 1) {
+                    newBlocks[blockIdx].duration -= 1;
+                    diff += 1;
+                }
+                idx++;
             }
 
-            setBlocks(newBlocks);
-        }
+            return newBlocks;
+        });
     }, [totalDuration]);
 
     // Check limits
@@ -72,59 +89,77 @@ const SoraProStudio: React.FC<SoraProStudioProps> = ({ userProfile, onProfileRef
     // Calculate total block duration
     const totalBlockDuration = blocks.reduce((sum, b) => sum + b.duration, 0);
 
+    // Helper function to normalize durations to exact total
+    const normalizeDurations = (durations: number[], targetTotal: number): number[] => {
+        // Ensure minimum of 1 per block
+        let result = durations.map(d => Math.max(1, Math.round(d)));
+        let sum = result.reduce((a, b) => a + b, 0);
+        let diff = targetTotal - sum;
+
+        // Distribute difference evenly
+        let idx = 0;
+        while (diff !== 0 && idx < 100) {
+            const blockIdx = idx % result.length;
+            if (diff > 0) {
+                result[blockIdx] += 1;
+                diff -= 1;
+            } else if (diff < 0 && result[blockIdx] > 1) {
+                result[blockIdx] -= 1;
+                diff += 1;
+            }
+            idx++;
+        }
+        return result;
+    };
+
     // Apply distribution preset
     const applyPreset = useCallback((preset: DurationPreset) => {
         setActivePreset(preset);
         const count = blocks.length;
         if (count === 0) return;
 
-        let newDurations: number[] = [];
+        let rawDurations: number[] = [];
 
         switch (preset) {
             case 'equal':
-                const equalDuration = Math.floor(totalDuration / count);
-                const remainder = totalDuration % count;
-                newDurations = blocks.map((_, i) => equalDuration + (i < remainder ? 1 : 0));
+                rawDurations = Array(count).fill(totalDuration / count);
                 break;
             case 'ascending':
                 // First block smallest, last block largest
-                const ascStep = Math.floor(totalDuration / ((count * (count + 1)) / 2));
-                newDurations = blocks.map((_, i) => Math.max(5, ascStep * (i + 1)));
+                const ascTotal = (count * (count + 1)) / 2;
+                rawDurations = blocks.map((_, i) => (totalDuration * (i + 1)) / ascTotal);
                 break;
             case 'descending':
                 // First block largest, last block smallest
-                const descStep = Math.floor(totalDuration / ((count * (count + 1)) / 2));
-                newDurations = blocks.map((_, i) => Math.max(5, descStep * (count - i)));
+                const descTotal = (count * (count + 1)) / 2;
+                rawDurations = blocks.map((_, i) => (totalDuration * (count - i)) / descTotal);
                 break;
             case 'focus-middle':
                 // Middle blocks get more time
-                const mid = Math.floor(count / 2);
-                newDurations = blocks.map((_, i) => {
-                    const distFromMid = Math.abs(i - mid);
-                    return Math.max(5, Math.floor(totalDuration / count) + (mid - distFromMid) * 2);
-                });
+                const mid = (count - 1) / 2;
+                const weights = blocks.map((_, i) => 1 + Math.max(0, 2 - Math.abs(i - mid)));
+                const weightSum = weights.reduce((a, b) => a + b, 0);
+                rawDurations = weights.map(w => (totalDuration * w) / weightSum);
                 break;
             case 'first-heavy':
                 // First block gets 50%, rest split equally
-                const firstHeavy = Math.floor(totalDuration * 0.5);
-                const restFirst = Math.floor((totalDuration - firstHeavy) / Math.max(1, count - 1));
-                newDurations = blocks.map((_, i) => i === 0 ? firstHeavy : restFirst);
+                rawDurations = blocks.map((_, i) =>
+                    i === 0 ? totalDuration * 0.5 : (totalDuration * 0.5) / Math.max(1, count - 1)
+                );
                 break;
             case 'last-heavy':
                 // Last block gets 50%, rest split equally
-                const lastHeavy = Math.floor(totalDuration * 0.5);
-                const restLast = Math.floor((totalDuration - lastHeavy) / Math.max(1, count - 1));
-                newDurations = blocks.map((_, i) => i === count - 1 ? lastHeavy : restLast);
+                rawDurations = blocks.map((_, i) =>
+                    i === count - 1 ? totalDuration * 0.5 : (totalDuration * 0.5) / Math.max(1, count - 1)
+                );
                 break;
+            default:
+                rawDurations = Array(count).fill(totalDuration / count);
         }
 
-        // Normalize to match total duration
-        const sum = newDurations.reduce((a, b) => a + b, 0);
-        if (sum !== totalDuration && newDurations.length > 0) {
-            newDurations[0] += totalDuration - sum;
-        }
-
-        setBlocks(blocks.map((b, i) => ({ ...b, duration: Math.max(5, newDurations[i] || 5) })));
+        // Normalize to exact total
+        const normalizedDurations = normalizeDurations(rawDurations, totalDuration);
+        setBlocks(blocks.map((b, i) => ({ ...b, duration: normalizedDurations[i] })));
     }, [blocks.length, totalDuration]);
 
     // Add new block
@@ -134,13 +169,18 @@ const SoraProStudio: React.FC<SoraProStudioProps> = ({ userProfile, onProfileRef
             return;
         }
         const newId = Date.now().toString();
-        // Calculate new duration: split evenly
-        const newDuration = Math.max(1, Math.floor(totalDuration / (blocks.length + 1)));
-        const updatedBlocks = blocks.map(b => ({
+        const newCount = blocks.length + 1;
+
+        // Redistribute all blocks equally including new one
+        const rawDurations = Array(newCount).fill(totalDuration / newCount);
+        const normalizedDurations = normalizeDurations(rawDurations, totalDuration);
+
+        const updatedBlocks = blocks.map((b, i) => ({
             ...b,
-            duration: Math.max(1, Math.floor(b.duration * blocks.length / (blocks.length + 1)))
+            duration: normalizedDurations[i]
         }));
-        setBlocks([...updatedBlocks, { id: newId, prompt: '', duration: newDuration }]);
+
+        setBlocks([...updatedBlocks, { id: newId, prompt: '', duration: normalizedDurations[newCount - 1] }]);
     };
 
     // Remove block
