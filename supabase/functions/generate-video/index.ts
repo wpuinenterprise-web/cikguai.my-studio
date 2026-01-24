@@ -47,7 +47,18 @@ serve(async (req) => {
       throw new Error('Unauthorized');
     }
 
-    const { prompt, duration, aspect_ratio, reference_image_url, model = 'sora-2' } = await req.json();
+    const {
+      prompt,
+      duration,
+      aspect_ratio,
+      reference_image_url,
+      model = 'sora-2',
+      // New parameters from VeoStudio and GrokStudio
+      first_frame,
+      last_frame,
+      image_url,
+      resolution: clientResolution
+    } = await req.json();
 
     // Validate model
     if (!VALID_MODELS.includes(model)) {
@@ -59,6 +70,13 @@ serve(async (req) => {
     console.log('Duration:', duration);
     console.log('Aspect ratio:', aspect_ratio);
     console.log('Model:', model);
+    console.log('First Frame:', first_frame ? 'provided' : 'none');
+    console.log('Last Frame:', last_frame ? 'provided' : 'none');
+    console.log('Image URL:', image_url ? 'provided' : 'none');
+    console.log('Client Resolution:', clientResolution);
+
+    // Determine the image URL to use (prioritize first_frame > image_url > reference_image_url)
+    const imageForI2V = first_frame || image_url || reference_image_url;
 
     // Check user's video limit
     const { data: profile, error: profileError } = await supabase
@@ -84,7 +102,7 @@ serve(async (req) => {
         prompt,
         duration,
         aspect_ratio,
-        reference_image_url,
+        reference_image_url: imageForI2V,
         model,
         status: 'processing',
         status_percentage: 1,
@@ -104,9 +122,14 @@ serve(async (req) => {
     formData.append('prompt', prompt);
     formData.append('model', model);
 
-    // Resolution: Veo uses 720p/1080p, Sora uses small/medium
+    // Resolution: Use client-provided resolution if available, otherwise default
     const isVeoModel = model.startsWith('veo');
-    if (isVeoModel) {
+    const isGrokModel = model === 'grok';
+
+    if (clientResolution) {
+      // Client specified resolution (720p or 1080p)
+      formData.append('resolution', clientResolution);
+    } else if (isVeoModel) {
       formData.append('resolution', model.includes('pro') ? '1080p' : '720p');
     } else {
       formData.append('resolution', model.includes('pro') ? 'medium' : 'small');
@@ -115,21 +138,32 @@ serve(async (req) => {
     formData.append('duration', duration.toString());
 
     // Aspect ratio: Veo uses 16:9/9:16, others use landscape/portrait
-    const aspectRatioFormatted = isVeoModel
-      ? (aspect_ratio === 'landscape' ? '16:9' : '9:16')
-      : aspect_ratio;
+    let aspectRatioFormatted = aspect_ratio;
+    if (isVeoModel) {
+      // Map landscape/portrait to 16:9/9:16 for Veo
+      if (aspect_ratio === 'landscape') aspectRatioFormatted = '16:9';
+      else if (aspect_ratio === 'portrait') aspectRatioFormatted = '9:16';
+    } else if (isGrokModel) {
+      // Grok supports square as well
+      if (aspect_ratio === 'square') aspectRatioFormatted = '1:1';
+    }
     formData.append('aspect_ratio', aspectRatioFormatted);
 
     // Send reference image URL for I2V (Image to Video)
-    // Try multiple parameter names that GeminiGen API might accept
-    if (reference_image_url && reference_image_url.startsWith('http')) {
-      console.log('Adding reference image for I2V:', reference_image_url);
+    if (imageForI2V && imageForI2V.startsWith('http')) {
+      console.log('Adding reference image for I2V:', imageForI2V);
       // Add as multiple possible parameter names for I2V
-      formData.append('first_frame_url', reference_image_url);
-      formData.append('image_url', reference_image_url);
-      formData.append('file_urls', reference_image_url);
-    } else if (reference_image_url) {
-      console.log('Invalid reference image URL format:', reference_image_url.substring(0, 50));
+      formData.append('first_frame_url', imageForI2V);
+      formData.append('image_url', imageForI2V);
+      formData.append('file_urls', imageForI2V);
+
+      // Add last frame if provided (for Veo)
+      if (last_frame && last_frame.startsWith('http')) {
+        console.log('Adding last frame:', last_frame);
+        formData.append('last_frame_url', last_frame);
+      }
+    } else if (imageForI2V) {
+      console.log('Invalid reference image URL format:', imageForI2V.substring(0, 50));
     }
 
     // Get the appropriate API endpoint for the model
