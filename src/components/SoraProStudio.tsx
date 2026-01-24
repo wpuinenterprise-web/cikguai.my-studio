@@ -410,8 +410,9 @@ const SoraProStudio: React.FC<SoraProStudioProps> = ({ userProfile, onProfileRef
                     body: {
                         prompt: combinedPrompt,
                         duration: totalDuration,
-                        aspect_ratio: '16:9',
+                        aspect_ratio: orientation === 'landscape' ? '16:9' : '9:16',
                         model: 'sora-2-pro',
+                        reference_image: referenceImage, // For image-to-video
                     },
                 });
 
@@ -444,8 +445,9 @@ const SoraProStudio: React.FC<SoraProStudioProps> = ({ userProfile, onProfileRef
                     body: {
                         prompt: basicPrompt,
                         duration: totalDuration,
-                        aspect_ratio: '16:9',
+                        aspect_ratio: orientation === 'landscape' ? '16:9' : '9:16',
                         model: 'sora-2-pro',
+                        reference_image: referenceImage, // For image-to-video
                     },
                 });
 

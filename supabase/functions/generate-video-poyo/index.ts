@@ -43,6 +43,7 @@ serve(async (req) => {
             duration = 15,
             aspect_ratio = '16:9',
             style, // Optional: thanksgiving, comic, news, selfie, nostalgic, anime
+            reference_image, // Optional: base64 image for image-to-video
         } = await req.json();
 
         console.log('=== Poyo.ai Video Generation Request ===');
@@ -51,6 +52,45 @@ serve(async (req) => {
         console.log('Duration:', duration);
         console.log('Aspect ratio:', aspect_ratio);
         console.log('Style:', style || 'none');
+        console.log('Has reference image:', !!reference_image);
+
+        // If reference image provided, upload to Poyo storage first
+        let imageUrl: string | null = null;
+        if (reference_image) {
+            try {
+                console.log('Uploading reference image to Poyo.ai storage...');
+
+                // Convert base64 to URL format for upload
+                // First, we need to host it somewhere accessible - use Supabase storage
+                const base64Data = reference_image.replace(/^data:image\/\w+;base64,/, '');
+                const imageBuffer = Uint8Array.from(atob(base64Data), c => c.charCodeAt(0));
+                const fileName = `sora-ref-${Date.now()}.jpg`;
+
+                // Upload to Supabase storage
+                const { data: uploadData, error: uploadError } = await supabase.storage
+                    .from('video-references')
+                    .upload(fileName, imageBuffer, {
+                        contentType: 'image/jpeg',
+                        upsert: true,
+                    });
+
+                if (uploadError) {
+                    console.error('Supabase upload error:', uploadError);
+                    // Continue without image if upload fails
+                } else {
+                    // Get public URL
+                    const { data: { publicUrl } } = supabase.storage
+                        .from('video-references')
+                        .getPublicUrl(fileName);
+
+                    imageUrl = publicUrl;
+                    console.log('Image uploaded to:', imageUrl);
+                }
+            } catch (uploadErr) {
+                console.error('Image upload error:', uploadErr);
+                // Continue without image
+            }
+        }
 
         // Check user's video limit
         const { data: profile, error: profileError } = await supabase
@@ -113,6 +153,12 @@ serve(async (req) => {
         // Add style if provided
         if (style) {
             requestBody.input.style = style;
+        }
+
+        // Add image_url for image-to-video if we have one
+        if (imageUrl) {
+            requestBody.input.image_url = imageUrl;
+            console.log('Added image_url to request:', imageUrl);
         }
 
         console.log('=== Calling Poyo.ai API ===');
