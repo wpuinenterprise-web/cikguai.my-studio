@@ -7,11 +7,18 @@ const corsHeaders = {
 };
 
 // Supported video models and their API endpoints
+// API Docs: https://docs.geminigen.ai
 const MODEL_ENDPOINTS: Record<string, string> = {
+  // Sora models
   'sora-2': 'https://api.geminigen.ai/uapi/v1/video-gen/sora',
   'sora-2-pro': 'https://api.geminigen.ai/uapi/v1/video-gen/sora',
+  'sora-2-pro-hd': 'https://api.geminigen.ai/uapi/v1/video-gen/sora',
+  // Veo models  
+  'veo-2': 'https://api.geminigen.ai/uapi/v1/video-gen/veo',
+  'veo-3.1': 'https://api.geminigen.ai/uapi/v1/video-gen/veo',
   'veo-3.1-fast': 'https://api.geminigen.ai/uapi/v1/video-gen/veo',
-  'grok': 'https://api.geminigen.ai/uapi/v1/video-gen/grok',
+  // Grok model
+  'grok-3': 'https://api.geminigen.ai/uapi/v1/video-gen/grok',
 };
 
 const VALID_MODELS = Object.keys(MODEL_ENDPOINTS);
@@ -53,11 +60,12 @@ serve(async (req) => {
       aspect_ratio,
       reference_image_url,
       model = 'sora-2',
-      // New parameters from VeoStudio and GrokStudio
+      // Additional parameters from studios
       first_frame,
       last_frame,
       image_url,
-      resolution: clientResolution
+      resolution: clientResolution,
+      mode // For Grok
     } = await req.json();
 
     // Validate model
@@ -65,17 +73,18 @@ serve(async (req) => {
       throw new Error(`Invalid model: ${model}. Valid models: ${VALID_MODELS.join(', ')}`);
     }
 
-    console.log('Generating video for user:', user.id);
-    console.log('Prompt:', prompt);
+    console.log('=== Video Generation Request ===');
+    console.log('User:', user.id);
+    console.log('Prompt:', prompt?.substring(0, 100) + '...');
     console.log('Duration:', duration);
     console.log('Aspect ratio:', aspect_ratio);
     console.log('Model:', model);
+    console.log('Reference image:', reference_image_url ? 'provided' : 'none');
     console.log('First Frame:', first_frame ? 'provided' : 'none');
-    console.log('Last Frame:', last_frame ? 'provided' : 'none');
     console.log('Image URL:', image_url ? 'provided' : 'none');
     console.log('Client Resolution:', clientResolution);
 
-    // Determine the image URL to use (prioritize first_frame > image_url > reference_image_url)
+    // Determine the image URL to use for I2V
     const imageForI2V = first_frame || image_url || reference_image_url;
 
     // Check user's video limit
@@ -94,7 +103,7 @@ serve(async (req) => {
       throw new Error('Video generation limit reached');
     }
 
-    // Create video generation record with model
+    // Create video generation record
     const { data: videoRecord, error: insertError } = await supabase
       .from('video_generations')
       .insert({
@@ -117,66 +126,86 @@ serve(async (req) => {
 
     console.log('Video record created:', videoRecord.id);
 
-    // Call GeminiGen API with selected model
+    // Build FormData for GeminiGen API
     const formData = new FormData();
     formData.append('prompt', prompt);
     formData.append('model', model);
 
-    // Resolution: Use client-provided resolution if available, otherwise default
+    // Determine model type
+    const isSoraModel = model.startsWith('sora');
     const isVeoModel = model.startsWith('veo');
-    const isGrokModel = model === 'grok';
+    const isGrokModel = model.startsWith('grok');
 
-    if (clientResolution) {
-      // Client specified resolution (720p or 1080p)
-      formData.append('resolution', clientResolution);
+    // === RESOLUTION ===
+    // Sora: uses 'small' (720p) or 'large' (1080p)
+    // Veo: uses '720p' or '1080p' (veo-2 only supports 720p)
+    // Grok: uses '360p' or '720p'
+    if (isSoraModel) {
+      const soraResolution = clientResolution === '1080p' || model.includes('hd') ? 'large' : 'small';
+      formData.append('resolution', soraResolution);
     } else if (isVeoModel) {
-      formData.append('resolution', model.includes('pro') ? '1080p' : '720p');
-    } else {
-      formData.append('resolution', model.includes('pro') ? 'medium' : 'small');
+      const veoResolution = clientResolution || (model === 'veo-2' ? '720p' : '720p');
+      formData.append('resolution', veoResolution);
+    } else if (isGrokModel) {
+      formData.append('resolution', clientResolution || '720p');
     }
 
-    formData.append('duration', duration.toString());
+    // === DURATION ===
+    // Sora: 10/15 for sora-2, 25 for sora-2-pro, 15 for sora-2-pro-hd
+    // Grok: only 6 seconds
+    if (isGrokModel) {
+      formData.append('duration', '6'); // Grok only supports 6s
+    } else {
+      formData.append('duration', duration?.toString() || '10');
+    }
 
-    // Aspect ratio: Veo uses 16:9/9:16, others use landscape/portrait
-    let aspectRatioFormatted = aspect_ratio;
+    // === ASPECT RATIO ===
+    // Sora: 'landscape', 'portrait', 'square'
+    // Veo: '16:9', '9:16'
+    // Grok: 'landscape', 'portrait', 'square'
+    let aspectRatioFormatted = aspect_ratio || 'landscape';
     if (isVeoModel) {
-      // Map landscape/portrait to 16:9/9:16 for Veo
-      if (aspect_ratio === 'landscape') aspectRatioFormatted = '16:9';
-      else if (aspect_ratio === 'portrait') aspectRatioFormatted = '9:16';
-    } else if (isGrokModel) {
-      // Grok supports square as well
-      if (aspect_ratio === 'square') aspectRatioFormatted = '1:1';
+      // Map to Veo format
+      if (aspect_ratio === 'landscape' || aspect_ratio === '16:9') {
+        aspectRatioFormatted = '16:9';
+      } else if (aspect_ratio === 'portrait' || aspect_ratio === '9:16') {
+        aspectRatioFormatted = '9:16';
+      } else {
+        aspectRatioFormatted = '16:9'; // Default for Veo
+      }
     }
     formData.append('aspect_ratio', aspectRatioFormatted);
 
-    // Send reference image URL for I2V (Image to Video)
+    // === MODE (Grok only) ===
+    if (isGrokModel) {
+      formData.append('mode', mode || 'custom');
+    }
+
+    // === IMAGE TO VIDEO (I2V) ===
+    // Sora & Grok: use 'file_urls' (array of strings)
+    // Veo: use 'ref_images' (array, up to 2 items)
     if (imageForI2V && imageForI2V.startsWith('http')) {
       console.log('Adding reference image for I2V:', imageForI2V);
-      // Add as multiple possible parameter names for I2V
-      formData.append('first_frame_url', imageForI2V);
-      formData.append('image_url', imageForI2V);
-      formData.append('file_urls', imageForI2V);
 
-      // Add last frame if provided (for Veo)
-      if (last_frame && last_frame.startsWith('http')) {
-        console.log('Adding last frame:', last_frame);
-        formData.append('last_frame_url', last_frame);
+      if (isVeoModel) {
+        // Veo uses ref_images array
+        formData.append('ref_images', imageForI2V);
+        if (last_frame && last_frame.startsWith('http')) {
+          formData.append('ref_images', last_frame);
+        }
+      } else {
+        // Sora and Grok use file_urls
+        formData.append('file_urls', imageForI2V);
       }
-    } else if (imageForI2V) {
-      console.log('Invalid reference image URL format:', imageForI2V.substring(0, 50));
     }
 
     // Get the appropriate API endpoint for the model
     const apiEndpoint = MODEL_ENDPOINTS[model];
 
-    console.log('Calling GeminiGen API with params:', {
-      prompt: prompt.substring(0, 100) + '...',
-      model,
-      endpoint: apiEndpoint,
-      duration,
-      aspect_ratio,
-      has_reference_image: !!reference_image_url,
-    });
+    console.log('=== Calling GeminiGen API ===');
+    console.log('Endpoint:', apiEndpoint);
+    console.log('Model:', model);
+    console.log('Has I2V:', !!imageForI2V);
 
     const geminigenResponse = await fetch(apiEndpoint, {
       method: 'POST',
@@ -201,10 +230,10 @@ serve(async (req) => {
         })
         .eq('id', videoRecord.id);
 
-      throw new Error(geminigenData.detail?.message || 'Failed to generate video');
+      throw new Error(geminigenData.detail?.message || geminigenData.message || 'Failed to generate video');
     }
 
-    // Update video record with GeminiGen UUID - THIS IS CRITICAL for sync
+    // Update video record with GeminiGen UUID
     const { error: updateError } = await supabase
       .from('video_generations')
       .update({
@@ -219,10 +248,7 @@ serve(async (req) => {
       console.log('Updated video with geminigen_uuid:', geminigenData.uuid);
     }
 
-    // NOTE: videos_used is NOT incremented here anymore
-    // It will be incremented in check-video-status when video actually completes
-    // This prevents users losing quota when generation fails
-    console.log('Video generation initiated successfully (limit will be counted on completion)');
+    console.log('Video generation initiated successfully');
 
     return new Response(
       JSON.stringify({
