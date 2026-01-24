@@ -42,6 +42,13 @@ const SoraProStudio: React.FC<SoraProStudioProps> = ({ userProfile, onProfileRef
     const [promptMode, setPromptMode] = useState<PromptMode>('basic');
     const [basicPrompt, setBasicPrompt] = useState('');
 
+    // Progress tracking state
+    const [generationProgress, setGenerationProgress] = useState(0);
+    const [generatedVideoUrl, setGeneratedVideoUrl] = useState<string | null>(null);
+    const [currentVideoId, setCurrentVideoId] = useState<string | null>(null);
+    const [currentTaskId, setCurrentTaskId] = useState<string | null>(null);
+    const pollingRef = useRef<NodeJS.Timeout | null>(null);
+
     // Handler for changing total duration - directly updates blocks
     const handleDurationChange = (newDuration: 15 | 25) => {
         if (newDuration === totalDuration) return;
@@ -109,6 +116,54 @@ const SoraProStudio: React.FC<SoraProStudioProps> = ({ userProfile, onProfileRef
         }
         return result;
     };
+
+    // Poll video generation status
+    const pollVideoStatus = async (videoId: string, taskId: string) => {
+        try {
+            const response = await supabase.functions.invoke('check-video-status-poyo', {
+                body: { poyo_task_id: taskId, video_id: videoId },
+            });
+
+            if (response.error) {
+                console.error('Status check error:', response.error);
+                return;
+            }
+
+            const data = response.data;
+            console.log('Status update:', data);
+
+            setGenerationProgress(data.status_percentage || 0);
+
+            if (data.status === 'completed' && data.video_url) {
+                setGeneratedVideoUrl(data.video_url);
+                setIsGenerating(false);
+                if (pollingRef.current) {
+                    clearInterval(pollingRef.current);
+                    pollingRef.current = null;
+                }
+                toast.success('Video berjaya dijana!');
+                if (onProfileRefresh) await onProfileRefresh();
+            } else if (data.status === 'failed') {
+                setIsGenerating(false);
+                if (pollingRef.current) {
+                    clearInterval(pollingRef.current);
+                    pollingRef.current = null;
+                }
+                toast.error('Video gagal dijana: ' + (data.error_message || 'Unknown error'));
+            }
+        } catch (error) {
+            console.error('Polling error:', error);
+        }
+    };
+
+    // Cleanup polling on unmount
+    React.useEffect(() => {
+        return () => {
+            if (pollingRef.current) {
+                clearInterval(pollingRef.current);
+            }
+        };
+    }, []);
 
     // Apply distribution preset
     const applyPreset = useCallback((preset: DurationPreset) => {
@@ -310,6 +365,16 @@ const SoraProStudio: React.FC<SoraProStudioProps> = ({ userProfile, onProfileRef
             return;
         }
 
+        // Reset progress state
+        setGenerationProgress(0);
+        setGeneratedVideoUrl(null);
+        setCurrentVideoId(null);
+        setCurrentTaskId(null);
+        if (pollingRef.current) {
+            clearInterval(pollingRef.current);
+            pollingRef.current = null;
+        }
+
         setIsGenerating(true);
 
         try {
@@ -358,7 +423,19 @@ const SoraProStudio: React.FC<SoraProStudioProps> = ({ userProfile, onProfileRef
                     throw new Error(response.data?.error || 'Gagal menjana video');
                 }
 
-                toast.success('Video storyboard berjaya dimulakan!');
+                // Start polling for story mode
+                const videoId = response.data.video_id;
+                const taskId = response.data.poyo_task_id;
+                setCurrentVideoId(videoId);
+                setCurrentTaskId(taskId);
+                setGenerationProgress(5);
+
+                // Start polling every 3 seconds
+                pollingRef.current = setInterval(() => {
+                    pollVideoStatus(videoId, taskId);
+                }, 3000);
+
+                toast.success('Video storyboard sedang dijana...');
             } else {
                 // Basic mode - single video
                 toast.info('Menjana video...');
@@ -380,19 +457,27 @@ const SoraProStudio: React.FC<SoraProStudioProps> = ({ userProfile, onProfileRef
                     throw new Error(response.data?.error || 'Gagal menjana video');
                 }
 
-                toast.success('Video berjaya dimulakan!');
-            }
+                // Start polling for basic mode
+                const videoId = response.data.video_id;
+                const taskId = response.data.poyo_task_id;
+                setCurrentVideoId(videoId);
+                setCurrentTaskId(taskId);
+                setGenerationProgress(5);
 
-            if (onProfileRefresh) {
-                await onProfileRefresh();
+                // Start polling every 3 seconds
+                pollingRef.current = setInterval(() => {
+                    pollVideoStatus(videoId, taskId);
+                }, 3000);
+
+                toast.success('Video sedang dijana...');
             }
 
         } catch (error: any) {
             console.error('Video generation error:', error);
             toast.error(error.message || 'Gagal menjana video');
-        } finally {
             setIsGenerating(false);
         }
+        // Note: setIsGenerating(false) is called by pollVideoStatus when complete/failed
     };
 
     // Locked UI
@@ -883,21 +968,64 @@ const SoraProStudio: React.FC<SoraProStudioProps> = ({ userProfile, onProfileRef
                         </div>
                     </div>
 
+                    {/* Generation Progress */}
+                    {isGenerating && (
+                        <div className="mb-4 p-4 rounded-xl bg-secondary/30 border border-amber-500/30">
+                            <div className="flex items-center justify-between mb-2">
+                                <span className="text-sm font-bold text-amber-500">Menjana Video...</span>
+                                <span className="text-sm font-black text-amber-500">{generationProgress}%</span>
+                            </div>
+                            <div className="w-full bg-secondary rounded-full h-3 overflow-hidden">
+                                <div
+                                    className="h-full bg-gradient-to-r from-orange-500 to-amber-500 transition-all duration-500 ease-out"
+                                    style={{ width: `${generationProgress}%` }}
+                                />
+                            </div>
+                            <p className="text-xs text-muted-foreground mt-2">
+                                Video sedang diproses oleh Sora 2 Pro. Ini mungkin mengambil masa beberapa minit...
+                            </p>
+                        </div>
+                    )}
+
+                    {/* Generated Video Result */}
+                    {generatedVideoUrl && !isGenerating && (
+                        <div className="mb-4 p-4 rounded-xl bg-secondary/30 border border-green-500/30">
+                            <div className="flex items-center justify-between mb-3">
+                                <span className="text-sm font-bold text-green-500">✅ Video Berjaya Dijana!</span>
+                                <a
+                                    href={generatedVideoUrl}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="text-xs text-amber-500 hover:underline"
+                                >
+                                    Buka dalam tab baru ↗
+                                </a>
+                            </div>
+                            <video
+                                controls
+                                className="w-full rounded-lg max-h-[400px] bg-black"
+                                src={generatedVideoUrl}
+                            >
+                                Your browser does not support the video tag.
+                            </video>
+                        </div>
+                    )}
+
                     {/* Generate Button */}
                     <Button
                         onClick={handleGenerate}
-                        disabled={isGenerating || hasReachedLimit || blocks.some(b => !b.prompt.trim())}
+                        disabled={isGenerating || hasReachedLimit || (promptMode === 'story' ? blocks.some(b => !b.prompt.trim()) : !basicPrompt.trim())}
                         className="w-full py-6 text-sm font-black uppercase tracking-wider bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600"
                     >
                         {isGenerating ? (
                             <div className="flex items-center gap-2">
                                 <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                                Menjana {blocks.length} Block...
+                                Menjana Video... {generationProgress}%
                             </div>
                         ) : (
                             <div className="flex items-center gap-2">
                                 <span>✨</span>
-                                Generate with Sora ✨
+                                Generate with Sora 2 Pro ✨
                             </div>
                         )}
                     </Button>
