@@ -33,7 +33,7 @@ const GrokStudio: React.FC<GrokStudioProps> = ({ userProfile, onProfileRefresh }
     const [promptMode, setPromptMode] = useState<PromptMode>('basic');
     const [orientation, setOrientation] = useState<Orientation>('landscape');
     const [resolution, setResolution] = useState<'720p' | '1080p'>('720p');
-    const [duration, setDuration] = useState<6>(6);
+    const [duration, setDuration] = useState<10 | 15>(10);
     const [isGenerating, setIsGenerating] = useState(false);
     const lastGenerateTimeRef = useRef<number>(0);
 
@@ -205,8 +205,7 @@ const GrokStudio: React.FC<GrokStudioProps> = ({ userProfile, onProfileRefresh }
                     duration,
                     aspect_ratio: aspectRatioMap[orientation],
                     model: 'grok',
-                    resolution,
-                    image_url: imageReference,
+                    reference_image_url: imageReference,
                 },
             });
 
@@ -580,13 +579,44 @@ const GrokStudio: React.FC<GrokStudioProps> = ({ userProfile, onProfileRefresh }
                                 <label className="block text-xs font-bold text-foreground mb-3">Duration</label>
                                 <div className="flex gap-2">
                                     <button
-                                        disabled={true}
-                                        className="flex-1 py-3 rounded-xl bg-primary/10 border border-primary/50 flex items-center justify-center gap-2"
+                                        onClick={() => setDuration(10)}
+                                        disabled={isGenerating}
+                                        className={cn(
+                                            "flex-1 py-3 rounded-xl transition-all duration-300 border flex items-center justify-center gap-2",
+                                            duration === 10
+                                                ? "bg-primary/10 border-primary/50"
+                                                : "bg-secondary/30 border-border hover:border-primary/30"
+                                        )}
                                     >
-                                        <div className="w-4 h-4 rounded-full border-2 border-primary bg-primary flex items-center justify-center">
-                                            <div className="w-1.5 h-1.5 rounded-full bg-white" />
+                                        <div className={cn(
+                                            "w-4 h-4 rounded-full border-2 flex items-center justify-center",
+                                            duration === 10 ? "border-primary bg-primary" : "border-muted-foreground"
+                                        )}>
+                                            {duration === 10 && (
+                                                <div className="w-1.5 h-1.5 rounded-full bg-white" />
+                                            )}
                                         </div>
-                                        <span className="text-sm font-bold text-foreground">6s</span>
+                                        <span className={cn("text-sm font-bold", duration === 10 ? "text-foreground" : "text-muted-foreground")}>10s</span>
+                                    </button>
+                                    <button
+                                        onClick={() => setDuration(15)}
+                                        disabled={isGenerating}
+                                        className={cn(
+                                            "flex-1 py-3 rounded-xl transition-all duration-300 border flex items-center justify-center gap-2",
+                                            duration === 15
+                                                ? "bg-primary/10 border-primary/50"
+                                                : "bg-secondary/30 border-border hover:border-primary/30"
+                                        )}
+                                    >
+                                        <div className={cn(
+                                            "w-4 h-4 rounded-full border-2 flex items-center justify-center",
+                                            duration === 15 ? "border-primary bg-primary" : "border-muted-foreground"
+                                        )}>
+                                            {duration === 15 && (
+                                                <div className="w-1.5 h-1.5 rounded-full bg-white" />
+                                            )}
+                                        </div>
+                                        <span className={cn("text-sm font-bold", duration === 15 ? "text-foreground" : "text-muted-foreground")}>15s</span>
                                     </button>
                                 </div>
                             </div>
