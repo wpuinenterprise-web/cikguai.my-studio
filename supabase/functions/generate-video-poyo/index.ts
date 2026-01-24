@@ -163,11 +163,9 @@ serve(async (req) => {
         console.log('Video record created:', videoRecord.id);
 
         // Build request body for Poyo.ai
-        // Use i2v model variant if we have a reference image
-        const modelName = imageUrl ? 'sora-2-pro-i2v' : 'sora-2-pro';
-
+        // Keep model as sora-2-pro (not i2v variant - Poyo may auto-detect based on image presence)
         const requestBody: any = {
-            model: modelName,
+            model: 'sora-2-pro',
             input: {
                 prompt,
                 duration,
@@ -181,13 +179,16 @@ serve(async (req) => {
         }
 
         // Add image reference for image-to-video if we have one
-        // Try multiple parameter names for better compatibility
+        // Try multiple formats based on what worked for image generation
         if (imageUrl) {
+            // Array format like image generator i2i mode
+            requestBody.input.image_urls = [imageUrl];
+            // Single URL formats
             requestBody.input.image_url = imageUrl;
             requestBody.input.first_frame_image = imageUrl;
             requestBody.input.input_reference = imageUrl;
-            console.log('Added image reference to request:', imageUrl);
-            console.log('Using i2v model:', modelName);
+            requestBody.input.reference_image = imageUrl;
+            console.log('Added image reference to request (all formats):', imageUrl);
         }
 
         console.log('=== Calling Poyo.ai API ===');
