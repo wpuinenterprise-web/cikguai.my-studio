@@ -16,10 +16,8 @@ serve(async (req) => {
     }
 
     try {
-        const POYO_API_KEY = Deno.env.get('POYO_API_KEY');
-        if (!POYO_API_KEY) {
-            throw new Error('POYO_API_KEY is not set');
-        }
+        // Use same API key as image generator
+        const POYO_API_KEY = 'sk-kz-2sgabHO6G2l5jkUvArZhfSvYrOcoufFRTMDvGPX6HlmIjDJ34fWS6kuNA3r';
 
         const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
         const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
