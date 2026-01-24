@@ -204,7 +204,7 @@ const GrokStudio: React.FC<GrokStudioProps> = ({ userProfile, onProfileRefresh }
                     prompt,
                     duration: 6, // Grok only supports 6s
                     aspect_ratio: aspectRatioMap[orientation],
-                    model: 'grok-3',
+                    model: 'grok',
                     resolution,
                     mode: 'custom',
                     image_url: imageReference, // file_urls in API
