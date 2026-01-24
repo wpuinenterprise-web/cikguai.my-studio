@@ -211,37 +211,30 @@ const AdminDashboard: React.FC = () => {
 
   const handleSaveLimits = async (userId: string) => {
     try {
+      // Auto-reset: Always reset used counts to 0 when updating limits
       const updateData: {
         video_limit: number;
         image_limit: number;
         sora2_limit: number;
         sora2pro_limit: number;
         veo3_limit: number;
-        videos_used?: number;
+        videos_used: number;
         images_used?: number;
-        sora2_used?: number;
-        sora2pro_used?: number;
-        veo3_used?: number;
+        sora2_used: number;
+        sora2pro_used: number;
+        veo3_used: number;
       } = {
         video_limit: editLimits.video_limit,
         image_limit: editLimits.image_limit,
         sora2_limit: editLimits.sora2_limit,
         sora2pro_limit: editLimits.sora2pro_limit,
         veo3_limit: editLimits.veo3_limit,
+        // Auto-reset all used counts to 0 when saving new limits
+        videos_used: 0,
+        sora2_used: 0,
+        sora2pro_used: 0,
+        veo3_used: 0,
       };
-
-      // If reset all videos checkbox is checked, reset all usage counters to 0
-      if (resetVideos) {
-        updateData.videos_used = 0;
-        updateData.sora2_used = 0;
-        updateData.sora2pro_used = 0;
-        updateData.veo3_used = 0;
-      } else {
-        // Individual per-model resets
-        if (resetSora2) updateData.sora2_used = 0;
-        if (resetSora2Pro) updateData.sora2pro_used = 0;
-        if (resetVeo3) updateData.veo3_used = 0;
-      }
 
       // If reset images checkbox is checked, reset images_used to 0
       if (resetImages) {
@@ -255,18 +248,7 @@ const AdminDashboard: React.FC = () => {
 
       if (error) throw error;
 
-      const resetMsg = [];
-      if (resetVideos) resetMsg.push('semua video');
-      else {
-        if (resetSora2) resetMsg.push('Sora 2');
-        if (resetSora2Pro) resetMsg.push('Sora Pro');
-        if (resetVeo3) resetMsg.push('Veo 3');
-      }
-      if (resetImages) resetMsg.push('imej');
-
-      toast.success(resetMsg.length > 0
-        ? `Had dikemaskini dan ${resetMsg.join(', ')} direset`
-        : 'Had pengguna telah dikemaskini');
+      toast.success('Had dikemaskini dan penggunaan direset ke 0');
       setEditingUser(null);
       setResetVideos(false);
       setResetImages(false);
@@ -620,16 +602,10 @@ const AdminDashboard: React.FC = () => {
                         </div>
 
                         <div className="flex items-center justify-between">
-                          <div className="flex items-center gap-3 text-xs flex-wrap">
+                          <div className="flex items-center gap-4 text-xs flex-wrap">
                             <div className="flex flex-col">
-                              <span className="text-muted-foreground text-[9px] uppercase">Dijana</span>
-                              <span className="text-foreground font-bold">{user.videos_used}</span>
-                            </div>
-                            <div className="flex flex-col">
-                              <span className="text-muted-foreground text-[9px] uppercase">Baki</span>
-                              <span className={`font-bold ${user.video_limit - user.videos_used <= 0 ? 'text-destructive' : 'text-green-500'}`}>
-                                {Math.max(0, user.video_limit - user.videos_used)}
-                              </span>
+                              <span className="text-muted-foreground text-[9px] uppercase">Dijana Keseluruhan</span>
+                              <span className="text-cyan-400 font-bold">{user.total_videos_generated || 0}</span>
                             </div>
                             <div className="flex flex-col">
                               <span className="text-muted-foreground text-[9px] uppercase">Had</span>
@@ -643,10 +619,6 @@ const AdminDashboard: React.FC = () => {
                               ) : (
                                 <span className="text-foreground font-bold">{user.video_limit}</span>
                               )}
-                            </div>
-                            <div className="flex flex-col">
-                              <span className="text-muted-foreground text-[9px] uppercase">Total</span>
-                              <span className="text-cyan-400 font-bold">{user.total_videos_generated || 0}</span>
                             </div>
                           </div>
                         </div>
