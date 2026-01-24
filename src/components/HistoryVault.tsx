@@ -26,6 +26,7 @@ interface VideoGeneration {
   aspect_ratio: string;
   created_at: string;
   geminigen_uuid: string | null;
+  model: string | null;
 }
 
 interface HistoryVaultProps {
@@ -116,14 +117,17 @@ const HistoryVault: React.FC<HistoryVaultProps> = ({ userProfile }) => {
         .order('created_at', { ascending: false });
 
       if (!error && cachedVideos) {
-        // Deduplicate by geminigen_uuid
+        // Deduplicate by geminigen_uuid and map to VideoGeneration type
         const seen = new Set<string>();
         const unique = cachedVideos.filter(v => {
           if (!v.geminigen_uuid) return true;
           if (seen.has(v.geminigen_uuid)) return false;
           seen.add(v.geminigen_uuid);
           return true;
-        });
+        }).map(v => ({
+          ...v,
+          model: (v as any).model || null, // Ensure model is included (may not exist in old records)
+        })) as VideoGeneration[];
         setVideos(unique);
       }
     } catch (error) {
@@ -638,9 +642,16 @@ const HistoryVault: React.FC<HistoryVaultProps> = ({ userProfile }) => {
             {video.status === 'processing' ? 'Memproses' : video.status === 'completed' ? 'Siap' : 'Gagal'}
           </div>
 
-          {/* Duration */}
+          {/* Model Badge - Bottom Left */}
+          {video.model && (
+            <div className="absolute bottom-2 left-2 px-1.5 py-0.5 rounded bg-primary/80 backdrop-blur-sm text-[9px] font-bold text-primary-foreground uppercase">
+              {video.model.replace(/-/g, ' ')}
+            </div>
+          )}
+
+          {/* Duration - Bottom Right */}
           <div className="absolute bottom-2 right-2 px-1.5 py-0.5 rounded bg-background/80 backdrop-blur-sm text-[10px] font-mono text-foreground">
-            {video.duration}s
+            {video.duration ? `${video.duration}s` : '?s'}
           </div>
         </div>
 
