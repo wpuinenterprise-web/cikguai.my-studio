@@ -265,11 +265,14 @@ serve(async (req) => {
       body: formData,
     });
 
-    const geminigenData = await geminigenResponse.json();
-    console.log('GeminiGen response:', JSON.stringify(geminigenData));
+    // Read response as text first to handle HTML error pages
+    const responseText = await geminigenResponse.text();
+    let geminigenData: any;
 
-    if (!geminigenResponse.ok) {
-      console.error('GeminiGen API error:', geminigenData);
+    try {
+      geminigenData = JSON.parse(responseText);
+    } catch (_e) {
+      console.error('Non-JSON response from GeminiGen:', responseText.substring(0, 500));
 
       // Update video record with failure
       await supabase
@@ -277,10 +280,32 @@ serve(async (req) => {
         .update({
           status: 'failed',
           status_percentage: 0,
+          error_message: `GeminiGen API error: Non-JSON response (HTTP ${geminigenResponse.status})`,
         })
         .eq('id', videoRecord.id);
 
-      throw new Error(geminigenData.detail?.message || geminigenData.message || 'Failed to generate video');
+      throw new Error(`GeminiGen API returned an error page. Please try again later.`);
+    }
+
+    console.log('GeminiGen response:', JSON.stringify(geminigenData));
+
+    if (!geminigenResponse.ok) {
+      console.error('GeminiGen API error:', geminigenData);
+
+      // Extract error message from response
+      const errorMsg = geminigenData.detail?.message || geminigenData.message || geminigenData.error || 'Video generation failed';
+
+      // Update video record with failure
+      await supabase
+        .from('video_generations')
+        .update({
+          status: 'failed',
+          status_percentage: 0,
+          error_message: errorMsg,
+        })
+        .eq('id', videoRecord.id);
+
+      throw new Error(errorMsg);
     }
 
     // Update video record with GeminiGen UUID
