@@ -266,14 +266,28 @@ const Index = () => {
           <nav className="flex px-4 pb-3 gap-2 overflow-x-auto no-scrollbar">
             <button
               onClick={() => setActiveView(AppView.SORA_STUDIO)}
-              className={`flex-1 min-w-[80px] py-3 rounded-xl transition-all border font-black text-[10px] uppercase tracking-widest ${activeView === AppView.SORA_STUDIO ? 'bg-cyan-500/10 border-cyan-500/40 text-cyan-400 shadow-[0_0_15px_rgba(34,211,238,0.1)]' : 'bg-slate-900/50 border-slate-800 text-slate-500'
+              className={`flex-1 min-w-[70px] py-3 rounded-xl transition-all border font-black text-[9px] uppercase tracking-widest ${activeView === AppView.SORA_STUDIO ? 'bg-cyan-500/10 border-cyan-500/40 text-cyan-400 shadow-[0_0_15px_rgba(34,211,238,0.1)]' : 'bg-slate-900/50 border-slate-800 text-slate-500'
                 }`}
             >
-              {t.studio}
+              Sora 2
+            </button>
+            <button
+              onClick={() => setActiveView(AppView.SORA_PRO_STUDIO)}
+              className={`flex-1 min-w-[70px] py-3 rounded-xl transition-all border font-black text-[9px] uppercase tracking-widest ${activeView === AppView.SORA_PRO_STUDIO ? 'bg-amber-500/10 border-amber-500/40 text-amber-400 shadow-[0_0_15px_rgba(245,158,11,0.1)]' : 'bg-slate-900/50 border-slate-800 text-slate-500'
+                }`}
+            >
+              Pro ✨
+            </button>
+            <button
+              onClick={() => setActiveView(AppView.VEO_STUDIO)}
+              className={`flex-1 min-w-[70px] py-3 rounded-xl transition-all border font-black text-[9px] uppercase tracking-widest ${activeView === AppView.VEO_STUDIO ? 'bg-violet-500/10 border-violet-500/40 text-violet-400 shadow-[0_0_15px_rgba(139,92,246,0.1)]' : 'bg-slate-900/50 border-slate-800 text-slate-500'
+                }`}
+            >
+              Veo 3
             </button>
             <button
               onClick={() => setActiveView(AppView.HISTORY)}
-              className={`flex-1 min-w-[80px] py-3 rounded-xl transition-all border font-black text-[10px] uppercase tracking-widest ${activeView === AppView.HISTORY ? 'bg-cyan-500/10 border-cyan-500/40 text-cyan-400 shadow-[0_0_15px_rgba(34,211,238,0.1)]' : 'bg-slate-900/50 border-slate-800 text-slate-500'
+              className={`flex-1 min-w-[70px] py-3 rounded-xl transition-all border font-black text-[9px] uppercase tracking-widest ${activeView === AppView.HISTORY ? 'bg-cyan-500/10 border-cyan-500/40 text-cyan-400 shadow-[0_0_15px_rgba(34,211,238,0.1)]' : 'bg-slate-900/50 border-slate-800 text-slate-500'
                 }`}
             >
               {t.vault}
