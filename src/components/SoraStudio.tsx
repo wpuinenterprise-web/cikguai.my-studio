@@ -332,6 +332,7 @@ const SoraStudio: React.FC<SoraStudioProps> = ({ userProfile, onProfileRefresh }
         return;
       }
 
+      console.log('Calling generate-video function...');
       const response = await supabase.functions.invoke('generate-video', {
         body: {
           prompt,
@@ -342,14 +343,27 @@ const SoraStudio: React.FC<SoraStudioProps> = ({ userProfile, onProfileRefresh }
         },
       });
 
+      console.log('Generate response:', response);
+
+      // Handle function invocation error (network/CORS issues)
       if (response.error) {
-        throw new Error(response.error.message);
+        console.error('Function error:', response.error);
+        const errMsg = response.error.message || 'Masalah rangkaian. Cuba lagi.';
+        throw new Error(errMsg);
       }
 
-      const { success, video_id, geminigen_uuid, error } = response.data;
+      // Handle null/undefined response data
+      if (!response.data) {
+        throw new Error('Tiada respons dari server. Cuba lagi.');
+      }
 
+      const { success, video_id, geminigen_uuid, error: apiError } = response.data;
+
+      // Handle API error response
       if (!success) {
-        throw new Error(error || 'Gagal memulakan penjanaan video');
+        const errorMessage = apiError || response.data?.message || 'Gagal memulakan penjanaan video';
+        console.error('API error:', errorMessage);
+        throw new Error(errorMessage);
       }
 
       toast.success('Penjanaan video dimulakan!');
@@ -378,7 +392,9 @@ const SoraStudio: React.FC<SoraStudioProps> = ({ userProfile, onProfileRefresh }
 
     } catch (error: any) {
       console.error('Generation error:', error);
-      toast.error(error.message || 'Gagal menjana video');
+      // Show more informative error message
+      const displayError = error.message || 'Gagal menjana video. Cuba lagi.';
+      toast.error(displayError);
     } finally {
       setIsGenerating(false);
     }
