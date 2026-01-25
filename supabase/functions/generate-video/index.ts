@@ -341,13 +341,17 @@ serve(async (req) => {
   } catch (error: unknown) {
     console.error('Error in generate-video function:', error);
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+
+    // Return 200 with error in body for consistent client handling
+    // Supabase Functions client handles 200 responses more reliably
     return new Response(
       JSON.stringify({
         success: false,
-        error: errorMessage
+        error: errorMessage,
+        message: errorMessage
       }),
       {
-        status: 400,
+        status: 200, // Changed from 400 - client handles this better
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       }
     );
