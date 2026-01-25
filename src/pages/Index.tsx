@@ -62,6 +62,33 @@ const Index = () => {
     return () => subscription.unsubscribe();
   }, []);
 
+  // Realtime subscription for profile updates (when admin changes limits)
+  useEffect(() => {
+    if (!user?.id) return;
+
+    const channel = supabase
+      .channel('profile-updates')
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'profiles',
+          filter: `id=eq.${user.id}`,
+        },
+        (payload) => {
+          console.log('Profile updated in realtime:', payload);
+          // Auto-refresh profile when admin updates limits
+          fetchProfile(user.id, true);
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [user?.id]);
+
   const fetchProfile = async (userId: string, skipLoading = false) => {
     try {
       // Fetch profile
