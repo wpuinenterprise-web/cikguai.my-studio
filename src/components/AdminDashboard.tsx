@@ -604,40 +604,15 @@ const AdminDashboard: React.FC = () => {
                         <div className="flex items-center justify-between">
                           <div className="flex items-center gap-4 text-xs flex-wrap">
                             <div className="flex flex-col">
-                              <span className="text-muted-foreground text-[9px] uppercase">Dijana Keseluruhan</span>
-                              <span className="text-cyan-400 font-bold">{user.total_videos_generated || 0}</span>
+                              <span className="text-muted-foreground text-[9px] uppercase">Dijana Semasa</span>
+                              <span className="text-foreground font-bold">{user.videos_used}</span>
                             </div>
                             <div className="flex flex-col">
                               <span className="text-muted-foreground text-[9px] uppercase">Had</span>
-                              {editingUser === user.id ? (
-                                <Input
-                                  type="number"
-                                  value={editLimits.video_limit}
-                                  onChange={(e) => setEditLimits({ ...editLimits, video_limit: parseInt(e.target.value) || 0 })}
-                                  className="w-14 h-6 text-xs bg-secondary border-border p-1"
-                                />
-                              ) : (
-                                <span className="text-foreground font-bold">{user.video_limit}</span>
-                              )}
+                              <span className="text-foreground font-bold">{user.video_limit}</span>
                             </div>
                           </div>
                         </div>
-
-                        {/* Reset checkbox when editing */}
-                        {editingUser === user.id && (
-                          <div className="flex items-center gap-2 pt-1">
-                            <input
-                              type="checkbox"
-                              id={`reset-${user.id}`}
-                              checked={resetVideos}
-                              onChange={(e) => setResetVideos(e.target.checked)}
-                              className="w-4 h-4 rounded border-border bg-secondary accent-primary"
-                            />
-                            <label htmlFor={`reset-${user.id}`} className="text-xs text-muted-foreground">
-                              Reset video dijana ke 0
-                            </label>
-                          </div>
-                        )}
 
                         {/* Image Stats - Mobile */}
                         <div className="flex items-center justify-between pt-2 border-t border-border/30">
